@@ -598,6 +598,8 @@ function render(){
         <span class="track"><i style="width:${(x.sum/max*100).toFixed(1)}%;background:var(${x.col})"></i></span></div></li>`).join("")}</ul></div></section>`;
   }
 
+  html += recSection();
+
   // entries
   let list = inMonth.filter(e => !e.auto);
   if(state.cat) list = list.filter(e=>e.cat===state.cat);
@@ -896,11 +898,6 @@ function renderKonten(){
     </div></section>`;
   }
 
-  const recs = state.recurring.slice().sort((a,b)=>(a.next||a.start||"").localeCompare(b.next||b.start||""));
-  html += `<section><h2><span>Daueraufträge</span>${recs.length?`<span class="num">${recs.length}</span>`:""}</h2>`;
-  if(recs.length) html += `<ul class="accs recs">${recs.map(recRow).join("")}</ul>`;
-  else html += `<p class="hint" style="margin:0 4px 4px">Miete, Abos, Gehalt oder Sparplan einmal anlegen, die App bucht sie dann automatisch.</p>`;
-  html += `<div class="addrow"><button class="addbtn" id="addRec">+ Dauerauftrag</button></div></section>`;
   html += `<section><h2><span>Sparziele</span></h2>`;
   if(!zs.length) html += `<div class="empty" style="padding:24px 16px"><strong>Noch kein Sparziel</strong>Leg zum Beispiel „Urlaub“ mit 1.500 € an und leg nach und nach Geld zurück.</div>`;
   html += `<div class="goals">${zs.map(a => {
@@ -1122,11 +1119,13 @@ function accountSheet(acc, kind, presetName){
 }
 
 // ---- Daueraufträge ----
-const IV = {weekly:"Wöchentlich", monthly:"Monatlich", quarterly:"Vierteljährlich", yearly:"Jährlich"};
+const IV = {weekly:"Wöchentlich", monthly:"Monatlich", quarterly:"Vierteljährlich", halfyearly:"Halbjährlich", yearly:"Jährlich"};
+const IV_PER_MONTH = {weekly:52/12, monthly:1, quarterly:1/3, halfyearly:1/6, yearly:1/12};
+const WD = ["So","Mo","Di","Mi","Do","Fr","Sa"];
 function addInterval(date, iv, day){
   const [y,m,d] = date.split("-").map(Number);
   if(iv==="weekly") return iso(new Date(y, m-1, d+7));
-  const step = iv==="yearly" ? 12 : iv==="quarterly" ? 3 : 1;
+  const step = iv==="yearly" ? 12 : iv==="halfyearly" ? 6 : iv==="quarterly" ? 3 : 1;
   const t = new Date(y, m-1+step, 1); const last = new Date(t.getFullYear(), t.getMonth()+1, 0).getDate();
   return t.getFullYear()+"-"+pad(t.getMonth()+1)+"-"+pad(Math.min(day||d, last));
 }
@@ -1153,18 +1152,37 @@ async function runRecurring(){
     if(n) toast(n===1 ? "1 Dauerauftrag eingetragen" : n+" Daueraufträge eingetragen");
   } finally { recRunning = false; }
 }
-const fmtShort = d => new Date(d+"T12:00").toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});
+const fmtShort = d => { const x = new Date(d+"T12:00"); return x.getDate()+"."+(x.getMonth()+1)+"."+(x.getFullYear()!==new Date().getFullYear()?String(x.getFullYear()).slice(2):""); };
 function recRow(r){
   const c = r.type==="transfer" ? null : catById(r.cat);
   const sign = r.type==="in" ? "+" : r.type==="out" ? "−" : "";
   const where = r.type==="transfer" ? accName(r.from)+" → "+accName(r.to) : accName(r.account);
-  return `<li><button class="acc" data-rec="${esc(r.id)}"><span class="badge" style="${c?tint(c.c):""}" aria-hidden="true">${c?c.i:((accById(r.to)||{}).kind==="depot"?"📈":"⇄")}</span><span class="mid"><div class="t">${esc(r.name || (c?c.name:(accById(r.to)||{}).kind==="depot"?"Sparplan":"Umbuchung"))}</div><div class="s">${esc(IV[r.interval]||"")} · nächster ${esc(fmtShort(r.next||r.start))} · ${esc(where)}</div></span><span class="a num ${r.type==="in"?"pos":""}">${sign}${money(r.amount)}</span></button></li>`;
+  return `<li><button class="acc" data-rec="${esc(r.id)}"><span class="badge" style="${c?tint(c.c):""}" aria-hidden="true">${r.icon||(c?c.i:((accById(r.to)||{}).kind==="depot"?"📈":"⇄"))}</span><span class="mid"><div class="t">${esc(r.name || (c?c.name:(accById(r.to)||{}).kind==="depot"?"Sparplan":"Umbuchung"))}</div><div class="s">${esc(IV[r.interval]||"")}${r.interval==="weekly"?" ("+WD[new Date((r.start||"")+"T12:00").getDay()]+")":r.start?" am "+Number(r.start.slice(8,10))+".":""} · nächster ${esc(fmtShort(r.next||r.start))}</div><div class="s">${esc(where)}</div></span><span class="a num ${r.type==="in"?"pos":""}">${sign}${money(r.amount)}</span></button></li>`;
+}
+function recSection(){
+  const recs = state.recurring.slice().sort((a,b)=>(a.next||a.start||"").localeCompare(b.next||b.start||""));
+  const pm = t => Math.round(recs.filter(r=>t(r)).reduce((s,r)=>s+r.amount*(IV_PER_MONTH[r.interval]||1),0));
+  const isInv = r => r.type==="transfer" && (accById(r.to)||{}).kind==="depot";
+  const fixOut = pm(r=>r.type==="out"), fixInv = pm(isInv), fixIn = pm(r=>r.type==="in");
+  let h = `<section><h2><span>Daueraufträge</span>${recs.length?`<span class="num">${recs.length}</span>`:""}</h2>`;
+  if(recs.length){
+    h += `<div class="inv" style="margin-bottom:10px"><div class="parts">
+      <div><span>Fixkosten pro Monat</span><b class="num">${money(fixOut)}</b></div>
+      ${fixInv?`<div><span>Sparpläne pro Monat</span><b class="num">${money(fixInv)}</b></div>`:""}
+      ${fixIn?`<div><span>Feste Einnahmen pro Monat</span><b class="num pos">${money(fixIn)}</b></div>`:""}
+    </div>${recs.some(r=>r.interval!=="monthly")?`<p class="hint">Wöchentliche, vierteljährliche, halbjährliche und jährliche Posten sind auf den Monat umgerechnet.</p>`:""}</div>`;
+    h += `<ul class="accs recs">${recs.map(recRow).join("")}</ul>`;
+  } else h += `<p class="hint" style="margin:0 4px 4px">Handy, Abos, Miete, Strom oder Sparpläne einmal anlegen. Die App bucht sie dann am richtigen Tag automatisch.</p>`;
+  return h + `<div class="addrow"><button class="addbtn" id="addRec">+ Dauerauftrag</button></div></section>`;
 }
 function recSheet(rec){
   const k0 = (konten()[0]||{}).id || "giro";
-  const d = rec ? {...rec} : {type:"out", interval:"monthly", start:iso(new Date()), account:k0, cat:"wohnen", from:k0, to:null, amount:0, name:""};
+  const firstOf = () => { const t = new Date(); return iso(new Date(t.getFullYear(), t.getMonth()+1, 1)); };
+  const d = rec ? {...rec} : {type:"out", interval:"monthly", start:firstOf(), account:k0, cat:"wohnen", from:k0, to:null, amount:0, name:""};
+  const TPL = [["📱","Handy",{type:"out",cat:"abos"}],["📺","Abo",{type:"out",cat:"abos"}],["🏠","Miete",{type:"out",cat:"wohnen"}],["⚡","Strom",{type:"out",cat:"wohnen"}],["🛡️","Versicherung",{type:"out",cat:"abos"}],["📈","Investment",{type:"transfer"}],["💼","Gehalt",{type:"in",cat:"gehalt"}]];
   openSheet(`
     <div class="sheet-head"><button class="txt" id="cancel">Abbrechen</button><h3 id="sheetTitle">${rec?"Dauerauftrag":"Neuer Dauerauftrag"}</h3><span style="min-width:80px"></span></div>
+    ${rec?"":`<div class="chips" id="rTpl">${TPL.map(([i,n],k)=>`<button class="chip" data-tpl="${k}">${i} ${n}</button>`).join("")}</div>`}
     <div class="seg seg3" id="rType"><button data-rt="out">Ausgabe</button><button data-rt="in">Einnahme</button><button data-rt="transfer">Umbuchung</button></div>
     <label class="amount"><input id="rAmount" inputmode="decimal" placeholder="0,00" value="${esc(toInput(d.amount))}" aria-label="Betrag in Euro" autocomplete="off"><span>€</span></label>
     <input class="input" id="rName" placeholder="Name, z. B. Miete, Netflix oder Sparplan" value="${esc(d.name||"")}" autocomplete="off">
@@ -1172,7 +1190,10 @@ function recSheet(rec){
     <div id="rAccBox"><div class="label" style="margin-bottom:6px">Konto</div><div class="chips" id="rAcc"></div></div>
     <div id="rTrBox"><div class="label" style="margin-bottom:6px">Von</div><div class="chips" id="rFrom"></div><div class="label" style="margin:12px 0 6px">Nach</div><div class="chips" id="rTo"></div></div>
     <div><div class="label" style="margin-bottom:6px">Wie oft?</div><div class="chips" id="rIv">${Object.entries(IV).map(([k,v])=>`<button class="chip" data-iv="${k}">${v}</button>`).join("")}</div></div>
-    <div><div class="label" style="margin-bottom:6px">${rec?"Startdatum":"Erster Termin"}</div><input type="date" class="input date-in" id="rStart" value="${esc(d.start)}"></div>
+    <div id="rDayBox"><div class="label" style="margin-bottom:6px">Am Tag</div>
+      <div style="display:flex;align-items:center;gap:10px"><input class="input num" id="rDay" inputmode="numeric" style="width:5.5em;text-align:center" value="${Number(d.start.slice(8,10))}" aria-label="Tag im Monat" autocomplete="off"><span class="hint" style="color:var(--ink)">. des Monats</span></div></div>
+    <div id="rWdBox" hidden><div class="label" style="margin-bottom:6px">Am Wochentag</div><div class="chips" id="rWd">${[1,2,3,4,5,6,0].map(w=>`<button class="chip" data-wd="${w}">${WD[w]}</button>`).join("")}</div></div>
+    <div><div class="label" style="margin-bottom:6px">Erster Termin</div><input type="date" class="input date-in" id="rStart" value="${esc(d.start)}"></div>
     <p class="hint" id="rHint"></p>
     <div class="row">${rec?`<button class="danger" id="del">Löschen</button>`:""}<button class="primary" id="ok">Speichern</button></div>
   `);
@@ -1188,12 +1209,21 @@ function recSheet(rec){
     $("#rFrom").innerHTML = accChips(d.from, "rf", state.accounts.slice().sort((a,b)=>(KIND_ORDER[a.kind||"konto"]-KIND_ORDER[b.kind||"konto"])||(a.order||0)-(b.order||0)));
     $("#rTo").innerHTML = accChips(d.to, "rto2", state.accounts.slice().sort((a,b)=>(KIND_ORDER[a.kind||"konto"]-KIND_ORDER[b.kind||"konto"])||(a.order||0)-(b.order||0)));
     document.querySelectorAll("#rIv [data-iv]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.iv===d.interval)));
+    const wk = d.interval==="weekly"; $("#rDayBox").hidden = wk; $("#rWdBox").hidden = !wk;
+    const sd = $("#rStart").value ? new Date($("#rStart").value+"T12:00") : null;
+    document.querySelectorAll("#rWd [data-wd]").forEach(b=>b.setAttribute("aria-pressed", String(!!sd && +b.dataset.wd===sd.getDay())));
+    if(sd && document.activeElement!==$("#rDay")) $("#rDay").value = sd.getDate();
     const start = $("#rStart").value, today = iso(new Date());
     $("#rHint").textContent = !start ? "" : start <= today && (!rec || start!==rec.start) ? "Termine ab dem Startdatum bis heute werden gleich nachgetragen, danach bucht die App automatisch beim Öffnen." : "Die App bucht automatisch, sobald ein Termin erreicht ist (beim Öffnen).";
     $("#ok").disabled = !(parseAmount($("#rAmount").value)>0) || !start || (tr ? !(d.from && d.to && d.from!==d.to) : !(d.cat && d.account));
   };
   sync();
   $("#rAmount").oninput = sync; $("#rStart").onchange = sync; $("#rStart").oninput = sync;
+  // Tag im Monat: nächster passender Termin ab heute
+  $("#rDay").oninput = () => { const n = parseInt($("#rDay").value,10); if(!(n>=1 && n<=31)) { sync(); return; }
+    const t = new Date(); let y = t.getFullYear(), m = t.getMonth(); const clamp = (yy,mm) => Math.min(n, new Date(yy,mm+1,0).getDate());
+    if(clamp(y,m) < t.getDate()){ m++; if(m>11){ m=0; y++; } }
+    $("#rStart").value = iso(new Date(y, m, clamp(y,m))); sync(); };
   $("#sheet").onclick = e => {
     const t = e.target.closest("[data-rt]"); if(t){ d.type = t.dataset.rt; sync(); return; }
     const c = e.target.closest("[data-rc]"); if(c){ d.cat = c.dataset.rc; sync(); return; }
@@ -1201,11 +1231,15 @@ function recSheet(rec){
     const f = e.target.closest("[data-rf]"); if(f){ d.from = f.dataset.rf; sync(); return; }
     const o = e.target.closest("[data-rto2]"); if(o){ d.to = o.dataset.rto2; sync(); return; }
     const i = e.target.closest("[data-iv]"); if(i){ d.interval = i.dataset.iv; sync(); return; }
+    const w = e.target.closest("[data-wd]"); if(w){ const t = new Date(); const add = (+w.dataset.wd - t.getDay() + 7) % 7; $("#rStart").value = iso(new Date(t.getFullYear(), t.getMonth(), t.getDate()+add)); sync(); return; }
+    const tp = e.target.closest("[data-tpl]"); if(tp){ const [ic, n, o] = TPL[+tp.dataset.tpl]; Object.assign(d, o); d.icon = ic;
+      if(o.type==="transfer"){ const dep = konten().filter(a=>a.kind==="depot"); d.to = (dep[0]||{}).id || null; d.from = (konten().find(a=>a.kind==="konto")||{}).id || k0; }
+      $("#rName").value = n==="Investment" ? "Sparplan" : n; document.querySelectorAll("#rTpl [data-tpl]").forEach(b=>b.setAttribute("aria-pressed", String(b===tp))); sync(); $("#rAmount").focus(); return; }
   };
   $("#cancel").onclick = () => { $("#sheet").onclick = null; closeSheet(); };
   $("#ok").onclick = async () => {
     const start = $("#rStart").value;
-    const data = {type:d.type, amount:parseAmount($("#rAmount").value), name:$("#rName").value.trim(), interval:d.interval, start,
+    const data = {type:d.type, amount:parseAmount($("#rAmount").value), name:$("#rName").value.trim(), interval:d.interval, start, ...(d.icon?{icon:d.icon}:{}),
       next: rec && rec.start===start && rec.interval===d.interval ? (rec.next||start) : (rec ? (start > iso(new Date()) ? start : nextAfterToday(start, d.interval)) : start)};
     if(d.type==="transfer"){ data.from = d.from; data.to = d.to; } else { data.cat = d.cat; data.account = d.account; }
     $("#sheet").onclick = null; closeSheet();
@@ -1299,7 +1333,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.6 (22.11.2026)";
+const APP_VERSION = "2.7 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
