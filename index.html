@@ -726,6 +726,7 @@ function entrySheet(entry, preset){
     + (attr==="acc" ? "" : editAcc ? `<button class="chip ghost" data-editdone="1">Fertig</button>` : `<button class="chip ghost" data-newfor="${attr}">+ Neu</button><button class="chip ghost" data-editacc="1">Bearbeiten</button>`);
   const drawAcc = () => {
     $("#fAcc").innerHTML = accChips(d.account, "acc");
+    if(d.type==="out") document.querySelectorAll("#fAcc [data-acc]").forEach(b => { const k = (accById(b.dataset.acc)||{}).kind; if((k==="depot"||k==="ziel") && b.dataset.acc!==d.account) b.hidden = true; });
     if(typeof splitOn==="function" && splitOn()) document.querySelectorAll("#fAcc [data-acc]").forEach(b => { const k = (accById(b.dataset.acc)||{}).kind; if(k==="depot"||k==="umschlag"||k==="ziel") b.hidden = true; });
     $("#fFrom").innerHTML = accChips(d.from, "from");
     $("#fTo").innerHTML = accChips(d.to, "to");
@@ -1333,7 +1334,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.7 (22.11.2026)";
+const APP_VERSION = "2.8 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
