@@ -313,7 +313,15 @@ function boot(){
   store.sub("entries", rows => { state.entries=rows; state.ready=true; render(); });
   store.sub("settings", rows => { const m = rows.find(r=>r.id==="main"); state.settings = m ? m : {budget:0}; render(); });
   if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
-  if("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(()=>{});
+  if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if(hadController && !reloaded){ reloaded = true; location.reload(); } });
+    navigator.serviceWorker.register("sw.js", {updateViaCache:"none"}).then(reg => {
+      reg.update().catch(()=>{});
+      document.addEventListener("visibilitychange", () => { if(!document.hidden) reg.update().catch(()=>{}); });
+    }).catch(()=>{});
+  }
 }
 
 // ---- render ----
@@ -640,6 +648,7 @@ function budgetSheet(){
       <div class="row"><button class="danger" style="color:var(--ink);flex:1" id="exp">Sicherung speichern</button><button class="danger" style="color:var(--ink);flex:1" id="imp">Sicherung laden</button></div>
       <button class="danger" style="color:var(--ink)" id="csv">Als Tabelle (CSV) exportieren</button>
       <input type="file" id="impFile" accept="application/json,.json" hidden>
+      <p class="hint" style="text-align:center">Version ${APP_VERSION}</p>
     </div>
   `);
   $("#cancel").onclick = closeSheet;
@@ -656,6 +665,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
+const APP_VERSION = "1.3 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function reminderHtml(){
