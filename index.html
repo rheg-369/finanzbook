@@ -215,6 +215,7 @@ const IN_CATS = [
   {id:"trinkgeld", name:"Trinkgeld", c:"--accent"},
   {id:"geschenk", name:"Geschenk", c:"--accent"},
   {id:"verkauf", name:"Verkauf", c:"--accent"},
+  {id:"saveback", name:"Saveback", c:"--accent"},
   {id:"einnahme-sonst", name:"Sonstige Einnahme", c:"--accent"},
 ];
 // Vordefinierte Orte, gruppiert nach der Kategorie, die beim Auswählen vorgeschlagen wird
@@ -294,13 +295,28 @@ function roundupFor(amount, acc){
   if(!acc || !acc.roundup || !acc.roundupTo || !accById(acc.roundupTo)) return 0;
   return ((100 - amount % 100) % 100) * acc.roundup;
 }
-const childOf = id => state.entries.find(e => e.auto && e.parent===id);
+const childOf = id => state.entries.find(e => e.auto && e.parent===id && e.type==="transfer");
+const sbOf = id => state.entries.find(e => e.auto && e.parent===id && e.type==="in");
+// Saveback (z. B. Trade Republic): Prozent der Kartenzahlung als Einnahme ins Depot, mit Monatsdeckel
+function savebackFor(amount, acc, date, parentId){
+  if(!acc || !acc.saveback || !acc.savebackTo || !accById(acc.savebackTo)) return 0;
+  const raw = Math.round(amount * acc.saveback / 100);
+  const cap = acc.savebackCap || 0;
+  if(!cap) return raw;
+  const m = (date||"").slice(0,7);
+  const used = state.entries.filter(e => e.auto && e.type==="in" && e.sbFrom===acc.id && (e.date||"").slice(0,7)===m && e.parent!==parentId).reduce((s,e)=>s+e.amount,0);
+  return Math.max(0, Math.min(raw, cap - used));
+}
 async function syncRoundup(parentId, data){
   const child = childOf(parentId);
   const acc = data && data.type==="out" ? accById(data.account) : null;
   const amt = acc ? roundupFor(data.amount, acc) : 0;
   if(amt>0) await save("entries", child ? child.id : parentId+"-ru", {type:"transfer", auto:true, parent:parentId, from:acc.id, to:acc.roundupTo, amount:amt, date:data.date, note:"", createdAt:data.createdAt});
   else if(child) await store.del("entries", child.id);
+  const sb = sbOf(parentId);
+  const sv = acc ? savebackFor(data.amount, acc, data.date, parentId) : 0;
+  if(sv>0) await save("entries", sb ? sb.id : parentId+"-sb", {type:"in", auto:true, parent:parentId, sbFrom:acc.id, account:acc.savebackTo, cat:"saveback", amount:sv, date:data.date, note:"", createdAt:data.createdAt});
+  else if(sb) await store.del("entries", sb.id);
 }
 const usedBy = id => state.entries.some(e => e.type==="transfer" ? (e.from===id||e.to===id) : accOf(e)===id);
 
@@ -436,9 +452,10 @@ function entryRow(e){
   const isIn = e.type==="in";
   const title = e.note || e.place || c.name;
   const ru = e.type==="out" ? childOf(e.id) : null;
+  const sbk = e.type==="out" ? sbOf(e.id) : null;
   return `<li><button class="entry" data-edit="${esc(e.id)}">
     <span class="badge" style="background:var(${c.c})" aria-hidden="true">${esc(c.name.slice(0,2))}</span>
-    <span class="mid"><div class="t">${esc(title)}</div>${(e.note||e.place||multi||ru)?`<div class="s">${esc([(e.note||e.place)?c.name:"", e.note&&e.place?e.place:"", multi?accName(accOf(e)):"", ru?"Round-up "+money(ru.amount):""].filter(Boolean).join(" · "))}</div>`:""}</span>
+    <span class="mid"><div class="t">${esc(title)}</div>${(e.note||e.place||multi||ru||sbk)?`<div class="s">${esc([(e.note||e.place)?c.name:"", e.note&&e.place?e.place:"", multi?accName(accOf(e)):"", ru?"Round-up "+money(ru.amount):"", sbk?"Saveback +"+money(sbk.amount):""].filter(Boolean).join(" · "))}</div>`:""}</span>
     <span class="a num ${isIn?"pos":""}">${isIn?"+":"−"}${money(e.amount)}</span>
   </button></li>`;
 }
@@ -535,8 +552,9 @@ function entrySheet(entry, preset){
         : used ? `Noch frei: <b class="num">${money(rest)}</b>, bleibt auf ${esc(accName(d.account))}` : `Optional. Was du nicht verteilst, bleibt auf ${esc(accName(d.account))}.`;
     }
     const ra = d.type==="out" ? accById(d.account) : null, rv = ra ? roundupFor(parseAmount($("#fAmount").value), ra) : 0;
-    $("#ruHint").hidden = !rv;
-    if(rv) $("#ruHint").textContent = `Round-up: ${money(rv)} gehen aufs ${accName(ra.roundupTo)}`;
+    const sv = ra ? savebackFor(parseAmount($("#fAmount").value), ra, d.date, entry&&entry.id) : 0;
+    $("#ruHint").hidden = !rv && !sv;
+    $("#ruHint").textContent = [rv?`Round-up: ${money(rv)} aufs ${accName(ra.roundupTo)}`:"", sv?`Saveback: +${money(sv)} aufs ${accName(ra.savebackTo)}`:""].filter(Boolean).join(" · ");
   };
   const CUSTOM = "__custom__";
   const recent = recentPlaces();
@@ -612,10 +630,10 @@ function entrySheet(entry, preset){
   $("#ok").onclick = submit;
   $("#fNote").onkeydown = e => { if(e.key==="Enter"){ e.preventDefault(); submit(); } };
   if(entry) $("#del").onclick = async () => {
-    const {id, ...data} = entry; const child = childOf(id); closeSheet();
+    const {id, ...data} = entry; const kids = [childOf(id), sbOf(id)].filter(Boolean); closeSheet();
     try {
-      await store.del("entries", id); if(child) await store.del("entries", child.id);
-      toast("Gelöscht", async () => { await save("entries", id, data); if(child){ const {id:cid, ...cd} = child; await save("entries", cid, cd); } });
+      await store.del("entries", id); for(const k of kids) await store.del("entries", k.id);
+      toast("Gelöscht", async () => { await save("entries", id, data); for(const k of kids){ const {id:cid, ...cd} = k; await save("entries", cid, cd); } });
     } catch(e){ toast("Löschen fehlgeschlagen."); }
   };
   if(!entry) setTimeout(()=>$("#fAmount").focus(), 60);
@@ -636,7 +654,7 @@ function renderKonten(){
     </div></div>`;
   html += `<section><h2><span>Konten</span></h2><ul class="accs">${ks.map(a => {
     const b = balance(a);
-    return `<li><button class="acc" data-account="${esc(a.id)}"><span class="mid"><div class="t">${esc(a.name)}</div><div class="s">${esc(KINDS[a.kind||"konto"])}${a.roundup&&a.roundupTo?` · Round-up ${a.roundup}× aufs ${esc(accName(a.roundupTo))}`:""}</div></span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button></li>`;
+    return `<li><button class="acc" data-account="${esc(a.id)}"><span class="mid"><div class="t">${esc(a.name)}</div><div class="s">${esc(KINDS[a.kind||"konto"])}${a.roundup&&a.roundupTo?` · Round-up ${a.roundup}×`:""}${a.saveback&&a.savebackTo?` · Saveback ${String(a.saveback).replace(".",",")} %`:""}${(a.roundup||a.saveback)&&(a.roundupTo||a.savebackTo)?` → ${esc(accName(a.roundupTo||a.savebackTo))}`:""}</div></span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button></li>`;
   }).join("")}</ul>
   <div class="addrow"><button class="addbtn" id="addKonto">+ Konto</button><button class="addbtn" id="addTransfer">Umbuchen</button>${ks.some(a=>a.kind==="bar")?`<button class="addbtn" id="withdraw">Abheben</button>`:""}</div></section>`;
 
@@ -697,7 +715,7 @@ function accountSheet(acc, kind, presetName){
   const isEnv = kind==="umschlag";
   const isZiel = kind==="ziel" || isEnv;
   const word = isEnv ? "Zip" : kind==="ziel" ? "Sparziel" : "Konto";
-  const r = {kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&acc.roundupTo||null};
+  const r = {kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&(acc.roundupTo||acc.savebackTo)||null, saveback: acc&&acc.saveback||0};
   const targets = () => state.accounts.filter(a => (a.kind==="depot"||a.kind==="ziel") && (!acc || a.id!==acc.id));
   const cur = acc ? balance(acc) : 0;
   openSheet(`
@@ -710,19 +728,28 @@ function accountSheet(acc, kind, presetName){
     <div id="ruBox"><div class="label" style="margin-bottom:6px">Round-up</div>
       <p class="sublabel" style="margin:0 0 8px">Jede Ausgabe von diesem Konto wird auf den nächsten Euro aufgerundet, die Differenz mal Faktor geht aufs Depot. Beispiel bei 10×: 0,85 € Kauf ergibt 1,50 €.</p>
       <div class="chips" id="aMult">${[0,1,2,3,5,10].map(m=>`<button class="chip" data-mult="${m}">${m?m+"×":"Aus"}</button>`).join("")}</div>
+      <div class="label" style="margin:14px 0 6px">Saveback</div>
+      <p class="sublabel" style="margin:0 0 8px">Ein Teil jeder Kartenzahlung kommt als Einnahme aufs Depot zurück. Bei Trade Republic z. B. 1 %, höchstens 15 € im Monat.</p>
+      <div class="chips" id="aSb"><button class="chip" data-sb="0">Aus</button><button class="chip" data-sb="1">An</button></div>
+      <div id="sbBox" class="row" style="margin-top:8px">
+        <label style="flex:1"><span class="label">Prozent</span><input class="input num" id="aSbPct" inputmode="decimal" value="${esc(String(acc&&acc.saveback||1).replace(".",","))}" autocomplete="off" style="margin-top:4px"></label>
+        <label style="flex:1"><span class="label">Max. pro Monat (€)</span><input class="input num" id="aSbCap" inputmode="decimal" value="${esc(toInput(acc&&acc.savebackCap!=null?acc.savebackCap:1500))}" placeholder="kein Limit" autocomplete="off" style="margin-top:4px"></label>
+      </div>
       <div id="ruTo" style="margin-top:10px"></div></div>`}
     <p class="warnmsg" id="aWarn" hidden></p>
     <div class="row">${acc?`<button class="danger" id="del">Löschen</button>`:""}<button class="primary" id="ok">${acc?"Speichern":"Anlegen"}</button></div>
   `);
   const sync = () => {
-    if(!isZiel && r.roundup && !r.roundupTo){ const ts0 = targets(); if(ts0.length===1) r.roundupTo = ts0[0].id; }
-    $("#ok").disabled = !$("#aName").value.trim() || isNaN(parseSigned($("#aBal").value)) || (!isZiel && r.kind==="konto" && r.roundup>0 && !r.roundupTo);
+    if(!isZiel && (r.roundup||r.saveback) && !r.roundupTo){ const ts0 = targets(); if(ts0.length===1) r.roundupTo = ts0[0].id; }
+    $("#ok").disabled = !$("#aName").value.trim() || isNaN(parseSigned($("#aBal").value)) || (!isZiel && r.kind==="konto" && (r.roundup>0 || r.saveback) && !r.roundupTo);
     if(isZiel) return;
     document.querySelectorAll("#aKind [data-kind]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.kind===r.kind)));
     $("#ruBox").hidden = r.kind!=="konto";
     document.querySelectorAll("#aMult [data-mult]").forEach(b=>b.setAttribute("aria-pressed", String(+b.dataset.mult===r.roundup)));
+    document.querySelectorAll("#aSb [data-sb]").forEach(b=>b.setAttribute("aria-pressed", String(+b.dataset.sb===(r.saveback?1:0))));
+    $("#sbBox").hidden = !r.saveback;
     const ts = targets();
-    $("#ruTo").innerHTML = !r.roundup ? "" : ts.length
+    $("#ruTo").innerHTML = !(r.roundup||r.saveback) ? "" : ts.length
       ? `<div class="label" style="margin-bottom:6px">Investieren auf</div><div class="chips">${ts.map(a=>`<button class="chip" data-rto="${esc(a.id)}" aria-pressed="${a.id===r.roundupTo}">${esc(a.name)}</button>`).join("")}</div>`
       : `<p class="warnmsg">Leg zuerst ein Konto der Art „Depot“ an, z. B. „Trade Republic Depot“.</p>`;
   };
@@ -730,6 +757,7 @@ function accountSheet(acc, kind, presetName){
   if(!isZiel){
     $("#aKind").onclick = e => { const b=e.target.closest("[data-kind]"); if(b){ r.kind=b.dataset.kind; sync(); } };
     $("#aMult").onclick = e => { const b=e.target.closest("[data-mult]"); if(b){ r.roundup=+b.dataset.mult; sync(); } };
+    $("#aSb").onclick = e => { const b=e.target.closest("[data-sb]"); if(b){ r.saveback = +b.dataset.sb ? 1 : 0; sync(); } };
     $("#ruTo").onclick = e => { const b=e.target.closest("[data-rto]"); if(b){ r.roundupTo=b.dataset.rto; sync(); } };
   }
   $("#cancel").onclick = closeSheet;
@@ -739,6 +767,10 @@ function accountSheet(acc, kind, presetName){
     const id = acc ? acc.id : newId();
     const data = {name, kind: r.kind, start: want - (acc ? movement(acc.id) : 0), order: acc ? (acc.order||0) : Date.now()};
     if(r.kind==="konto" && r.roundup && r.roundupTo){ data.roundup = r.roundup; data.roundupTo = r.roundupTo; }
+    if(r.kind==="konto" && r.saveback && r.roundupTo){
+      const pct = Number(String($("#aSbPct").value).replace(",",".")); 
+      data.saveback = isFinite(pct) && pct>0 ? pct : 1; data.savebackCap = parseAmount($("#aSbCap").value); data.savebackTo = r.roundupTo;
+    }
     if(isZiel) data.target = parseAmount($("#aTarget").value);
     closeSheet();
     try { await save("accounts", id, data); toast(acc ? "Gespeichert" : word+" angelegt"); } catch(e){}
@@ -781,7 +813,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "1.8 (22.11.2026)";
+const APP_VERSION = "1.9 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function reminderHtml(){
