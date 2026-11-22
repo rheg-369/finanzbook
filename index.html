@@ -282,6 +282,18 @@ section > h2 .num{font-family:var(--f-body);font-size:.85rem;color:var(--muted);
 .theme button{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 2px;font-size:.78rem;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:5px}
 .theme button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
 .theme i{width:26px;height:26px;border-radius:50%;display:block;border:1px solid rgba(0,0,0,.12)}
+.placebtn{display:flex;justify-content:space-between;align-items:center;text-align:left;cursor:pointer}
+.ppanel{margin-top:8px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);padding:8px;max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ppanel #ppSearch{position:sticky;top:0;z-index:1;margin-bottom:4px}
+.pgroup{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;margin:10px 4px 2px}
+.prow{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line)}
+.prow:last-child{border-bottom:0}
+.pname{flex:1;min-width:0;text-align:left;border:0;background:none;padding:11px 6px;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pname[aria-pressed="true"]{color:var(--accent);font-weight:600}
+.pbtn{width:40px;height:40px;flex:none;border:0;background:none;border-radius:10px;font-size:1.2rem;color:var(--muted);display:grid;place-items:center}
+.pstar[aria-pressed="true"]{color:#e8a400}
+.pnew{width:100%;border:0;background:var(--accent-soft);color:var(--ink);border-radius:10px;padding:11px;text-align:left;font-weight:600;margin-top:6px}
+.ppfoot{display:flex;justify-content:space-between;padding:10px 4px 2px}
 </style>
 </head>
 <body>
@@ -350,9 +362,10 @@ const IN_CATS = [
 ];
 // Vordefinierte Orte, gruppiert nach der Kategorie, die beim Auswählen vorgeschlagen wird
 const PLACES = {
-  lebensmittel: ["REWE","EDEKA","Lidl","Aldi Süd","Aldi Nord","Kaufland","Penny","Netto","Norma","Bäckerei","Metzgerei","Wochenmarkt"],
+  lebensmittel: ["REWE","EDEKA","Lidl","Aldi Süd","Penny","Bäckerei","Metzgerei","Wochenmarkt"],
   restaurant: ["Restaurant","Café","Imbiss","Lieferando","McDonald's","Burger King","Starbucks","Bar"],
-  mobilitaet: ["Tankstelle","Aral","Shell","Deutsche Bahn","ÖPNV-Ticket","Parken","Taxi / Uber","Werkstatt"],
+  mobilitaet: ["Deutsche Bahn","ÖPNV-Ticket","Parken","Taxi / Uber","Werkstatt"],
+  tanken: ["Aral","Shell","Esso","Jet","TotalEnergies","Avia","OMV","ENI / Agip","bft","Tankstelle"],
   shopping: ["Amazon","dm","Rossmann","Müller","IKEA","MediaMarkt / Saturn","Decathlon","Otto"],
   mode: ["Zara","Reserved","Uniqlo","H&M","Primark","Adidas","Nike","Zalando","About You","Snipes","Bershka","Pull&Bear","New Yorker","TK Maxx","C&A"],
   freizeit: ["Kino","Fitnessstudio","Konzert / Event","Urlaub / Reise","Geschenk"],
@@ -360,11 +373,15 @@ const PLACES = {
   wohnen: ["Miete","Strom","Gas / Heizung","Rundfunkbeitrag"],
   abos: ["Netflix","Spotify","Disney+","Amazon Prime","Handyvertrag","Internet","Versicherung"],
 };
-const placeCat = p => { for(const [c, list] of Object.entries(PLACES)) if(list.includes(p)) return c==="mode" ? "shopping" : c; return null; };
+const placeCat = p => { for(const [c, list] of Object.entries(PLACES)) if(list.includes(p)) return c==="mode" ? "shopping" : c==="tanken" ? "mobilitaet" : c; return null; };
 const PRESET = new Set(Object.values(PLACES).flat());
+// Eigene Orte und ausgeblendete Standard-Orte (nur auf diesem Gerät, in der Sicherung enthalten)
+const placePrefs = () => { try { const o = JSON.parse(localStorage.getItem("hhb.places")||"{}"); return {hidden:o.hidden||[], custom:o.custom||[], fav:o.fav||[]}; } catch(e){ return {hidden:[], custom:[], fav:[]}; } };
+const savePlacePrefs = o => { try { localStorage.setItem("hhb.places", JSON.stringify(o)); } catch(e){} };
+const visPlaces = id => { const h = placePrefs().hidden; return (PLACES[id]||[]).filter(x=>!h.includes(x)); };
 function recentPlaces(){
   const seen = new Map();
-  state.entries.filter(e => e.place && !PRESET.has(e.place)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).forEach(e => { if(!seen.has(e.place)) seen.set(e.place, true); });
+  state.entries.filter(e => e.place && !PRESET.has(e.place) && !placePrefs().custom.includes(e.place)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).forEach(e => { if(!seen.has(e.place)) seen.set(e.place, true); });
   return [...seen.keys()].slice(0,12);
 }
 const KORR = {id:"korrektur", i:"±", name:"Korrektur", c:"--muted"};
@@ -685,8 +702,12 @@ function entrySheet(entry, preset){
     <label class="amount"><input id="fAmount" inputmode="decimal" placeholder="0,00" value="${esc(toInput(d.amount))}" aria-label="Betrag in Euro" autocomplete="off"><span>€</span></label>
     <p class="hint" id="ruHint" style="text-align:center;margin-top:-8px" hidden></p>
     <div id="placeBox"><div class="label" style="margin-bottom:6px">Wo?</div>
-      <select class="input" id="fPlace" aria-label="Wo war die Ausgabe?"></select>
-      <input class="input" id="fPlaceIn" placeholder="Eigenen Ort eingeben, z. B. Bio-Laden" autocomplete="off" style="margin-top:8px" hidden></div>
+      <button class="input placebtn" id="fPlaceBtn" aria-label="Ort wählen" aria-expanded="false"><span id="fPlaceTxt"></span><span aria-hidden="true">⌄</span></button>
+      <div class="ppanel" id="pp" hidden>
+        <input class="input" id="ppSearch" placeholder="🔍 Ort suchen oder neu eintippen" autocomplete="off" enterkeyhint="done">
+        <div id="ppList"></div>
+        <div class="ppfoot"><button class="linkbtn" id="ppNone">Kein Ort</button><button class="linkbtn" id="ppEdit">Orte bearbeiten</button></div>
+      </div></div>
     <div id="catBox"><div class="label" style="margin-bottom:6px" id="catLabel">Kategorie</div><div class="chips" id="fCat"></div>
       <select class="input" id="fCatSel" aria-label="Art der Einnahme" hidden></select></div>
     <div id="destBox" hidden><div class="label" style="margin-bottom:6px">Wohin?</div>
@@ -773,23 +794,49 @@ function entrySheet(entry, preset){
     $("#ruHint").hidden = !rv && !sv;
     $("#ruHint").textContent = [rv?`Round-up: ${money(rv)} aufs ${accName(ra.roundupTo)}`:"", sv?`Saveback: +${money(sv)} aufs ${accName(ra.savebackTo)}`:""].filter(Boolean).join(" · ");
   };
-  const CUSTOM = "__custom__";
-  const recent = recentPlaces();
-  const opt = p => `<option value="${esc(p)}">${esc(p)}</option>`;
-  $("#fPlace").innerHTML = `<option value="">– kein Ort –</option>`
-    + (recent.length ? `<optgroup label="Zuletzt genutzt">${recent.map(opt).join("")}</optgroup>` : "")
-    + OUT_CATS.filter(c=>PLACES[c.id]).map(c => `<optgroup label="${esc(c.name)}">${PLACES[c.id].map(opt).join("")}</optgroup>` + (c.id==="shopping" ? `<optgroup label="Mode &amp; Schuhe">${PLACES.mode.map(opt).join("")}</optgroup>` : "")).join("")
-    + `<option value="${CUSTOM}">Eigener Ort …</option>`;
-  $("#fPlace").value = d.place || "";
-  $("#fPlace").onchange = e => {
-    const v = e.target.value;
-    $("#fPlaceIn").hidden = v!==CUSTOM;
-    if(v===CUSTOM){ d.place = ""; $("#fPlaceIn").value = ""; $("#fPlaceIn").focus(); return; }
-    d.place = v;
-    const pc = placeCat(v);
-    if(pc && (!d.cat || !entry)) { d.cat = pc; sync(); }
+  // Eigene Orts-Auswahl: Suche, Favoriten, zuletzt genutzt, eigene Orte, Standard-Orte
+  let ppEdit = false;
+  const ppLabel = () => { $("#fPlaceTxt").textContent = d.place || "– kein Ort –"; $("#fPlaceTxt").style.color = d.place ? "" : "var(--muted)"; };
+  const pRow = (x, pr) => `<div class="prow"><button class="pname" data-pick="${esc(x)}" aria-pressed="${x===d.place}">${esc(x)}</button>${ppEdit
+      ? `<button class="pbtn" data-hide="${esc(x)}" aria-label="${esc(x)} ${pr.custom.includes(x)?"löschen":"ausblenden"}">×</button>`
+      : `<button class="pbtn pstar" data-star="${esc(x)}" aria-pressed="${pr.fav.includes(x)}" aria-label="${esc(x)} als Favorit">${pr.fav.includes(x)?"★":"☆"}</button>`}</div>`;
+  const pGroup = (title, list, pr) => list.length ? `<div class="pgroup">${esc(title)}</div>${list.map(x=>pRow(x, pr)).join("")}` : "";
+  const drawPP = () => {
+    const pr = {...placePrefs(), fav: (placePrefs().fav||[])};
+    const q = $("#ppSearch").value.trim().toLowerCase();
+    const groups = OUT_CATS.filter(c=>PLACES[c.id]).flatMap(c => [[c.name, visPlaces(c.id)]].concat(c.id==="shopping" ? [["Mode & Schuhe", visPlaces("mode")]] : c.id==="mobilitaet" ? [["⛽ Tanken", visPlaces("tanken")]] : []));
+    const recent = recentPlaces().filter(x=>!pr.fav.includes(x));
+    let html = "";
+    if(q){
+      const all = [...new Set([...pr.fav, ...pr.custom, ...recentPlaces(), ...groups.flatMap(g=>g[1])])];
+      const hits = [...new Set([...all.filter(x => x.toLowerCase().includes(q)), ...groups.filter(g => g[0].toLowerCase().includes(q)).flatMap(g=>g[1])])];
+      html = hits.map(x=>pRow(x, pr)).join("");
+      if(!all.some(x=>x.toLowerCase()===q)) html += `<button class="pnew" data-new="${esc($("#ppSearch").value.trim())}">＋ „${esc($("#ppSearch").value.trim())}“ als neuen Ort verwenden</button>`;
+    } else {
+      html = pGroup("★ Favoriten", pr.fav, pr) + pGroup("Zuletzt genutzt", recent.slice(0,6), pr) + pGroup("Meine Orte", pr.custom.filter(x=>!pr.fav.includes(x)), pr)
+        + groups.map(([t, l]) => pGroup(t, l.filter(x=>!pr.fav.includes(x)), pr)).join("");
+      if(!pr.fav.length && !ppEdit) html = `<p class="hint" style="padding:6px 4px">Tipp: Mit ☆ markierst du Favoriten, die stehen dann ganz oben.</p>` + html;
+      if(ppEdit && pr.hidden.length) html += `<div class="pgroup">Ausgeblendet</div>` + pr.hidden.map(x=>`<div class="prow"><span class="pname" style="color:var(--muted);text-decoration:line-through">${esc(x)}</span><button class="pbtn" data-unhide="${esc(x)}" style="width:auto;padding:0 10px;font-size:.8rem">Einblenden</button></div>`).join("");
+    }
+    $("#ppList").innerHTML = html || `<p class="hint" style="padding:8px 4px">Nichts gefunden.</p>`;
+    $("#ppEdit").textContent = ppEdit ? "Fertig" : "Orte bearbeiten";
   };
-  $("#fPlaceIn").oninput = e => { d.place = e.target.value.trim(); };
+  const openPP = open => { $("#pp").hidden = !open; $("#fPlaceBtn").setAttribute("aria-expanded", String(open)); if(open){ $("#ppSearch").value = ""; ppEdit = false; drawPP(); } };
+  const pick = v => { d.place = v; const pc = placeCat(v); if(pc && (!d.cat || !entry)) d.cat = pc; ppLabel(); openPP(false); sync(); };
+  ppLabel();
+  $("#fPlaceBtn").onclick = () => openPP($("#pp").hidden);
+  $("#ppSearch").oninput = drawPP;
+  $("#ppSearch").onkeydown = e => { if(e.key==="Enter"){ e.preventDefault(); const v = $("#ppSearch").value.trim(); const first = $("#ppList [data-pick]"); if(first) pick(first.dataset.pick); else if(v){ const pr = placePrefs(); if(!pr.custom.includes(v)) savePlacePrefs({...pr, custom:[...pr.custom, v]}); pick(v); } } };
+  $("#ppNone").onclick = () => { d.place = ""; ppLabel(); openPP(false); };
+  $("#ppEdit").onclick = () => { ppEdit = !ppEdit; drawPP(); };
+  $("#ppList").onclick = e => {
+    const pr = placePrefs(); pr.fav = pr.fav || [];
+    const t = e.target.closest("[data-pick]"); if(t){ pick(t.dataset.pick); return; }
+    const st = e.target.closest("[data-star]"); if(st){ const x = st.dataset.star; savePlacePrefs({...pr, fav: pr.fav.includes(x) ? pr.fav.filter(y=>y!==x) : [...pr.fav, x]}); drawPP(); return; }
+    const nw = e.target.closest("[data-new]"); if(nw){ const v = nw.dataset.new; if(!pr.custom.includes(v)) savePlacePrefs({...pr, custom:[...pr.custom, v]}); pick(v); return; }
+    const hd = e.target.closest("[data-hide]"); if(hd){ const x = hd.dataset.hide; const np = {...pr, fav: pr.fav.filter(y=>y!==x)}; if(pr.custom.includes(x)) np.custom = pr.custom.filter(y=>y!==x); else if(PRESET.has(x)) np.hidden = [...pr.hidden, x]; savePlacePrefs(np); drawPP(); return; }
+    const uh = e.target.closest("[data-unhide]"); if(uh){ savePlacePrefs({...pr, hidden: pr.hidden.filter(y=>y!==uh.dataset.unhide)}); drawPP(); return; }
+  };
   drawCats(); sync();
   $("#fType").onclick = e => { const b=e.target.closest("[data-type]"); if(b){ d.type=b.dataset.type; if(d.type==="transfer"){ d.from ||= d.account||k0; } else { d.account ||= d.from||k0; drawCats(); } sync(); } };
   $("#fAcc").onclick = e => { const b=e.target.closest("[data-acc]"); if(b){ d.account=b.dataset.acc; sync(); } };
@@ -1386,7 +1433,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.11 (22.11.2026)";
+const APP_VERSION = "2.12 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -1419,7 +1466,7 @@ async function saveFile(name, text, type){
   setTimeout(()=>URL.revokeObjectURL(a.href), 5000); return true;
 }
 async function exportBackup(){
-  const data = {app:"haushaltsbuch", version:1, exportedAt:new Date().toISOString(), entries: local.read("entries"), accounts: local.read("accounts"), settings: local.read("settings"), recurring: local.read("recurring")};
+  const data = {app:"haushaltsbuch", version:1, exportedAt:new Date().toISOString(), entries: local.read("entries"), accounts: local.read("accounts"), settings: local.read("settings"), recurring: local.read("recurring"), places: placePrefs()};
   if(await saveFile("haushaltsbuch-"+iso(new Date())+".json", JSON.stringify(data,null,1), "application/json")){
     try { localStorage.setItem("hhb.lastBackup", String(Date.now())); } catch(e){}
     toast("Sicherung erstellt"); render();
@@ -1443,7 +1490,7 @@ function parseBackup(text){
   const entries = asMap(d.entries), accounts = asMap(d.accounts);
   let settings = d.settings && typeof d.settings==="object" ? d.settings : null;
   if(settings && !settings.main && "budget" in settings) settings = {main: settings};
-  return {entries, accounts, settings, recurring: asMap(d.recurring), at: d.exportedAt};
+  return {entries, accounts, settings, recurring: asMap(d.recurring), places: d.places && typeof d.places==="object" ? d.places : null, at: d.exportedAt};
 }
 function fixAccounts(accs, entries){
   if(!Object.keys(accs).length) accs = DEFAULT_ACCS();
@@ -1487,6 +1534,7 @@ function importBackup(file){
       local.write("accounts", fixAccounts(b.accounts, b.entries));
       if(b.settings) local.write("settings", b.settings);
       local.write("recurring", b.recurring);
+      if(b.places) savePlacePrefs(b.places);
       done("Sicherung wiederhergestellt: " + nE + " Einträge");
     };
     $("#impMerge").onclick = () => {
