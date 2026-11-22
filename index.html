@@ -919,7 +919,8 @@ function renderKonten(){
 
 // ---- Sips (Bargeld-Zips) ----
 const ZIP_ICONS = [[/urlaub|reise|ferien/i,"✈️"],[/auto|kfz|tank|werkstatt/i,"🚗"],[/geschenk|geburtstag|weihnacht/i,"🎁"],[/lebensmittel|essen|einkauf/i,"🛒"],[/rückzahl|schuld|kredit/i,"💸"],[/notgroschen|not|puffer/i,"🛟"],[/kleid|mode|klamott/i,"👕"],[/haus|wohn|miete|möbel/i,"🏠"],[/tier|hund|katze/i,"🐾"],[/handy|technik/i,"📱"],[/freizeit|hobby|spaß/i,"🎉"],[/gesund|arzt|apothek/i,"💊"],[/sparen|spar/i,"🐷"],[/haar|friseur|beauty|drogerie/i,"💇"],[/abo|vertrag|versicherung/i,"📄"]];
-const zipIcon = a => { for(const [r,i] of ZIP_ICONS) if(r.test(a.name||"")) return i; return "✉️"; };
+const ZIP_PICK = ["✉️","✈️","🚗","🎁","🛒","💸","🛟","👕","🏠","🐾","📱","🎉","💊","🐷","💇","📄","🎓","👶","🍼","⚽","🎮","📚","🎄","💍","🏖️","🍽️","⛽","🧾"];
+const zipIcon = a => { if(a && a.icon) return a.icon; for(const [r,i] of ZIP_ICONS) if(r.test(a.name||"")) return i; return "✉️"; };
 const zipColor = a => { const i = umschlaege().findIndex(z=>z.id===a.id); return "--c"+((Math.max(0,i)%8)+1); };
 function zipMonth(id, m){
   let inn = 0, out = 0;
@@ -948,9 +949,10 @@ function renderSips(){
     </div>
     ${us.length?`<div class="acts"><button class="main" id="fillAll">Zips befüllen</button><button id="payZip">Aus Zip bezahlen</button></div>`:""}
   </div>`;
-  html += `<section><h2><span>Deine Zips</span><span class="num">${us.length}</span></h2>`;
+  html += `<section><h2><span>Deine Zips</span><button class="linkbtn" id="addEnv2" style="color:var(--accent);font-size:.95rem">+ Neuer Zip</button></h2>`;
   if(!us.length) html += `<div class="empty" style="padding:20px 16px"><strong>Noch keine Zips</strong>Für dein Bargeld im Budgetplaner. Leg los mit einem Tipp:</div>
-    <div class="chips" style="justify-content:center">${["Urlaub","Auto","Rückzahlung","Geschenke","Lebensmittel","Notgroschen"].map(n=>`<button class="chip" data-newenv="${n}">+ ${n}</button>`).join("")}</div>`;
+    <div class="chips" style="justify-content:center">${["Urlaub","Auto","Rückzahlung","Geschenke","Lebensmittel","Notgroschen"].map(n=>`<button class="chip" data-newenv="${n}">+ ${n}</button>`).join("")}</div>
+    <div class="addrow" style="margin-top:14px"><button class="addbtn" id="addEnv">+ Eigenen Zip anlegen</button></div>`;
   else html += `<div class="zgrid">${us.map(a => {
     const b = balance(a), t = a.target||0, pct = t ? Math.max(0,Math.min(1,b/t)) : 0, x = zipMonth(a.id, m);
     return `<div class="zcard" style="--zc:var(${zipColor(a)})">
@@ -1058,6 +1060,7 @@ function accountSheet(acc, kind, presetName){
   openSheet(`
     <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">${acc?word:(isEnv?"Neuer ":"Neues ")+word}</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <input class="input" id="aName" placeholder="${isEnv?"Name, z. B. Auto oder Geschenke":isZiel?"Name, z. B. Urlaub":"Name, z. B. Trade Republic oder Tagesgeld"}" value="${esc(acc?acc.name:(presetName||""))}" autocomplete="off">
+    ${isEnv?`<div><div class="label" style="margin-bottom:6px">Symbol</div><div class="chips" id="aIcon">${ZIP_PICK.map(i=>`<button class="chip" data-icon="${i}" style="padding:6px 9px;font-size:1.15rem" aria-label="Symbol ${i}">${i}</button>`).join("")}</div></div>`:""}
     ${isZiel?`<div><div class="label" style="margin-bottom:6px">${isEnv?"Zielbetrag (optional)":"Zielbetrag"}</div><input class="input num" id="aTarget" inputmode="decimal" placeholder="z. B. 1.500" value="${esc(toInput(acc&&acc.target||0))}" autocomplete="off"></div>`:""}
     <div><div class="label" style="margin-bottom:6px">${isEnv?"Aktuell im Zip":isZiel?"Schon angespart":acc?"Aktueller Kontostand":"Anfangsbestand (heutiger Kontostand)"}</div><input class="input num" id="aBal" inputmode="decimal" placeholder="0" value="${esc(toSigned(cur))}" autocomplete="off"></div>
     <p class="sublabel">${isEnv?"Ab jetzt steckst du Geld mit „Befüllen“ rein. Ausgaben kannst du direkt aus dem Zip bezahlen.":isZiel?"Weiteres Geld legst du über „Zurücklegen“ dazu.":acc?`Anfangsbestand: ${money(acc.start||0)}. Änderst du den Stand hier, wird der Anfangsbestand angepasst. Für Abweichungen im Alltag lieber „Kontostände prüfen“ nutzen, dann bleibt die Differenz sichtbar.`:"Ab jetzt rechnet die App den Stand mit deinen Einträgen weiter. Minus für Dispo, z. B. -250."}</p>
@@ -1090,7 +1093,11 @@ function accountSheet(acc, kind, presetName){
       ? `<div class="label" style="margin-bottom:6px">Investieren auf</div><div class="chips">${ts.map(a=>`<button class="chip" data-rto="${esc(a.id)}" aria-pressed="${a.id===r.roundupTo}">${esc(a.name)}</button>`).join("")}</div>`
       : `<p class="warnmsg">Leg zuerst ein Konto der Art „Depot“ an, z. B. „Trade Republic Depot“.</p>`;
   };
-  sync(); $("#aName").oninput = sync; $("#aBal").oninput = sync;
+  let zIcon = acc && acc.icon || null;
+  const drawIcon = () => { if(!isEnv) return; const cur = zIcon || zipIcon({name:$("#aName").value}); document.querySelectorAll("#aIcon [data-icon]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.icon===cur))); };
+  if(isEnv) $("#aIcon").onclick = e => { const b = e.target.closest("[data-icon]"); if(b){ zIcon = b.dataset.icon; drawIcon(); } };
+  drawIcon();
+  sync(); $("#aName").oninput = () => { sync(); drawIcon(); }; $("#aBal").oninput = sync;
   if(!isZiel){
     $("#aKind").onclick = e => { const b=e.target.closest("[data-kind]"); if(b){ r.kind=b.dataset.kind; sync(); } };
     $("#aMult").onclick = e => { const b=e.target.closest("[data-mult]"); if(b){ r.roundup=+b.dataset.mult; sync(); } };
@@ -1110,6 +1117,7 @@ function accountSheet(acc, kind, presetName){
     }
     if(isZiel) data.target = parseAmount($("#aTarget").value);
     if(acc && acc.lastFill) data.lastFill = acc.lastFill;
+    if(isEnv && zIcon) data.icon = zIcon;
     closeSheet();
     try { await save("accounts", id, data); toast(acc ? "Gespeichert" : word+" angelegt"); } catch(e){}
   };
@@ -1378,7 +1386,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.10 (22.11.2026)";
+const APP_VERSION = "2.11 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -1524,6 +1532,7 @@ document.addEventListener("click", e => {
   if(pt){ const k = konten().find(a=>a.id!==pt.dataset.put); entrySheet(null, {type:"transfer", to:pt.dataset.put, from:k?k.id:null, note:""}); return; }
   if(e.target.closest("#addKonto")){ accountSheet(null,"konto"); return; }
   if(e.target.closest("#addZiel")){ accountSheet(null,"ziel"); return; }
+  if(e.target.closest("#addEnv2")){ accountSheet(null,"umschlag"); return; }
   if(e.target.closest("#addEnv")){ accountSheet(null,"umschlag"); return; }
   const ne = e.target.closest("[data-newenv]");
   if(ne){ accountSheet(null,"umschlag",ne.dataset.newenv); return; }
