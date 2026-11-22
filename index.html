@@ -609,6 +609,21 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .ob-foot{padding-top:12px}
 .ob-next{width:100%;border:0;border-radius:999px;padding:17px;font-size:1.02rem;font-weight:600;letter-spacing:.01em;background:linear-gradient(160deg,var(--hero1),var(--hero2));color:#fbf8f1;box-shadow:0 14px 30px -12px color-mix(in srgb,var(--hero2) 80%,transparent)}
 .ob-next:disabled{opacity:.4;box-shadow:none}
+.accs li.paired{position:relative}
+.acc.dsub{padding-top:2px!important;padding-left:66px!important;border-top:0!important}
+.acc.dsub .t{font-size:.82rem;color:var(--muted);font-weight:500}
+.acc.dsub .s{font-size:.74rem}
+.acc.dsub .a{font-size:.9rem;color:var(--muted)}
+.accs li.paired .acc:first-child{padding-bottom:4px;border-bottom:0}
+.hero.fc{background:radial-gradient(90% 70% at 100% 0%,var(--glow),transparent 60%),linear-gradient(160deg,color-mix(in srgb,var(--hero1) 70%,#3b3f52),color-mix(in srgb,var(--hero2) 80%,#151826))}
+.hero.fc .abig{font-family:var(--f-serif);font-weight:400;font-size:3.1rem;letter-spacing:-.035em;margin-top:4px}
+.hero.fc .abig .cents{font-family:var(--f-body);font-size:.36em;font-weight:500;letter-spacing:0;color:rgba(255,255,255,.62);margin-left:2px}
+.hero.fc .asub{font-size:.86rem;opacity:.8;margin-top:6px}
+.hero.fc .abrk{display:flex;flex-direction:column;gap:6px;font-size:.9rem;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:14px}
+.hero.fc .abrk>div{display:flex;justify-content:space-between;gap:10px}
+.hero.fc .abrk span{opacity:.85}
+.hero.fc .atot{border-top:1px solid rgba(255,255,255,.22);padding-top:6px;font-weight:700}
+.fc-note{margin:12px 6px 0;font-size:.8rem;color:var(--muted);line-height:1.45}
 </style>
 </head>
 <body>
@@ -743,6 +758,8 @@ const toSigned = c => c ? (c<0?"-":"") + (Math.abs(c)/100).toFixed(2).replace(".
 const accOf = e => e.account || "giro";
 const zipsOn = () => state.settings.zips !== false;
 const hasDepot = () => state.accounts.some(a=>a.kind==="depot");
+const pairOf = a => a && a.kind==="konto" && a.depot ? state.accounts.find(x=>x.id===a.depot && x.kind==="depot") : null;
+const isPairedDepot = id => state.accounts.some(k=>k.kind==="konto" && k.depot===id);
 const umschlaege = () => !zipsOn() ? [] : state.accounts.filter(a=>a.kind==="umschlag").sort((a,b)=>(a.order||0)-(b.order||0));
 const konten = () => state.accounts.filter(a=>a.kind!=="ziel" && a.kind!=="umschlag").sort((a,b)=>(a.order||0)-(b.order||0));
 const ziele = () => state.accounts.filter(a=>a.kind==="ziel").sort((a,b)=>(a.order||0)-(b.order||0));
@@ -835,6 +852,14 @@ function boot(){
   // PayPal einmalig als Standard-Konto ergänzen (gelöscht bleibt gelöscht)
   try { if(!localStorage.getItem("hhb.mig.paypal")){ const accs = local.read("accounts"); if(!Object.values(accs).some(a=>/paypal/i.test(a.name||""))){ accs.paypal = {name:"PayPal", kind:"konto", start:0, order:2}; local.write("accounts", accs); } localStorage.setItem("hhb.mig.paypal","1"); } } catch(e){}
   try { if(!localStorage.getItem("hhb.mig.union")){ const accs = local.read("accounts"); if(!Object.values(accs).some(a=>/union/i.test(a.name||""))){ accs.union = {name:"Union Depot", kind:"depot", start:0, order:4}; local.write("accounts", accs); } localStorage.setItem("hhb.mig.union","1"); } } catch(e){}
+  // Konto + Depot (Neobroker) einmalig verknüpfen: Round-up/Saveback-Ziel oder passender Name
+  try { if(!localStorage.getItem("hhb.mig.pair")){ const accs = local.read("accounts"); const used = new Set(Object.values(accs).map(a=>a.depot).filter(Boolean));
+    const ini = n => (n||"").split(/\s+/).map(w=>w[0]||"").join("").toLowerCase();
+    for(const [kid,k] of Object.entries(accs)){ if(k.kind!=="konto" || k.depot) continue;
+      let d = [k.roundupTo, k.savebackTo].find(id => id && accs[id] && accs[id].kind==="depot" && !used.has(id));
+      if(!d) d = Object.keys(accs).find(id => accs[id].kind==="depot" && !used.has(id) && (() => { const dn = (accs[id].name||"").toLowerCase(), kn = (k.name||"").toLowerCase(); return kn.length>2 && (dn.startsWith(kn) || (ini(k.name).length>1 && dn.startsWith(ini(k.name)+" "))); })());
+      if(d){ k.depot = d; used.add(d); } }
+    local.write("accounts", accs); localStorage.setItem("hhb.mig.pair","1"); } } catch(e){}
   store.sub("accounts", rows => { state.accounts=rows; render(); });
   store.sub("entries", rows => { state.entries=rows; state.ready=true; render(); });
   store.sub("recurring", rows => { state.recurring=rows; render(); });
@@ -1073,11 +1098,12 @@ function subBreak(list){
 function openOnboarding(fresh){
   try { localStorage.removeItem("hhb.needSetup"); } catch(e){}
   const has = re => state.accounts.some(a=>re.test(a.name||""));
-  const ACC = [["giro","bank","Girokonto","Für Gehalt, Miete und Karte"],["bargeld","atm","Bargeld","Das Portemonnaie"],["paypal","pay","PayPal","Online bezahlen"],["tagesgeld","piggy","Tagesgeld","Rücklagen mit Zinsen"]];
+  const ACC = [["giro","bank","Girokonto","Für Gehalt, Miete und Karte"],["bargeld","atm","Bargeld","Das Portemonnaie"],["paypal","pay","PayPal","Online bezahlen"],["tagesgeld","piggy","Tagesgeld","Rücklagen mit Zinsen"],["neo","invest","Konto + Depot","Trade Republic, Revolut, N26, Scalable …"]];
+  const NEOS = ["Trade Republic","Revolut","N26","Scalable Capital","Bitpanda"];
   const ZIPS = [["Lebensmittel","🛒"],["Urlaub","✈️"],["Geschenke","🎁"],["Auto","🚗"],["Notgroschen","🛟"],["Freizeit","🎉"]];
   const st = {
-    acc: new Set(fresh ? ["giro","bargeld"] : ACC.filter(([k,,n])=> k==="giro" ? state.accounts.some(a=>a.kind==="konto") : k==="bargeld" ? state.accounts.some(a=>a.kind==="bar") : has(new RegExp(n,"i"))).map(x=>x[0])),
-    bank: "", zips: fresh ? null : zipsOn(), zipSel: new Set(fresh ? ["Lebensmittel","Urlaub","Geschenke"] : []),
+    acc: new Set(fresh ? ["giro","bargeld"] : ACC.filter(([k,,n])=> k==="neo" ? state.accounts.some(a=>a.kind==="konto" && a.depot) : k==="giro" ? state.accounts.some(a=>a.kind==="konto") : k==="bargeld" ? state.accounts.some(a=>a.kind==="bar") : has(new RegExp(n,"i"))).map(x=>x[0])),
+    neo: "Trade Republic", bank: "", zips: fresh ? null : zipsOn(), zipSel: new Set(fresh ? ["Lebensmittel","Urlaub","Geschenke"] : []),
     inv: fresh ? null : hasDepot(), depot: "", theme: lsGet("hhb.theme") || "auto"
   };
   const N = 4; let i = 0;
@@ -1088,13 +1114,14 @@ function openOnboarding(fresh){
     () => `<div class="ob-hero"><p class="ob-k">Haushaltsbuch</p><h1 class="ob-h big">Willkommen.</h1><p class="ob-lead">Vier kurze Fragen, dann ist die App so eingerichtet, wie du sie brauchst. Alles lässt sich später ändern.</p></div>`,
     () => `<p class="ob-k">Frage 1 von ${N}</p><h2 class="ob-h">Welche Konten nutzt du?</h2><p class="ob-lead">Mehrere möglich.</p>
       <div class="ob-list">${ACC.map(([k,ic,n,sub])=>`<button class="ob-opt" data-acc="${k}" aria-pressed="${st.acc.has(k)}"><span class="ob-ic">${svgI(ic)}</span><span class="ob-t"><b>${n}</b><span>${sub}</span></span><span class="ob-check">${svgI("check")}</span></button>`).join("")}</div>
+      ${st.acc.has("neo")?`<p class="ob-k" style="margin-top:20px">Welcher Anbieter?</p><div class="ob-chips">${NEOS.map(n=>`<button class="chip" data-neo="${n}" aria-pressed="${st.neo===n}">${n}</button>`).join("")}</div>`:""}
       ${fresh?`<input class="input ob-in" id="obBank" placeholder="Name deiner Bank (optional), z. B. Sparkasse" value="${esc(st.bank)}" autocomplete="off" ${st.acc.has("giro")?"":"hidden"}>`:`<p class="ob-note">Bestehende Konten bleiben erhalten.</p>`}`,
     () => `<p class="ob-k">Frage 2 von ${N}</p><h2 class="ob-h">Nutzt du Bargeld&#8209;Zips?</h2><p class="ob-lead">Umschläge, in die du Bargeld für einen Zweck steckst, zum Beispiel Lebensmittel oder Urlaub.</p>
       <div class="ob-list">${opt("zips",true,"zip","Ja, mit Zips","Bekommen einen eigenen Reiter")}${opt("zips",false,"sonstiges","Nein, ohne Zips","Lässt sich jederzeit einschalten")}</div>
       ${st.zips && fresh ? `<p class="ob-k" style="margin-top:22px">Gleich anlegen</p><div class="ob-chips">${ZIPS.map(([n,e])=>`<button class="chip" data-zs="${n}" aria-pressed="${st.zipSel.has(n)}"><i class="zi">${svgI(ZIP_SVG[e])}</i>${n}</button>`).join("")}</div>` : ""}`,
     () => `<p class="ob-k">Frage 3 von ${N}</p><h2 class="ob-h">Investierst du?</h2><p class="ob-lead">Dann siehst du, wie viel du pro Monat und Jahr investierst, auch mit Round-up und Saveback.</p>
       <div class="ob-list">${opt("inv",true,"invest","Ja, ich habe ein Depot","Sparpläne und Einzahlungen erfassen")}${opt("inv",false,"sonstiges","Nein, erstmal nicht","Kann später dazukommen")}</div>
-      ${st.inv && !hasDepot() ? `<input class="input ob-in" id="obDepot" placeholder="Name des Depots, z. B. Trade Republic" value="${esc(st.depot)}" autocomplete="off">` : ""}`,
+      ${st.inv && st.acc.has("neo") ? `<p class="ob-note">Dein Depot bei ${esc(st.neo)} ist schon dabei.</p>` : st.inv && !hasDepot() ? `<input class="input ob-in" id="obDepot" placeholder="Name des Depots, z. B. Trade Republic" value="${esc(st.depot)}" autocomplete="off">` : ""}`,
     () => `<p class="ob-k">Frage 4 von ${N}</p><h2 class="ob-h">Wie soll die App aussehen?</h2><p class="ob-lead">Tipp an, um es gleich zu sehen.</p>
       <div class="ob-themes">${Object.entries(THEMES).map(([k,v])=>`<button data-obtheme="${k}" aria-pressed="${st.theme===k}"><i style="background:${v.sw}"></i><span>${v.n}</span></button>`).join("")}</div>`,
   ];
@@ -1113,14 +1140,16 @@ function openOnboarding(fresh){
     const make = (k,n,kind,o) => ({name:n, kind, start:0, order:o});
     if(fresh && !ents){
       const nw = {}; let o = 0;
-      ACC.forEach(([k,,n])=>{ if(st.acc.has(k)) nw[k] = make(k, k==="giro" && st.bank.trim() ? st.bank.trim() : n, k==="bargeld"?"bar":"konto", o++); });
+      ACC.forEach(([k,,n])=>{ if(!st.acc.has(k) || k==="neo") return; nw[k] = make(k, k==="giro" && st.bank.trim() ? st.bank.trim() : n, k==="bargeld"?"bar":"konto", o++); });
+      if(st.acc.has("neo")){ nw.neo = {...make("neo", st.neo, "konto", o++), depot:"neodepot"}; nw.neodepot = make("neodepot", st.neo+" Depot", "depot", o++); }
       if(!Object.keys(nw).length) nw.giro = make("giro","Girokonto","konto",0);
-      if(st.inv) nw.depot = make("depot", st.depot.trim() || "Depot", "depot", 10);
+      if(st.inv && !st.acc.has("neo")) nw.depot = make("depot", st.depot.trim() || "Depot", "depot", 10);
       if(st.zips) [...st.zipSel].forEach((n,k)=>{ const e = (ZIPS.find(z=>z[0]===n)||[])[1]; nw["z"+k+newId()] = {name:n, kind:"umschlag", start:0, order:20+k, ...(e?{icon:e}:{})}; });
       local.write("accounts", nw);
     } else {
-      ACC.forEach(([k,,n],o)=>{ if(!st.acc.has(k)) return; const exists = k==="giro" ? Object.values(accs).some(a=>a.kind==="konto") : k==="bargeld" ? Object.values(accs).some(a=>a.kind==="bar") : Object.values(accs).some(a=>new RegExp(n,"i").test(a.name||"")); if(!exists) accs[k+newId()] = make(k,n,k==="bargeld"?"bar":"konto",o); });
-      if(st.inv && !Object.values(accs).some(a=>a.kind==="depot")) accs["depot"+newId()] = make("depot", st.depot.trim() || "Depot", "depot", 10);
+      if(st.acc.has("neo") && !Object.values(accs).some(a=>a.kind==="konto" && (a.name||"").toLowerCase()===st.neo.toLowerCase())){ const did = "depot"+newId(); accs[did] = make("", st.neo+" Depot", "depot", 9.5); accs["neo"+newId()] = {...make("", st.neo, "konto", 9), depot:did}; }
+      ACC.forEach(([k,,n],o)=>{ if(!st.acc.has(k) || k==="neo") return; const exists = k==="giro" ? Object.values(accs).some(a=>a.kind==="konto") : k==="bargeld" ? Object.values(accs).some(a=>a.kind==="bar") : Object.values(accs).some(a=>new RegExp(n,"i").test(a.name||"")); if(!exists) accs[k+newId()] = make(k,n,k==="bargeld"?"bar":"konto",o); });
+      if(st.inv && !st.acc.has("neo") && !Object.values(accs).some(a=>a.kind==="depot")) accs["depot"+newId()] = make("depot", st.depot.trim() || "Depot", "depot", 10);
       local.write("accounts", accs);
     }
     try { localStorage.setItem("hhb.theme", st.theme); } catch(_){} applyTheme(st.theme);
@@ -1134,12 +1163,71 @@ function openOnboarding(fresh){
     if(t.closest("[data-obskip]")){ close(); return; }
     if(t.closest("[data-obback]")){ i = Math.max(0,i-1); draw(); return; }
     if(t.closest("[data-obnext]")){ if(i===pages.length-1) finish(); else { i++; draw(); } return; }
-    const a = t.closest("[data-acc]"); if(a){ const k = a.dataset.acc; st.acc.has(k) ? st.acc.delete(k) : st.acc.add(k); draw(); return; }
+    const a = t.closest("[data-acc]"); if(a){ const k = a.dataset.acc; st.acc.has(k) ? st.acc.delete(k) : st.acc.add(k); if(k==="neo" && st.acc.has(k)) st.inv = true; draw(); return; }
     const o = t.closest("[data-ob]"); if(o){ st[o.dataset.ob] = o.dataset.v==="true"; draw(); return; }
+    const nb = t.closest("[data-neo]"); if(nb){ st.neo = nb.dataset.neo; st.inv = true; draw(); return; }
     const z = t.closest("[data-zs]"); if(z){ const n = z.dataset.zs; st.zipSel.has(n) ? st.zipSel.delete(n) : st.zipSel.add(n); draw(); return; }
     const th = t.closest("[data-obtheme]"); if(th){ st.theme = th.dataset.obtheme; applyTheme(st.theme); draw(); return; }
   });
   draw();
+}
+
+// ---- Prognose für kommende Monate ----
+function recDates(r, m){
+  if(!r.amount || !r.start) return [];
+  const day = Number(r.start.slice(8,10)), end = m+"-31", out = []; let d = r.next || r.start, g = 0;
+  while(d <= end && g++ < 400){ if(d.slice(0,7)===m) out.push(d); d = addInterval(d, r.interval, day); }
+  return out;
+}
+function usualSpend(){
+  // Ø Alltagsausgaben (ohne Daueraufträge) der letzten 3 vollen Monate mit Einträgen
+  const cur = curMonth(), ms = [1,2,3].map(k=>shiftMonth(cur,-k));
+  const sums = ms.map(mm => state.entries.filter(e=>e.type==="out" && !e.rec && !isKorr(e) && (e.date||"").startsWith(mm)).reduce((s,e)=>s+e.amount,0)).filter(v=>v>0);
+  return sums.length ? Math.round(sums.reduce((a,b)=>a+b,0)/sums.length) : 0;
+}
+function forecastMonth(m){
+  const items = [];
+  for(const r of state.recurring){
+    const isInv = r.type==="transfer" && (accById(r.to)||{}).kind==="depot" && (accById(r.from)||{}).kind!=="depot";
+    if(r.type==="transfer" && !isInv) continue;
+    for(const d of recDates(r, m)) items.push({d, r, kind: r.type==="in" ? "in" : isInv ? "inv" : "out"});
+  }
+  items.sort((a,b)=>a.d.localeCompare(b.d));
+  const sum = k => items.filter(x=>x.kind===k).reduce((s,x)=>s+x.r.amount,0);
+  const inn = sum("in"), out = sum("out"), inv = sum("inv"), usual = usualSpend();
+  return {items, inn, out, inv, usual, net: inn - out - inv - usual};
+}
+function availNow(){
+  const m = curMonth(), ents = state.entries.filter(e=>(e.date||"").startsWith(m) && !isKorr(e));
+  const earned = ents.filter(e=>e.type==="in").reduce((s,e)=>s+e.amount,0), spent = ents.filter(e=>e.type==="out").reduce((s,e)=>s+e.amount,0);
+  const pend = pendingRecs(m).reduce((s,x)=>s+x.r.amount,0);
+  return earned - spent - investedYear(Number(m.slice(0,4))).months[Number(m.slice(5,7))-1] - pend;
+}
+function forecastHtml(m){
+  let carry = availNow(), f = null;
+  for(let k = shiftMonth(curMonth(),1); k <= m; k = shiftMonth(k,1)){ f = forecastMonth(k); if(k < m) carry += f.net; }
+  const mon = esc(monthName(m).split(" ")[0]);
+  const sg = n => (n<0?"−":"")+money(Math.abs(n));
+  const [w,c] = sg(f.net).replace(/\s?€/,"").split(",");
+  const noIncome = !state.recurring.some(r=>r.type==="in");
+  let h = `<div class="hero fc">
+    <div><div class="label">Prognose · übrig im ${mon}</div><div class="abig num ${f.net<0?"neg":""}">${esc(w)}<span class="cents">,${esc(c)} €</span></div>
+      <div class="asub">Mit Übertrag aus den Vormonaten: <b class="num">${sg(carry+f.net)}</b></div></div>
+    <div class="abrk">
+      <div><span>Feste Einnahmen</span><b class="num pos">+${money(f.inn)}</b></div>
+      <div><span>Fixkosten</span><b class="num">−${money(f.out)}</b></div>
+      ${f.inv?`<div><span>Sparpläne</span><b class="num">−${money(f.inv)}</b></div>`:""}
+      <div><span>Übliche Alltagsausgaben</span><b class="num">−${money(f.usual)}</b></div>
+      <div class="atot"><span>Übrig im ${mon}</span><b class="num">${sg(f.net)}</b></div>
+    </div>
+  </div>
+  <p class="fc-note">Eine Schätzung aus euren Daueraufträgen und dem Durchschnitt der Alltagsausgaben der letzten drei Monate${f.usual?"":" (noch keine Daten)"}. Mit jedem Eintrag wird sie genauer.</p>`;
+  if(noIncome) h += `<div class="fixcard"><div><b>Gehalt fehlt in der Prognose</b><p>Leg dein Gehalt als Dauerauftrag (Einnahme) an, dann rechnet die Prognose damit.</p></div><button id="addRec">Anlegen</button></div>`;
+  h += `<section><h2><span>Geplant im ${mon}</span><span class="num">${f.items.length}</span></h2>`;
+  h += f.items.length ? `<ul class="entries">${f.items.map(x=>{ const c = x.r.type==="transfer" ? null : catById(x.r.cat);
+    return `<li><button class="entry" data-rec="${esc(x.r.id)}">${c?catBadge(c):`<span class="badge" style="--bc:var(--c4)" aria-hidden="true">${svgI("invest")}</span>`}<span class="mid"><div class="t">${esc(x.r.name || (c?c.name:"Sparplan"))}</div><div class="s">${esc(fmtShort(x.d))} · ${esc(IV[x.r.interval]||"")}</div></span><span class="a num ${x.kind==="in"?"pos":""}">${x.kind==="in"?"+":"−"}${money(x.r.amount)}</span></button></li>`; }).join("")}</ul>`
+    : `<p class="hint" style="margin:0 4px">Für diesen Monat ist nichts geplant.</p>`;
+  return h + `</section>`;
 }
 
 // ---- Noch verfügbar ----
@@ -1190,9 +1278,10 @@ function render(){
   if(state.tab==="konten" && state.ready){ renderKonten(); return; }
   if(state.tab==="sips" && state.ready){ renderSips(); return; }
   $("#monthTitle").textContent = monthName(m);
-  $("#next").disabled = m >= curMonth();
+  $("#next").disabled = m >= shiftMonth(curMonth(), 12);
   const main = $("#main");
   if(!state.ready){ main.innerHTML = `<div class="empty">Daten werden geladen …</div>`; return; }
+  if(m > curMonth()){ main.innerHTML = forecastHtml(m); return; }
 
   const inMonth = state.entries.filter(e => (e.date||"").slice(0,7)===m);
   const outs = inMonth.filter(e => e.type!=="in" && e.type!=="transfer" && !isKorr(e));
@@ -1581,10 +1670,10 @@ function renderKonten(){
       ${ks.some(a=>a.kind==="depot")?`<button id="invest">${svgI("invest")}<span>Investieren</span></button>`:""}
       <button id="checkAcc">${svgI("check")}<span>Prüfen</span></button>
     </div>`;
-  html += `<section><h2><span>Konten</span><button class="linkbtn" id="addKonto">+ Neu</button></h2><ul class="accs">${ks.map(a => {
-    const b = balance(a);
-    const extra = `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.saveback?" · ":""}${a.saveback&&a.savebackTo?`Saveback ${String(a.saveback).replace(".",",")} %`:""}${(a.roundup||a.saveback)&&(a.roundupTo||a.savebackTo)?` → ${esc(accName(a.roundupTo||a.savebackTo))}`:""}`;
-    return `<li><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(${a.kind==="depot"?"--c4":a.kind==="bar"?"--c3":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button></li>`;
+  html += `<section><h2><span>Konten</span><button class="linkbtn" id="addKonto">+ Neu</button></h2><ul class="accs">${ks.filter(a=>!(a.kind==="depot" && isPairedDepot(a.id))).map(a => {
+    const b = balance(a), dp = pairOf(a);
+    const extra = `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.saveback?" · ":""}${a.saveback&&a.savebackTo?`Saveback ${String(a.saveback).replace(".",",")} %`:""}${(a.roundup||a.saveback)&&(a.roundupTo||a.savebackTo)&&(a.roundupTo||a.savebackTo)!==a.depot?` → ${esc(accName(a.roundupTo||a.savebackTo))}`:""}`;
+    return `<li class="${dp?"paired":""}"><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(${a.kind==="depot"||dp?"--c4":a.kind==="bar"?"--c3":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":dp?"invest":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button>${dp?`<button class="acc dsub" data-account="${esc(dp.id)}"><span class="mid"><div class="t">Depot</div><div class="s">${esc(dp.name)}</div></span><span class="a num">${money(balance(dp))}</span></button>`:""}</li>`;
   }).join("")}</ul></section>`;
 
   if(ks.some(a=>a.kind==="depot")){
@@ -1809,7 +1898,7 @@ function accountSheet(acc, kind, presetName){
   const isEnv = kind==="umschlag";
   const isZiel = kind==="ziel" || isEnv;
   const word = isEnv ? "Zip" : kind==="ziel" ? "Sparziel" : "Konto";
-  const r = {kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&(acc.roundupTo||acc.savebackTo)||null, saveback: acc&&acc.saveback||0};
+  const r = {pair: acc && acc.depot && state.accounts.some(x=>x.id===acc.depot) ? acc.depot : null, kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&(acc.roundupTo||acc.savebackTo)||null, saveback: acc&&acc.saveback||0};
   const targets = () => state.accounts.filter(a => (a.kind==="depot"||a.kind==="ziel") && (!acc || a.id!==acc.id));
   const cur = isEnv ? (acc ? acc.start||0 : 0) : acc ? balance(acc) : 0;
   openSheet(`
@@ -1820,6 +1909,7 @@ function accountSheet(acc, kind, presetName){
     <div><div class="label" style="margin-bottom:6px">${isEnv?"Anfangsbestand":isZiel?"Schon angespart":acc?"Aktueller Kontostand":"Anfangsbestand (heutiger Kontostand)"}</div><input class="input num" id="aBal" inputmode="decimal" placeholder="0" value="${esc(toSigned(cur))}" autocomplete="off"></div>
     <p class="sublabel">${isEnv?`Geld, das schon im Zip steckt. Zählt nicht als Ausgabe und wird nicht vom Bargeld abgezogen.${acc?` Aktuell im Zip: <b class="num">${money(balance(acc))}</b>.`:" Neues Geld kommt später mit „Befüllen“ dazu."}`:isZiel?"Weiteres Geld legst du über „Zurücklegen“ dazu.":acc?`Anfangsbestand: ${money(acc.start||0)}. Änderst du den Stand hier, wird der Anfangsbestand angepasst. Für Abweichungen im Alltag lieber „Kontostände prüfen“ nutzen, dann bleibt die Differenz sichtbar.`:"Ab jetzt rechnet die App den Stand mit deinen Einträgen weiter. Minus für Dispo, z. B. -250."}</p>
     ${isZiel?"":`<div><div class="label" style="margin-bottom:6px">Art</div><div class="chips" id="aKind">${["konto","bar","depot"].map(k=>`<button class="chip" data-kind="${k}">${KINDS[k]}</button>`).join("")}</div></div>
+    <div id="pairBox"><div class="optrow"><div><b>Mit Depot</b><p class="hint">Konto und Depot in einem, z. B. Trade Republic, Revolut, N26 oder Scalable.</p></div><button class="switch" id="aPair" role="switch" aria-checked="false" aria-label="Mit Depot"><i></i></button></div><div class="chips" id="aPairTo" style="margin-top:10px"></div></div>
     <div id="ruBox"><div class="label" style="margin-bottom:6px">Round-up</div>
       <p class="sublabel" style="margin:0 0 8px">Jede Ausgabe von diesem Konto wird auf den nächsten Euro aufgerundet, die Differenz mal Faktor geht aufs Depot. Beispiel bei 10×: 0,85 € Kauf ergibt 1,50 €.</p>
       <div class="chips" id="aMult">${[0,1,2,3,5,10].map(m=>`<button class="chip" data-mult="${m}">${m?m+"×":"Aus"}</button>`).join("")}</div>
@@ -1835,8 +1925,11 @@ function accountSheet(acc, kind, presetName){
     <div class="row">${acc?`<button class="danger" id="del">Löschen</button>`:""}<button class="primary" id="ok">${acc?"Speichern":"Anlegen"}</button></div>
   `);
   const sync = () => {
-    if(!isZiel && (r.roundup||r.saveback) && !r.roundupTo){ const ts0 = targets(); if(ts0.length===1) r.roundupTo = ts0[0].id; }
-    $("#ok").disabled = !$("#aName").value.trim() || isNaN(parseSigned($("#aBal").value)) || (!isZiel && r.kind==="konto" && (r.roundup>0 || r.saveback) && !r.roundupTo);
+    if(!isZiel && (r.roundup||r.saveback) && !r.roundupTo){ if(r.pair && r.pair!=="__new") r.roundupTo = r.pair; else { const ts0 = targets(); if(ts0.length===1) r.roundupTo = ts0[0].id; } }
+    $("#ok").disabled = !$("#aName").value.trim() || isNaN(parseSigned($("#aBal").value)) || (!isZiel && r.kind==="konto" && (r.roundup>0 || r.saveback) && !r.roundupTo && r.pair!=="__new");
+    if(!isZiel){ $("#pairBox").hidden = r.kind!=="konto"; $("#aPair").setAttribute("aria-checked", String(!!r.pair));
+      const free = state.accounts.filter(x=>x.kind==="depot" && (!isPairedDepot(x.id) || (acc && acc.depot===x.id)));
+      $("#aPairTo").innerHTML = !r.pair ? "" : free.map(x=>`<button class="chip" data-pairto="${esc(x.id)}" aria-pressed="${r.pair===x.id}">${esc(x.name)}</button>`).join("") + `<button class="chip" data-pairto="__new" aria-pressed="${r.pair==="__new"}">+ Neues Depot</button>`; }
     if(isZiel) return;
     document.querySelectorAll("#aKind [data-kind]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.kind===r.kind)));
     $("#ruBox").hidden = r.kind!=="konto";
@@ -1858,6 +1951,8 @@ function accountSheet(acc, kind, presetName){
     $("#aMult").onclick = e => { const b=e.target.closest("[data-mult]"); if(b){ r.roundup=+b.dataset.mult; sync(); } };
     $("#aSb").onclick = e => { const b=e.target.closest("[data-sb]"); if(b){ r.saveback = +b.dataset.sb ? 1 : 0; sync(); } };
     $("#ruTo").onclick = e => { const b=e.target.closest("[data-rto]"); if(b){ r.roundupTo=b.dataset.rto; sync(); } };
+    $("#aPair").onclick = () => { if(r.pair) r.pair = null; else { const free = state.accounts.filter(x=>x.kind==="depot" && !isPairedDepot(x.id)); r.pair = acc ? ((free[0]||{}).id || "__new") : "__new"; } sync(); };
+    $("#aPairTo").onclick = e => { const b=e.target.closest("[data-pairto]"); if(b){ r.pair = b.dataset.pairto; if(r.roundupTo && r.roundupTo!==r.pair && (r.roundup||r.saveback)) {} sync(); } };
   }
   $("#cancel").onclick = closeSheet;
   $("#ok").onclick = async () => {
@@ -1865,6 +1960,10 @@ function accountSheet(acc, kind, presetName){
     if(!name || isNaN(want)) return;
     const id = acc ? acc.id : newId();
     const data = {name, kind: r.kind, start: isEnv ? want : want - (acc ? movement(acc.id) : 0), order: acc ? (acc.order||0) : Date.now()};
+    if(r.kind==="konto" && r.pair){
+      if(r.pair==="__new"){ const did = newId(); await save("accounts", did, {name: name+" Depot", kind:"depot", start:0, order:(data.order||0)+0.5}); r.pair = did; }
+      data.depot = r.pair; if((r.roundup||r.saveback) && !r.roundupTo) r.roundupTo = r.pair;
+    }
     if(r.kind==="konto" && r.roundup && r.roundupTo){ data.roundup = r.roundup; data.roundupTo = r.roundupTo; }
     if(r.kind==="konto" && r.saveback && r.roundupTo){
       const pct = Number(String($("#aSbPct").value).replace(",",".")); 
@@ -2086,7 +2185,7 @@ function korrSheet(x){
 }
 
 // ---- Alles zurücksetzen (mit Sicherheitsabfrage) ----
-const RESET_KEYS = ["entries","accounts","settings","recurring","lastCheck","checkSnooze","snooze","mig.paypal","mig.union"];
+const RESET_KEYS = ["entries","accounts","settings","recurring","lastCheck","checkSnooze","snooze","mig.paypal","mig.union","mig.pair"];
 const RESET_WORD = "LÖSCHEN";
 function resetSheet(){
   const nE = state.entries.length, nA = state.accounts.length, nR = state.recurring.length;
@@ -2201,7 +2300,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.19 (22.11.2026)";
+const APP_VERSION = "2.20 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -2370,12 +2469,12 @@ document.addEventListener("click", e => {
   if(e.target.closest("#addTransfer")){ entrySheet(null, {type:"transfer"}); return; }
   const iy = e.target.closest("[data-invyear]");
   if(iy){ state.invYear = Number(iy.dataset.invyear); render(); return; }
-  if(e.target.closest("#invest")){ const dep = konten().filter(a=>a.kind==="depot"); const ks2 = konten().filter(a=>a.kind==="konto"); const src = ks2.find(a=>a.roundupTo||a.savebackTo) || ks2[0]; const to = (src && accById(src.roundupTo||src.savebackTo)) || dep[0]; entrySheet(null, {type:"transfer", from:src&&src.id, to:to&&to.id}); return; }
+  if(e.target.closest("#invest")){ const dep = konten().filter(a=>a.kind==="depot"); const ks2 = konten().filter(a=>a.kind==="konto"); const src = ks2.find(a=>a.depot) || ks2.find(a=>a.roundupTo||a.savebackTo) || ks2[0]; const to = (src && accById(src.depot||src.roundupTo||src.savebackTo)) || dep[0]; entrySheet(null, {type:"transfer", from:src&&src.id, to:to&&to.id}); return; }
   if(e.target.closest("#withdraw")){ const bar = konten().find(a=>a.kind==="bar"); const src = konten().find(a=>a.kind==="konto"); entrySheet(null, {type:"transfer", to:bar&&bar.id, from:src&&src.id}); return; }
   if(e.target.closest("#snooze")){ try { localStorage.setItem("hhb.snooze", String(Date.now()+2*DAY)); } catch(_){} render(); return; }
 });
 $("#prev").onclick = () => { state.month = shiftMonth(state.month,-1); state.cat=null; render(); };
-$("#next").onclick = () => { if(state.month<curMonth()){ state.month = shiftMonth(state.month,1); state.cat=null; render(); } };
+$("#next").onclick = () => { if(state.month<shiftMonth(curMonth(),12)){ state.month = shiftMonth(state.month,1); state.cat=null; render(); } };
 $("#settings").onclick = budgetSheet;
 $("#fab").onclick = () => entrySheet(null);
 $("#scrim").onclick = closeSheet;
