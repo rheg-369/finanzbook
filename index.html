@@ -494,6 +494,76 @@ section > h2 .linkbtn{font-family:var(--f-body)}
 .subs li{display:flex;justify-content:space-between;gap:10px;color:var(--muted)} .subs b{font-weight:500;color:var(--ink)}
 .inv .tot .v{font-family:var(--f-serif);font-weight:400;font-size:2.4rem;letter-spacing:-.03em}
 .empty strong{font-family:var(--f-serif);font-weight:500}
+/* ---- Layout 2.17: cleaner ---- */
+.hero{gap:18px}
+.hero .avail{border-top:0;padding-top:0}
+.avail .abig{font-size:3.2rem;margin-top:4px}
+.avail .asub{font-size:.86rem;opacity:.78;margin-top:6px}
+.hero .budget{gap:8px}
+.hero .bline{font-size:.82rem}
+.hero .trio{padding-top:14px}
+.hero .trio .v{font-size:.95rem}
+.morebtn{display:block;margin:4px auto 6px;border:0;background:none;color:var(--muted);font-size:.85rem;font-weight:500;padding:8px 14px}
+section > h2 .linkbtn{font-family:var(--f-body);font-size:.9rem;font-weight:500;color:var(--accent);align-self:center}
+.recsum{width:100%;display:flex;align-items:center;gap:14px;text-align:left;border:var(--card-border);background:var(--surface);box-shadow:var(--card-shadow);border-radius:22px;padding:16px 16px 16px 18px}
+.recsum .rl{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.recsum .rl b{font-weight:600;font-size:.98rem}
+.recsum span span,.recsum .rl>span,.recsum .rr>span{font-size:.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recsum .rr{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.recsum .rr b{font-family:var(--f-serif);font-weight:400;font-size:1.25rem;letter-spacing:-.02em}
+.recsum svg{width:18px;height:18px;color:var(--muted);flex:none}
+.qacts{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:10px;margin-top:14px}
+.qacts button{border:var(--card-border);background:var(--surface);box-shadow:var(--card-shadow);border-radius:18px;padding:12px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:.76rem;font-weight:500;color:var(--ink)}
+.qacts svg{width:22px;height:22px;color:var(--accent)}
+.acc .badge{margin-right:2px}
+.accs .acc{gap:12px}
+.foot-note{text-align:center;margin:22px 0 0;font-size:.8rem;color:var(--muted)}
+.foot-note .linkbtn{align-self:auto;font-weight:500;font-size:.85rem}
+.sheet-inner{gap:18px}
+.sheet .label{margin-bottom:8px!important}
+#fCat,#rCat,#fSub,#rSub,#fAcc,#rAcc,#rTpl,#rIv,#fFrom,#fTo,#rFrom,#rTo,#rWd{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-18px;padding:2px 18px;scroll-padding-inline:18px;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 18px,#000 calc(100% - 30px),transparent);mask-image:linear-gradient(90deg,transparent 0,#000 18px,#000 calc(100% - 30px),transparent)}
+#fCat::-webkit-scrollbar,#rCat::-webkit-scrollbar,#fSub::-webkit-scrollbar,#rSub::-webkit-scrollbar,#fAcc::-webkit-scrollbar,#rAcc::-webkit-scrollbar,#rTpl::-webkit-scrollbar,#rIv::-webkit-scrollbar,#fFrom::-webkit-scrollbar,#fTo::-webkit-scrollbar,#rFrom::-webkit-scrollbar,#rTo::-webkit-scrollbar,#rWd::-webkit-scrollbar{display:none}
+.chips .chip{white-space:nowrap;flex:none}
+#fCat,#rCat{gap:6px}
+.ctile{flex:none;width:76px;border:0;background:none;padding:4px 0;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:.72rem;font-weight:500;color:var(--muted)}
+.ctile .badge{width:50px;height:50px;border-radius:16px;transition:box-shadow .15s,transform .15s}
+.ctile .badge svg{width:22px;height:22px}
+.ctile span:last-child{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctile[aria-pressed="true"]{color:var(--ink)}
+.ctile[aria-pressed="true"] .badge{box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px color-mix(in srgb,var(--bc) 80%,var(--ink));transform:scale(1.04)}
+details.more{border:var(--card-border);border-radius:14px;padding:12px 14px;background:var(--surface)}
+details.more summary{list-style:none;display:flex;align-items:center;gap:6px;font-size:.9rem;color:var(--muted);cursor:pointer}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary b{color:var(--ink);font-weight:500}
+details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
+/* ---- Zips 2.18: eleganter ---- */
+.zgrid{gap:10px}
+.zcard{padding:16px 16px 14px;gap:0;min-height:0}
+.zcard .open{gap:0}
+.zcard .ztop{display:flex;align-items:center;gap:10px;min-width:0}
+.zcard .ic{width:34px;height:34px;border-radius:11px;flex:none;color:color-mix(in srgb,var(--zc) 80%,var(--ink))}
+.zcard .ic svg,.zhead .ic svg{width:18px;height:18px}
+.zhead .ic{color:color-mix(in srgb,var(--zc) 80%,var(--ink))} .zhead .ic svg{width:24px;height:24px}
+.zcard .zn{color:var(--ink);font-size:.9rem;font-weight:500}
+.zcard .zb{font-size:1.75rem;margin:14px 0 10px}
+.zcard .zbar{height:3px;margin-bottom:6px;background:color-mix(in srgb,var(--zc) 14%,var(--track))}
+.zcard .zt,.zcard .zm{font-size:.74rem;line-height:1.4}
+.zcard.addz{min-height:132px;border-radius:24px}
+.zi{display:inline-grid;place-items:center;width:18px;height:18px;margin-right:6px;vertical-align:-3px;font-style:normal}
+.zi svg{width:16px;height:16px}
+.chip .zi{margin-right:0;color:var(--muted)}
+.zpick{padding:8px 10px!important} .zpick svg{width:20px;height:20px}
+.zacts{gap:8px}
+.zacts button{padding:12px 2px;gap:6px}
+.hero .acts{gap:10px}
+.fixcard{display:flex;gap:14px;align-items:center;margin:16px 0 0;padding:14px 14px 14px 16px;border-radius:20px;border:1px solid color-mix(in srgb,var(--danger) 30%,var(--line));background:color-mix(in srgb,var(--danger) 6%,var(--surface))}
+.fixcard b{font-weight:600;font-size:.92rem}
+.fixcard p{margin:4px 0 0;font-size:.8rem;color:var(--muted);line-height:1.4}
+.fixcard button{flex:none;border:0;border-radius:999px;padding:10px 14px;font-weight:600;font-size:.85rem;background:var(--ink);color:var(--surface)}
+.fixlist .acc{gap:12px}
+.fixlist .tick{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;color:transparent;flex:none}
+.fixlist .tick svg{width:14px;height:14px}
+.fixlist [aria-pressed="true"] .tick{background:var(--accent);border-color:var(--accent);color:var(--surface)}
 </style>
 </head>
 <body>
@@ -876,12 +946,34 @@ const ICO = {
   ziel:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6"/>',
   transfer:'<path d="M4 8h14.5M15 4.5 18.5 8 15 11.5M20 16H5.5M9 12.5 5.5 16 9 19.5"/>',
   korrektur:'<path d="M12 5v8M8 9h8M8 18.5h8"/>',
+  plane:'<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+  phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
+  piggy:'<path d="M5 11a6 5 0 0 1 6-5h3a6 5 0 0 1 5.5 3H21v4h-1.6a6 6 0 0 1-2.4 2.6V19h-3v-2h-3v2H8v-3.2A5 5 0 0 1 5 11z"/><circle cx="15.5" cy="10" r=".6"/><path d="M5 11H3.5"/>',
+  lifebuoy:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.5"/><path d="m6 6 3.5 3.5M14.5 14.5 18 18M18 6l-3.5 3.5M9.5 14.5 6 18"/>',
+  shirt:'<path d="M8.5 3.5 4 6l1.5 4.5L7.5 10v10.5h9V10l2 .5L20 6l-4.5-2.5a3.5 3.5 0 0 1-7 0z"/>',
+  paw:'<circle cx="7" cy="9" r="1.6"/><circle cx="10.5" cy="5.8" r="1.6"/><circle cx="14.5" cy="5.8" r="1.6"/><circle cx="18" cy="9" r="1.6"/><path d="M12.5 11c-2.6 0-5 3.5-5 6 0 1.6 1.2 2.5 2.6 2.2l1.4-.3a4 4 0 0 1 2 0l1.4.3c1.4.3 2.6-.6 2.6-2.2 0-2.5-2.4-6-5-6z"/>',
+  sparkle:'<path d="M12 3.5 13.8 10.2 20.5 12l-6.7 1.8L12 20.5l-1.8-6.7L3.5 12l6.7-1.8z"/>',
+  scissors:'<circle cx="6" cy="6.5" r="2.5"/><circle cx="6" cy="17.5" r="2.5"/><path d="M8.2 7.8 20 18M8.2 16.2 20 6"/>',
+  receipt:'<path d="M5.5 3.5h13v17l-2.2-1.4-2.2 1.4-2.1-1.4-2.2 1.4-2.1-1.4-2.2 1.4z"/><path d="M9 8.5h6M9 12h6M9 15.5h3.5"/>',
+  cap:'<path d="m2.5 9.5 9.5-5 9.5 5-9.5 5z"/><path d="M6.5 11.6V16c0 1.4 2.5 3 5.5 3s5.5-1.6 5.5-3v-4.4M21.5 9.5v5"/>',
+  baby:'<circle cx="12" cy="7.5" r="3.5"/><path d="M5.5 20.5a6.5 6.5 0 0 1 13 0"/>',
+  ball:'<circle cx="12" cy="12" r="8.5"/><path d="m12 8 3.3 2.4-1.3 3.9h-4L8.7 10.4zM12 3.5V8M15.3 10.4l4.4-1.4M14 14.3l2.7 3.8M10 14.3l-2.7 3.8M8.7 10.4 4.3 9"/>',
+  game:'<rect x="2.5" y="7" width="19" height="11" rx="4"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="15.5" cy="11.5" r=".8"/><circle cx="17.5" cy="13.5" r=".8"/>',
+  book:'<path d="M4 5.5A2 2 0 0 1 6 3.5h13.5v14H6a2 2 0 0 0-2 2z"/><path d="M4 19.5a2 2 0 0 0 2 2h13.5v-4"/>',
+  tree:'<path d="M12 3 6.5 10h3L5.5 15.5h13L14.5 10h3z"/><path d="M12 15.5v5"/>',
+  ring:'<circle cx="12" cy="14.5" r="6"/><path d="m9.5 3.5 2.5 3 2.5-3"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
+  fuel:'<path d="M4.5 20.5v-15a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v15M3.5 20.5h12M4.5 10.5h10"/><path d="M14.5 8.5h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/>',
+  check:'<path d="M4.5 12.5 9.5 17.5 19.5 7"/>',
+  bank:'<path d="M3.5 9.5 12 4.5l8.5 5"/><path d="M5.5 10.5v6.5M10 10.5v6.5M14 10.5v6.5M18.5 10.5v6.5M3.5 19.5h17"/>',
   pay:'<rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19M6 15h4"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
   out:'<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-2"/>',
   edit:'<path d="M4 20h4L19 9a2.1 2.1 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
 };
 const svgI = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[k]||ICO.sonstiges}</svg>`;
+const CAT_SHORT = {wohnen:"Wohnen", restaurant:"Essen & Café", abos:"Abos", versicherung:"Versicherung", taschengeld:"Taschengeld"};
+const catTile = (c, attr, sel) => `<button class="ctile" data-${attr}="${c.id}" aria-pressed="${c.id===sel}">${catBadge(c)}<span>${esc(CAT_SHORT[c.id]||c.name)}</span></button>`;
 const catBadge = c => `<span class="badge" style="--bc:var(${c.c==="--accent"?"--c3":c.c})" aria-hidden="true">${svgI(ICO[c.id]?c.id:(c.c==="--accent"?"gehalt":"sonstiges"))}</span>`;
 
 // ---- Unterkategorien ----
@@ -958,9 +1050,9 @@ function availHtml(m, earned, spent, invM){
   if(cur){ rows.push(["Noch fällige Fixkosten", "−"+money(pFix)]); if(pInv) rows.push(["Noch fällige Sparpläne", "−"+money(pInv)]); }
   const list = pend.map(x=>`<div class="pl"><span>${esc(fmtShort(x.d))} · ${esc(x.r.name || (x.inv?"Sparplan":(catById(x.r.cat)||{}).name||"Dauerauftrag"))}</span><span class="num">−${money(x.r.amount)}</span></div>`).join("");
   return `<details class="avail"><summary>
-      <div><div class="label">${cur?"Noch verfügbar":"Übrig im "+esc(monthName(m).split(" ")[0])}</div>
+      <div><div class="label">${cur?"Noch verfügbar im "+esc(monthName(m).split(" ")[0]):"Übrig im "+esc(monthName(m).split(" ")[0])}</div>
         <div class="abig num ${v<0?"neg":""}">${esc(w)}<span class="cents">,${esc(c)} €</span></div>
-        ${cur && v>0 && daysLeft>0 ? `<div class="asub">ca. <b class="num">${money(Math.floor(v/daysLeft))}</b> pro Tag für ${daysLeft===1?"heute":"die restlichen "+daysLeft+" Tage"}</div>` : cur && v<0 ? `<div class="asub">Mehr ausgegeben als reingekommen</div>` : ""}
+        ${cur && v>0 && daysLeft>0 ? `<div class="asub">≈ <b class="num">${money(Math.floor(v/daysLeft))}</b> pro Tag · noch ${daysLeft===1?"heute":daysLeft+" Tage"}</div>` : cur && v<0 ? `<div class="asub">Mehr ausgegeben als reingekommen</div>` : ""}
       </div><span class="achev" aria-hidden="true">›</span></summary>
     <div class="abrk">${rows.map(([a,b,k])=>`<div><span>${a}</span><b class="num ${k||""}">${b}</b></div>`).join("")}
       <div class="atot"><span>${cur?"Noch verfügbar":"Übrig"}</span><b class="num">${sg(v)}</b></div>
@@ -994,7 +1086,7 @@ function render(){
 
   // budget
   const budget = state.settings.budget||0;
-  let budgetHtml = `<button class="linkbtn" id="setBudget">Monatsbudget festlegen</button>`;
+  let budgetHtml = "";
   if(budget){
     const pct = spent/budget;
     const rest = budget - spent;
@@ -1003,21 +1095,19 @@ function render(){
     const daysLeft = isCur ? new Date(y,mo,0).getDate() - new Date().getDate() + 1 : 0;
     const perDay = isCur && rest>0 ? ` · <span>noch <b class="num">${money(Math.floor(rest/daysLeft))}</b> pro Tag</span>` : "";
     budgetHtml = `<div class="budget">
-      <div class="bline"><span>Budget <b class="num">${money(budget)}</b></span><span>${rest>=0?`Übrig <b class="num pos">${money(rest)}</b>`:`Überzogen <b class="num neg">${money(-rest)}</b>`}${perDay}</span></div>
+      <div class="bline"><span>Budget <b class="num">${money(budget)}</b></span><span>${rest>=0?`<b class="num">${money(rest)}</b> übrig`:`<b class="num neg">${money(-rest)}</b> überzogen`}</span></div>
       <div class="bar" role="img" aria-label="${Math.round(pct*100)} Prozent des Budgets verbraucht"><i class="${pct>1?"over":pct>.85?"warn":""}" style="width:${Math.min(100,pct*100).toFixed(1)}%"></i></div>
     </div>`;
   }
 
   let html = reminderHtml() + (m===curMonth() ? wrappedBanner() : "") + `<div class="hero">
-    <div><div class="label">Ausgaben im ${esc(monthName(m).split(" ")[0])}</div>
-      <div class="big num">${esc(whole)}<span class="cents">,${esc(cents)} €</span></div></div>
+    ${availHtml(m, earned, spent, invM)}
     ${budgetHtml}
     <div class="trio">
-      <div><div class="label">Einnahmen</div><div class="v num pos">${money(earned)}</div></div>
-      <div><div class="label">Ausgaben</div><div class="v num">${money(spent)}</div></div>
+      <div><div class="label">Rein</div><div class="v num pos">${money(earned)}</div></div>
+      <div><div class="label">Raus</div><div class="v num">${money(spent)}</div></div>
       ${hasDepot()||invM?`<div><div class="label">Investiert</div><div class="v num">${money(invM)}</div></div>`:""}
     </div>
-    ${availHtml(m, earned, spent, invM)}
   </div>`;
 
   // categories + Kuchendiagramm
@@ -1047,15 +1137,15 @@ function render(){
     <div class="pie"><svg class="donut" viewBox="0 0 42 42" role="img" aria-label="Kuchendiagramm der Ausgaben">${arcs}
       <text x="21" y="20.2" text-anchor="middle" font-size="2.6" fill="var(--muted)">${esc(sel ? sel.name.split(" ")[0] : "Ausgaben")}</text>
       <text class="ctr" x="21" y="25" text-anchor="middle" font-size="4.6" fill="var(--ink)">${esc(money(sel?sel.sum:spent).replace(/,\d\d\s?€/," €"))}</text></svg>
-    <ul class="cats">${segs.map(x => mode==="cat" ? `
-      <li><button class="cat" data-cat="${x.k}" aria-pressed="${state.cat===x.k}" title="${esc(x.name)}: ${money(x.sum)}, ${x.n} Einträge">
+    <ul class="cats">${segs.map((x,ix) => mode==="cat" ? `
+      <li${ix>=5 && !state.pieAll && !(state.cat===x.k) ?' hidden':''}><button class="cat" data-cat="${x.k}" aria-pressed="${state.cat===x.k}" title="${esc(x.name)}: ${money(x.sum)}, ${x.n} Einträge">
         <span class="name"><span class="dot" style="background:var(${x.col})"></span>${esc(x.name)}</span>
         <span class="amt num">${money(x.sum)}<small>${Math.round(x.sum/spent*100)} %</small></span>
         <span class="track"><i style="width:${(x.sum/max*100).toFixed(1)}%;background:var(${x.col})"></i></span>
       </button>${state.cat===x.k ? subBreak(outs.filter(e=>e.cat===x.k)) : ""}</li>` : `
-      <li><div class="cat"><span class="name"><span class="dot" style="background:var(${x.col})"></span>${esc(x.name)}${x.n>1?` <small style="color:var(--muted)">${x.n}×</small>`:""}</span>
+      <li${ix>=5 && !state.pieAll ?' hidden':''}><div class="cat"><span class="name"><span class="dot" style="background:var(${x.col})"></span>${esc(x.name)}${x.n>1?` <small style="color:var(--muted)">${x.n}×</small>`:""}</span>
         <span class="amt num">${money(x.sum)}<small>${Math.round(x.sum/spent*100)} %</small></span>
-        <span class="track"><i style="width:${(x.sum/max*100).toFixed(1)}%;background:var(${x.col})"></i></span></div></li>`).join("")}</ul></div></section>`;
+        <span class="track"><i style="width:${(x.sum/max*100).toFixed(1)}%;background:var(${x.col})"></i></span></div></li>`).join("")}</ul>${segs.length>5?`<button class="morebtn" data-pieall>${state.pieAll?"Weniger anzeigen":`Alle ${segs.length} anzeigen`}</button>`:""}</div></section>`;
   }
 
   html += recSection();
@@ -1181,14 +1271,14 @@ function entrySheet(entry, preset){
     const isIn = d.type==="in";
     $("#fCat").hidden = isIn; $("#fCatSel").hidden = !isIn; $("#catLabel").textContent = isIn ? "Was kommt rein?" : "Kategorie";
     if(isIn){ $("#fCatSel").innerHTML = IN_CATS.filter(c=>c.id!=="saveback" || d.cat==="saveback").map(c=>`<option value="${c.id}">${c.i} ${esc(c.name)}</option>`).join(""); $("#fCatSel").value = d.cat; }
-    else $("#fCat").innerHTML = cats().map(c=>`<button class="chip" data-cat="${c.id}" aria-pressed="${c.id===d.cat}"><span class="dot" style="background:var(${c.c})"></span>${esc(c.name)}</button>`).join("");
+    else $("#fCat").innerHTML = cats().map(c=>catTile(c, "cat", d.cat)).join("");
     drawSub();
   };
   let dest = "konto"; const chosen = [];
   let editAcc = false;
   const na = {slot:null, kind:"konto"};
   const accChips = (sel, attr) => state.accounts.slice().sort((a,b)=>(KIND_ORDER[a.kind||"konto"]-KIND_ORDER[b.kind||"konto"])||(a.order||0)-(b.order||0))
-    .map(a=>`<button class="chip" data-${editAcc?"delacc":attr}="${esc(a.id)}" aria-pressed="${!editAcc && a.id===sel}" ${editAcc?`aria-label="${esc(a.name)} löschen"`:""}>${a.kind==="ziel"?"🎯 ":a.kind==="umschlag"?zipIcon(a)+" ":""}${esc(a.name)}${editAcc?'<span class="x" aria-hidden="true">×</span>':""}</button>`).join("")
+    .map(a=>`<button class="chip" data-${editAcc?"delacc":attr}="${esc(a.id)}" aria-pressed="${!editAcc && a.id===sel}" ${editAcc?`aria-label="${esc(a.name)} löschen"`:""}>${a.kind==="ziel"?"🎯 ":a.kind==="umschlag"?`<i class="zi">${zipSvg(a)}</i>`:""}${esc(a.name)}${editAcc?'<span class="x" aria-hidden="true">×</span>':""}</button>`).join("")
     + (attr==="acc" ? "" : editAcc ? `<button class="chip ghost" data-editdone="1">Fertig</button>` : `<button class="chip ghost" data-newfor="${attr}">+ Neu</button><button class="chip ghost" data-editacc="1">Bearbeiten</button>`);
   const drawAcc = () => {
     $("#fAcc").innerHTML = accChips(d.account, "acc");
@@ -1205,7 +1295,7 @@ function entrySheet(entry, preset){
   const splitOn = () => canSplit() && dest==="zips" && (accById(d.account)||{}).kind!=="umschlag";
   const drawSplit = () => {
     const keep = {}; document.querySelectorAll("[data-split]").forEach(i => keep[i.dataset.split] = i.value);
-    $("#splitRows").innerHTML = chosen.map(id => { const z = accById(id); if(!z) return ""; return `<div class="splitrow" style="grid-template-columns:1fr 7.5em auto"><span>${zipIcon(z)} ${esc(z.name)} <small class="num" style="color:var(--muted)">(${money(balance(z))})</small></span><input class="input num" inputmode="decimal" placeholder="0" data-split="${esc(id)}" value="${esc(keep[id]||"")}" autocomplete="off" aria-label="Betrag für ${esc(z.name)}"><button class="chip" data-unsplit="${esc(id)}" aria-label="${esc(z.name)} entfernen" style="padding:6px 10px">×</button></div>`; }).join("");
+    $("#splitRows").innerHTML = chosen.map(id => { const z = accById(id); if(!z) return ""; return `<div class="splitrow" style="grid-template-columns:1fr 7.5em auto"><span><i class="zi" style="color:var(${zipColor(z)})">${zipSvg(z)}</i>${esc(z.name)} <small class="num" style="color:var(--muted)">(${money(balance(z))})</small></span><input class="input num" inputmode="decimal" placeholder="0" data-split="${esc(id)}" value="${esc(keep[id]||"")}" autocomplete="off" aria-label="Betrag für ${esc(z.name)}"><button class="chip" data-unsplit="${esc(id)}" aria-label="${esc(z.name)} entfernen" style="padding:6px 10px">×</button></div>`; }).join("");
     const left = umschlaege().filter(z=>!chosen.includes(z.id));
     $("#splitAdd").hidden = !left.length;
     $("#splitAdd").innerHTML = `<option value="">＋ Zip hinzufügen …</option>` + (left.length>1 ? `<option value="__all">Alle Zips</option>` : "") + left.map(z=>`<option value="${esc(z.id)}">${zipIcon(z)} ${esc(z.name)}</option>`).join("");
@@ -1366,12 +1456,18 @@ function renderKonten(){
       <div><div class="label">Konten</div><div class="v num">${money(onAcc)}</div></div>
       <div><div class="label">Zips</div><div class="v num">${money(inEnv)}</div></div>
       <div><div class="label">Sparziele</div><div class="v num pos">${money(inGoals)}</div></div>
-    </div></div>`;
-  html += `<section><h2><span>Konten</span></h2><ul class="accs">${ks.map(a => {
+    </div></div>
+    <div class="qacts">
+      <button id="addTransfer">${svgI("transfer")}<span>Umbuchen</span></button>
+      ${ks.some(a=>a.kind==="bar")?`<button id="withdraw">${svgI("atm")}<span>Abheben</span></button>`:""}
+      ${ks.some(a=>a.kind==="depot")?`<button id="invest">${svgI("invest")}<span>Investieren</span></button>`:""}
+      <button id="checkAcc">${svgI("check")}<span>Prüfen</span></button>
+    </div>`;
+  html += `<section><h2><span>Konten</span><button class="linkbtn" id="addKonto">+ Neu</button></h2><ul class="accs">${ks.map(a => {
     const b = balance(a);
-    return `<li><button class="acc" data-account="${esc(a.id)}"><span class="mid"><div class="t">${esc(a.name)}</div><div class="s">${esc(KINDS[a.kind||"konto"])}${a.roundup&&a.roundupTo?` · Round-up ${a.roundup}×`:""}${a.saveback&&a.savebackTo?` · Saveback ${String(a.saveback).replace(".",",")} %`:""}${(a.roundup||a.saveback)&&(a.roundupTo||a.savebackTo)?` → ${esc(accName(a.roundupTo||a.savebackTo))}`:""}</div></span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button></li>`;
-  }).join("")}</ul>
-  <div class="addrow"><button class="addbtn" id="addKonto">+ Konto</button><button class="addbtn" id="addTransfer">Umbuchen</button>${ks.some(a=>a.kind==="bar")?`<button class="addbtn" id="withdraw">Abheben</button>`:""}${ks.some(a=>a.kind==="depot")?`<button class="addbtn" id="invest">Investieren</button>`:""}<button class="addbtn" id="checkAcc">Kontostände prüfen</button></div></section>`;
+    const extra = `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.saveback?" · ":""}${a.saveback&&a.savebackTo?`Saveback ${String(a.saveback).replace(".",",")} %`:""}${(a.roundup||a.saveback)&&(a.roundupTo||a.savebackTo)?` → ${esc(accName(a.roundupTo||a.savebackTo))}`:""}`;
+    return `<li><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(${a.kind==="depot"?"--c4":a.kind==="bar"?"--c3":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button></li>`;
+  }).join("")}</ul></section>`;
 
   if(ks.some(a=>a.kind==="depot")){
     const Y = state.invYear, now = new Date().getFullYear();
@@ -1394,7 +1490,7 @@ function renderKonten(){
     </div></section>`;
   }
 
-  html += `<section><h2><span>Sparziele</span></h2>`;
+  html += `<section><h2><span>Sparziele</span><button class="linkbtn" id="addZiel">+ Neu</button></h2>`;
   if(!zs.length) html += `<div class="empty" style="padding:24px 16px"><strong>Noch kein Sparziel</strong>Leg zum Beispiel „Urlaub“ mit 1.500 € an und leg nach und nach Geld zurück.</div>`;
   html += `<div class="goals">${zs.map(a => {
     const b = balance(a), t = a.target||0, pct = t ? Math.max(0,Math.min(1,b/t)) : 0;
@@ -1403,15 +1499,16 @@ function renderKonten(){
       ${t?`<div class="bar" role="img" aria-label="${Math.round(pct*100)} Prozent erreicht"><i style="width:${(pct*100).toFixed(1)}%"></i></div>`:""}
       <div class="foot"><span>${t ? (b>=t ? "Ziel erreicht" : `Noch ${money(t-b)} · ${Math.round(pct*100)} %`) : "Ohne Zielbetrag"}</span><button class="put" data-put="${esc(a.id)}">Zurücklegen</button></div>
     </div>`;
-  }).join("")}</div>
-  <div class="addrow"><button class="addbtn" id="addZiel">+ Sparziel</button></div></section>`;
-  html += `<section><h2><span>Sicherung</span></h2><p class="hint" style="margin:0 0 4px">${esc(lastBackupText().trim())}</p><div class="addrow"><button class="addbtn" id="backupNow">Sicherung speichern</button><button class="addbtn" id="impBtn">Sicherung laden</button></div></section>`;
+  }).join("")}</div></section>
+  <p class="foot-note">Sicherung und Einstellungen findest du oben rechts.</p>`;
   $("#main").innerHTML = html;
 }
 
 // ---- Sips (Bargeld-Zips) ----
 const ZIP_ICONS = [[/urlaub|reise|ferien/i,"✈️"],[/auto|kfz|tank|werkstatt/i,"🚗"],[/geschenk|geburtstag|weihnacht/i,"🎁"],[/lebensmittel|essen|einkauf/i,"🛒"],[/rückzahl|schuld|kredit/i,"💸"],[/notgroschen|not|puffer/i,"🛟"],[/kleid|mode|klamott/i,"👕"],[/haus|wohn|miete|möbel/i,"🏠"],[/tier|hund|katze/i,"🐾"],[/handy|technik/i,"📱"],[/freizeit|hobby|spaß/i,"🎉"],[/gesund|arzt|apothek/i,"💊"],[/sparen|spar/i,"🐷"],[/haar|friseur|beauty|drogerie/i,"💇"],[/abo|vertrag|versicherung/i,"📄"]];
 const ZIP_PICK = ["✉️","✈️","🚗","🎁","🛒","💸","🛟","👕","🏠","🐾","📱","🎉","💊","🐷","💇","📄","🎓","👶","🍼","⚽","🎮","📚","🎄","💍","🏖️","🍽️","⛽","🧾"];
+const ZIP_SVG = {"✉️":"zip","✈️":"plane","🚗":"mobilitaet","🎁":"geschenk","🛒":"lebensmittel","💸":"atm","🛟":"lifebuoy","👕":"shirt","🏠":"wohnen","🐾":"paw","📱":"phone","🎉":"sparkle","💊":"gesundheit","🐷":"piggy","💇":"scissors","📄":"receipt","🎓":"cap","👶":"baby","🍼":"baby","⚽":"ball","🎮":"game","📚":"book","🎄":"tree","💍":"ring","🏖️":"sun","🍽️":"restaurant","⛽":"fuel","🧾":"receipt"};
+const zipSvg = a => svgI(ZIP_SVG[zipIcon(a)] || "zip");
 const zipIcon = a => { if(a && a.icon) return a.icon; for(const [r,i] of ZIP_ICONS) if(r.test(a.name||"")) return i; return "✉️"; };
 const zipColor = a => { const i = umschlaege().findIndex(z=>z.id===a.id); return "--c"+((Math.max(0,i)%8)+1); };
 function zipMonth(id, m){
@@ -1435,13 +1532,14 @@ function renderSips(){
   let html = reminderHtml() + `<div class="hero">
     <div><div class="label">In allen Zips</div><div class="big num">${inEnv<0?"−":""}${esc(whole)}<span class="cents">,${esc(cents)} €</span></div></div>
     <div class="trio">
-      <div><div class="label">Bargeld frei</div><div class="v num ${free<0?"neg":""}">${money(free)}</div></div>
-      <div><div class="label">${MON[Number(m.slice(5))-1]} befüllt</div><div class="v num pos">${money(tot.inn)}</div></div>
+      <div><div class="label">Ohne Zip</div><div class="v num ${free<0?"neg":""}">${money(free)}</div></div>
+      <div><div class="label">${MON[Number(m.slice(5))-1]} rein</div><div class="v num pos">${money(tot.inn)}</div></div>
       <div><div class="label">${MON[Number(m.slice(5))-1]} raus</div><div class="v num">${money(tot.out)}</div></div>
     </div>
     ${us.length?`<div class="acts"><button class="main" id="fillAll">Zips befüllen</button><button id="payZip">Aus Zip bezahlen</button></div>`:""}
   </div>`;
-  html += `<section><h2><span>Deine Zips</span><button class="linkbtn" id="addEnv2" style="color:var(--accent);font-size:.95rem">+ Neuer Zip</button></h2>`;
+  if(free<0 && us.length) html += `<div class="fixcard"><div><b>Bargeld ohne Zip: ${money(free)}</b><p>Meist wurden Zips aus Bargeld befüllt, obwohl das Geld schon drin steckte.</p></div><button id="fixFills">Korrigieren</button></div>`;
+  html += `<section><h2><span>Deine Zips</span><button class="linkbtn" id="addEnv2">+ Neu</button></h2>`;
   if(!us.length) html += `<div class="empty" style="padding:20px 16px"><strong>Noch keine Zips</strong>Für dein Bargeld im Budgetplaner. Leg los mit einem Tipp:</div>
     <div class="chips" style="justify-content:center">${["Urlaub","Auto","Rückzahlung","Geschenke","Lebensmittel","Notgroschen"].map(n=>`<button class="chip" data-newenv="${n}">+ ${n}</button>`).join("")}</div>
     <div class="addrow" style="margin-top:14px"><button class="addbtn" id="addEnv">+ Eigenen Zip anlegen</button></div>`;
@@ -1449,16 +1547,14 @@ function renderSips(){
     const b = balance(a), t = a.target||0, pct = t ? Math.max(0,Math.min(1,b/t)) : 0, x = zipMonth(a.id, m);
     return `<div class="zcard" style="--zc:var(${zipColor(a)})">
       <button class="open" data-zip="${esc(a.id)}" aria-label="${esc(a.name)} öffnen">
-        <span class="ic" aria-hidden="true">${zipIcon(a)}</span>
-        <span class="zn">${esc(a.name)}</span>
+        <span class="ztop"><span class="ic" aria-hidden="true">${zipSvg(a)}</span><span class="zn">${esc(a.name)}</span></span>
         <span class="zb num ${b<0?"neg":""}">${money(b)}</span>
         ${t?`<span class="zbar" role="img" aria-label="${Math.round(pct*100)} Prozent von ${money(t)}"><i style="width:${(pct*100).toFixed(1)}%"></i></span><span class="zt">${b>=t?"Ziel erreicht":`${Math.round(pct*100)} % von ${money(t)}`}</span>`:""}
-        <span class="zm">${x.inn||x.out ? `${MON[Number(m.slice(5))-1]}: ${x.inn?"+"+money(x.inn):""}${x.inn&&x.out?" · ":""}${x.out?"−"+money(x.out):""}` : "Diesen Monat noch nichts"}</span>
+        <span class="zm">${x.out ? `${MON[Number(m.slice(5))-1]} ausgegeben ${money(x.out)}` : x.inn ? `${MON[Number(m.slice(5))-1]} befüllt ${money(x.inn)}` : "Diesen Monat ruhig"}</span>
       </button>
-      <div class="zact"><button data-payzip="${esc(a.id)}">Bezahlen</button><button class="fill" data-fill="${esc(a.id)}">Befüllen</button></div>
     </div>`;
   }).join("")}<button class="zcard addz" id="addEnv">+ Neuer Zip</button></div>
-    <div class="addrow" style="margin-top:12px"><button class="addbtn" id="zipStarts">Anfangsbestände eintragen</button></div>`;
+    <p class="foot-note"><button class="linkbtn" id="zipStarts">Anfangsbestände eintragen</button></p>`;
   html += `</section>`;
   if(us.length){
     const ids = new Set(us.map(a=>a.id));
@@ -1483,7 +1579,7 @@ function zipSheet(a){
   const byCat = OUT_CATS.map(c=>({c, sum: spent.filter(e=>e.cat===c.id).reduce((s,e)=>s+e.amount,0)})).filter(x=>x.sum).sort((x,y)=>y.sum-x.sum).slice(0,3);
   openSheet(`
     <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Zip</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    <div class="zhead" style="--zc:var(${zipColor(a)})"><span class="ic" aria-hidden="true">${zipIcon(a)}</span><div style="min-width:0"><div style="font-weight:600">${esc(a.name)}</div><div class="zb num ${b<0?"neg":""}">${money(b)}</div></div></div>
+    <div class="zhead" style="--zc:var(${zipColor(a)})"><span class="ic" aria-hidden="true">${zipSvg(a)}</span><div style="min-width:0"><div style="font-weight:600">${esc(a.name)}</div><div class="zb num ${b<0?"neg":""}">${money(b)}</div></div></div>
     ${t?`<div><div class="bar" role="img" aria-label="${Math.round(pct*100)} Prozent"><i style="width:${(pct*100).toFixed(1)}%"></i></div><p class="hint" style="margin-top:6px">${b>=t?"Ziel erreicht 🎉":`Noch ${money(t-b)} bis ${money(t)}`}</p></div>`:""}
     <div class="zacts"><button data-zact="pay">${svgI("pay")}Bezahlen</button><button data-zact="fill">${svgI("plus")}Befüllen</button><button data-zact="take">${svgI("out")}Rausnehmen</button><button data-zact="edit">${svgI("edit")}Bearbeiten</button></div>
     <div><div class="label" style="margin-bottom:8px">Letzte 6 Monate</div>
@@ -1510,7 +1606,7 @@ function zipStartSheet(){
   openSheet(`
     <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Anfangsbestände</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <p class="hint" style="margin-top:0">Wie viel steckte schon im Zip, bevor ihr mit der App angefangen habt? Das zählt nicht als Ausgabe und wird nicht vom Bargeld abgezogen.</p>
-    <div class="splits">${us.map(a=>`<label class="splitrow" style="--zc:var(${zipColor(a)})"><span>${zipIcon(a)} ${esc(a.name)}</span><input class="input num" inputmode="decimal" placeholder="0" value="${esc(toInput(a.start||0))}" data-zs="${esc(a.id)}" autocomplete="off" aria-label="Anfangsbestand ${esc(a.name)}"></label>`).join("")}</div>
+    <div class="splits">${us.map(a=>`<label class="splitrow" style="--zc:var(${zipColor(a)})"><span><i class="zi" style="color:var(${zipColor(a)})">${zipSvg(a)}</i>${esc(a.name)}</span><input class="input num" inputmode="decimal" placeholder="0" value="${esc(toInput(a.start||0))}" data-zs="${esc(a.id)}" autocomplete="off" aria-label="Anfangsbestand ${esc(a.name)}"></label>`).join("")}</div>
     <p class="splitrest" id="zsSum"></p>
     <div class="row"><button class="primary" id="ok">Speichern</button></div>
   `);
@@ -1525,6 +1621,32 @@ function zipStartSheet(){
   };
 }
 
+// Befüllungen aus Bargeld nachträglich als Anfangsbestand werten
+function fixFillsSheet(){
+  const bars = new Set(konten().filter(a=>a.kind==="bar").map(a=>a.id)), zips = new Set(umschlaege().map(a=>a.id));
+  const fills = state.entries.filter(e=>e.type==="transfer" && bars.has(e.from) && zips.has(e.to)).sort((a,b)=>a.date<b.date?1:-1);
+  const free = konten().filter(a=>a.kind==="bar").reduce((s,a)=>s+balance(a),0);
+  const sel = new Set(); let acc = 0; for(const f of fills){ if(free+acc>=0) break; sel.add(f.id); acc += f.amount; }
+  openSheet(`
+    <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Bargeld korrigieren</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="hint" style="margin-top:0">Welche Befüllungen waren eigentlich Geld, das schon im Zip steckte? Die markierten werden zum Anfangsbestand des Zips. Der Zip behält seinen Stand, das Bargeld bekommt das Geld zurück.</p>
+    <ul class="accs fixlist">${fills.map(f=>`<li><button class="acc" data-fx="${esc(f.id)}" aria-pressed="${sel.has(f.id)}"><span class="tick" aria-hidden="true">${svgI("check")}</span><span class="mid"><div class="t">${esc(accName(f.to))}</div><div class="s">${esc(fmtShort(f.date))} · aus ${esc(accName(f.from))}</div></span><span class="a num">${money(f.amount)}</span></button></li>`).join("") || `<li class="hint" style="padding:14px">Keine Befüllungen aus Bargeld gefunden.</li>`}</ul>
+    <p class="splitrest" id="fxSum"></p>
+    <div class="row"><button class="primary" id="ok">Als Anfangsbestand werten</button></div>
+  `);
+  const sync = () => { const sum = fills.filter(f=>sel.has(f.id)).reduce((s,f)=>s+f.amount,0); document.querySelectorAll("[data-fx]").forEach(b=>b.setAttribute("aria-pressed", String(sel.has(b.dataset.fx)))); $("#fxSum").innerHTML = `Bargeld ohne Zip danach: <b class="num ${free+sum<0?"neg":""}">${money(free+sum)}</b>`; $("#ok").disabled = !sel.size; };
+  sync();
+  $("#sheet").onclick = e => { const b = e.target.closest("[data-fx]"); if(!b) return; const id = b.dataset.fx; sel.has(id) ? sel.delete(id) : sel.add(id); sync(); };
+  $("#cancel").onclick = () => { $("#sheet").onclick = null; closeSheet(); };
+  $("#ok").onclick = async () => {
+    const list = fills.filter(f=>sel.has(f.id)); $("#sheet").onclick = null; closeSheet();
+    const add = {}; list.forEach(f=>{ add[f.to] = (add[f.to]||0) + f.amount; });
+    for(const [zid, v] of Object.entries(add)){ const z = accById(zid); if(!z) continue; const {id, ...d} = z; await store.set("accounts", id, {...d, start:(d.start||0)+v}); }
+    for(const f of list) await store.del("entries", f.id);
+    toast(list.length===1 ? "1 Befüllung korrigiert" : list.length+" Befüllungen korrigiert");
+  };
+}
+
 // Alle Zips auf einmal befüllen
 function fillAllSheet(){
   const us = umschlaege(); const srcs = konten().filter(x=>x.kind!=="depot");
@@ -1534,16 +1656,16 @@ function fillAllSheet(){
     <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Zips befüllen</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div><div class="label" style="margin-bottom:6px">Geld kommt aus</div><div class="chips" id="faSrc"></div></div>
     ${hasLast?`<button class="danger" style="color:var(--ink)" id="faLast">Wie letztes Mal</button>`:""}
-    <div class="splits">${us.map(a=>`<label class="splitrow" style="--zc:var(${zipColor(a)})"><span>${zipIcon(a)} ${esc(a.name)} <small class="num" style="color:var(--muted)">(${money(balance(a))})</small></span><input class="input num" inputmode="decimal" placeholder="${a.lastFill?esc(toInput(a.lastFill)):"0"}" data-fa="${esc(a.id)}" autocomplete="off" aria-label="Betrag für ${esc(a.name)}"></label>`).join("")}</div>
+    <div class="splits">${us.map(a=>`<label class="splitrow" style="--zc:var(${zipColor(a)})"><span><i class="zi" style="color:var(${zipColor(a)})">${zipSvg(a)}</i>${esc(a.name)} <small class="num" style="color:var(--muted)">(${money(balance(a))})</small></span><input class="input num" inputmode="decimal" placeholder="${a.lastFill?esc(toInput(a.lastFill)):"0"}" data-fa="${esc(a.id)}" autocomplete="off" aria-label="Betrag für ${esc(a.name)}"></label>`).join("")}</div>
     <p class="splitrest" id="faSum"></p>
     <div class="row"><button class="primary" id="ok">Befüllen</button></div>
   `);
   const vals = () => us.map(a=>({a, v: parseAmount(document.querySelector(`[data-fa="${a.id}"]`).value)}));
   const sync = () => {
-    $("#faSrc").innerHTML = srcs.map(x=>`<button class="chip" data-fasrc="${esc(x.id)}" aria-pressed="${x.id===src}">${esc(x.name)}</button>`).join("");
+    $("#faSrc").innerHTML = srcs.map(x=>`<button class="chip" data-fasrc="${esc(x.id)}" aria-pressed="${x.id===src}">${esc(x.name)}</button>`).join("") + `<button class="chip" data-fasrc="__start" aria-pressed="${src==="__start"}">Steckt schon drin</button>`;
     const vs = vals(); const sum = vs.reduce((s,x)=>s+(x.v>0?x.v:0),0); const bad = vs.some(x=>isNaN(x.v)||x.v<0);
     const left = balance(accById(src)||{start:0,id:""}) - sum;
-    $("#faSum").innerHTML = bad ? `<span style="color:var(--danger)">Bitte nur Zahlen eingeben</span>` : `Zusammen <b class="num">${money(sum)}</b> · danach in ${esc(accName(src))} <b class="num ${left<0?"neg":""}">${money(left)}</b>`;
+    $("#faSum").innerHTML = bad ? `<span style="color:var(--danger)">Bitte nur Zahlen eingeben</span>` : src==="__start" ? `Zusammen <b class="num">${money(sum)}</b> · wird Anfangsbestand, nichts wird abgezogen` : `Zusammen <b class="num">${money(sum)}</b> · danach in ${esc(accName(src))} <b class="num ${left<0?"neg":""}">${money(left)}</b>${left<0?`<br><span style="color:var(--danger)">So viel ist dort nicht. Steckte das Geld schon im Zip? Dann „Steckt schon drin“ wählen.</span>`:""}`;
     $("#ok").disabled = bad || !sum || !src;
     $("#ok").textContent = sum ? `${money(sum)} verteilen` : "Befüllen";
   };
@@ -1556,6 +1678,7 @@ function fillAllSheet(){
     const vs = vals().filter(x=>x.v>0); const today = iso(new Date()), now = Date.now();
     closeSheet();
     for(const {a,v} of vs){
+      if(src==="__start"){ const {id, ...d} = a; await store.set("accounts", id, {...d, start:(d.start||0)+v}); continue; }
       await store.set("entries", newId(), {type:"transfer", from:src, to:a.id, amount:v, date:today, note:"", createdAt:now});
       const {id, ...d} = a; await store.set("accounts", id, {...d, lastFill:v});
     }
@@ -1574,7 +1697,7 @@ function accountSheet(acc, kind, presetName){
   openSheet(`
     <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">${acc?word:(isEnv?"Neuer ":"Neues ")+word}</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <input class="input" id="aName" placeholder="${isEnv?"Name, z. B. Auto oder Geschenke":isZiel?"Name, z. B. Urlaub":"Name, z. B. Trade Republic oder Tagesgeld"}" value="${esc(acc?acc.name:(presetName||""))}" autocomplete="off">
-    ${isEnv?`<div><div class="label" style="margin-bottom:6px">Symbol</div><div class="chips" id="aIcon">${ZIP_PICK.map(i=>`<button class="chip" data-icon="${i}" style="padding:6px 9px;font-size:1.15rem" aria-label="Symbol ${i}">${i}</button>`).join("")}</div></div>`:""}
+    ${isEnv?`<div><div class="label" style="margin-bottom:6px">Symbol</div><div class="chips" id="aIcon">${ZIP_PICK.filter((i,k,arr)=>arr.findIndex(x=>(ZIP_SVG[x]||"zip")===(ZIP_SVG[i]||"zip"))===k).map(i=>`<button class="chip zpick" data-icon="${i}" aria-label="Symbol">${svgI(ZIP_SVG[i]||"zip")}</button>`).join("")}</div></div>`:""}
     ${isZiel?`<div><div class="label" style="margin-bottom:6px">${isEnv?"Zielbetrag (optional)":"Zielbetrag"}</div><input class="input num" id="aTarget" inputmode="decimal" placeholder="z. B. 1.500" value="${esc(toInput(acc&&acc.target||0))}" autocomplete="off"></div>`:""}
     <div><div class="label" style="margin-bottom:6px">${isEnv?"Anfangsbestand":isZiel?"Schon angespart":acc?"Aktueller Kontostand":"Anfangsbestand (heutiger Kontostand)"}</div><input class="input num" id="aBal" inputmode="decimal" placeholder="0" value="${esc(toSigned(cur))}" autocomplete="off"></div>
     <p class="sublabel">${isEnv?`Geld, das schon im Zip steckt. Zählt nicht als Ausgabe und wird nicht vom Bargeld abgezogen.${acc?` Aktuell im Zip: <b class="num">${money(balance(acc))}</b>.`:" Neues Geld kommt später mit „Befüllen“ dazu."}`:isZiel?"Weiteres Geld legst du über „Zurücklegen“ dazu.":acc?`Anfangsbestand: ${money(acc.start||0)}. Änderst du den Stand hier, wird der Anfangsbestand angepasst. Für Abweichungen im Alltag lieber „Kontostände prüfen“ nutzen, dann bleibt die Differenz sichtbar.`:"Ab jetzt rechnet die App den Stand mit deinen Einträgen weiter. Minus für Dispo, z. B. -250."}</p>
@@ -1685,21 +1808,36 @@ function recRow(r){
   const where = r.type==="transfer" ? accName(r.from)+" → "+accName(r.to) : accName(r.account);
   return `<li><button class="acc" data-rec="${esc(r.id)}">${c?catBadge(c):`<span class="badge" style="--bc:var(${(accById(r.to)||{}).kind==="depot"?"--c4":"--c1"})" aria-hidden="true">${svgI((accById(r.to)||{}).kind==="depot"?"invest":"transfer")}</span>`}<span class="mid"><div class="t">${esc(r.name || (c?c.name:(accById(r.to)||{}).kind==="depot"?"Sparplan":"Umbuchung"))}</div><div class="s">${esc(IV[r.interval]||"")}${r.interval==="weekly"?" ("+WD[new Date((r.start||"")+"T12:00").getDay()]+")":r.start?" am "+Number(r.start.slice(8,10))+".":""} · nächster ${esc(fmtShort(r.next||r.start))}</div><div class="s">${esc(where)}</div></span><span class="a num ${r.type==="in"?"pos":""}">${sign}${money(r.amount)}</span></button></li>`;
 }
-function recSection(){
+function recParts(){
   const recs = state.recurring.slice().sort((a,b)=>(a.next||a.start||"").localeCompare(b.next||b.start||""));
   const pm = t => Math.round(recs.filter(r=>t(r)).reduce((s,r)=>s+r.amount*(IV_PER_MONTH[r.interval]||1),0));
   const isInv = r => r.type==="transfer" && (accById(r.to)||{}).kind==="depot";
-  const fixOut = pm(r=>r.type==="out"), fixInv = pm(isInv), fixIn = pm(r=>r.type==="in");
-  let h = `<section><h2><span>Daueraufträge</span>${recs.length?`<span class="num">${recs.length}</span>`:""}</h2>`;
-  if(recs.length){
-    h += `<div class="inv" style="margin-bottom:10px"><div class="parts">
+  return {recs, fixOut: pm(r=>r.type==="out"), fixInv: pm(isInv), fixIn: pm(r=>r.type==="in")};
+}
+function recSection(){
+  const {recs, fixOut, fixInv} = recParts();
+  let h = `<section><h2><span>Daueraufträge</span><button class="linkbtn" id="addRec">+ Neu</button></h2>`;
+  if(!recs.length) return h + `<p class="hint" style="margin:0 4px">Handy, Abos, Miete, Strom oder Sparpläne einmal anlegen. Die App bucht sie dann am richtigen Tag automatisch.</p></section>`;
+  const n = recs[0];
+  return h + `<button class="recsum" id="recOpen">
+      <span class="rl"><b>${recs.length} aktiv</b><span>Nächster: ${esc(n.name || (n.type==="transfer"?"Umbuchung":catById(n.cat).name))} am ${esc(fmtShort(n.next||n.start))}</span></span>
+      <span class="rr"><b class="num">${money(fixOut+fixInv)}</b><span>pro Monat</span></span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button></section>`;
+}
+function recListSheet(){
+  const {recs, fixOut, fixInv, fixIn} = recParts();
+  openSheet(`
+    <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Daueraufträge</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="inv"><div class="parts">
       <div><span>Fixkosten pro Monat</span><b class="num">${money(fixOut)}</b></div>
       ${fixInv?`<div><span>Sparpläne pro Monat</span><b class="num">${money(fixInv)}</b></div>`:""}
       ${fixIn?`<div><span>Feste Einnahmen pro Monat</span><b class="num pos">${money(fixIn)}</b></div>`:""}
-    </div>${recs.some(r=>r.interval!=="monthly")?`<p class="hint">Wöchentliche, vierteljährliche, halbjährliche und jährliche Posten sind auf den Monat umgerechnet.</p>`:""}</div>`;
-    h += `<ul class="accs recs">${recs.map(recRow).join("")}</ul>`;
-  } else h += `<p class="hint" style="margin:0 4px 4px">Handy, Abos, Miete, Strom oder Sparpläne einmal anlegen. Die App bucht sie dann am richtigen Tag automatisch.</p>`;
-  return h + `<div class="addrow"><button class="addbtn" id="addRec">+ Dauerauftrag</button></div></section>`;
+    </div>${recs.some(r=>r.interval!=="monthly")?`<p class="hint">Andere Intervalle sind auf den Monat umgerechnet.</p>`:""}</div>
+    <ul class="accs recs">${recs.map(recRow).join("")}</ul>
+    <div class="row"><button class="primary" id="addRec">+ Dauerauftrag</button></div>
+  `);
+  $("#cancel").onclick = closeSheet;
 }
 function recSheet(rec){
   const k0 = (konten()[0]||{}).id || "giro";
@@ -1708,7 +1846,7 @@ function recSheet(rec){
   const TPL = [["📱","Handy",{type:"out",cat:"abos",sub:"Handy"}],["📺","Abo",{type:"out",cat:"abos",sub:"Streaming"}],["🏠","Miete",{type:"out",cat:"wohnen",sub:"Miete"}],["⚡","Strom",{type:"out",cat:"wohnen",sub:"Strom"}],["🛡️","Versicherung",{type:"out",cat:"versicherung"}],["📈","Investment",{type:"transfer"}],["💼","Gehalt",{type:"in",cat:"gehalt"}]];
   openSheet(`
     <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">${rec?"Dauerauftrag":"Neuer Dauerauftrag"}</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    ${rec?"":`<div class="chips" id="rTpl">${TPL.map(([i,n],k)=>`<button class="chip" data-tpl="${k}">${i} ${n}</button>`).join("")}</div>`}
+    ${rec?"":`<div class="chips" id="rTpl">${TPL.map(([i,n],k)=>`<button class="chip" data-tpl="${k}">${n}</button>`).join("")}</div>`}
     <div class="seg seg3" id="rType"><button data-rt="out">Ausgabe</button><button data-rt="in">Einnahme</button><button data-rt="transfer">Umbuchung</button></div>
     <label class="amount"><input id="rAmount" inputmode="decimal" placeholder="0,00" value="${esc(toInput(d.amount))}" aria-label="Betrag in Euro" autocomplete="off"><span>€</span></label>
     <input class="input" id="rName" placeholder="Name, z. B. Miete, Netflix oder Sparplan" value="${esc(d.name||"")}" autocomplete="off">
@@ -1719,18 +1857,18 @@ function recSheet(rec){
     <div id="rDayBox"><div class="label" style="margin-bottom:6px">Am Tag</div>
       <div style="display:flex;align-items:center;gap:10px"><input class="input num" id="rDay" inputmode="numeric" style="width:5.5em;text-align:center" value="${Number(d.start.slice(8,10))}" aria-label="Tag im Monat" autocomplete="off"><span class="hint" style="color:var(--ink)">. des Monats</span></div></div>
     <div id="rWdBox" hidden><div class="label" style="margin-bottom:6px">Am Wochentag</div><div class="chips" id="rWd">${[1,2,3,4,5,6,0].map(w=>`<button class="chip" data-wd="${w}">${WD[w]}</button>`).join("")}</div></div>
-    <div><div class="label" style="margin-bottom:6px">Erster Termin</div><input type="date" class="input date-in" id="rStart" value="${esc(d.start)}"></div>
+    <details class="more" ${rec?"":""}><summary>Erster Termin: <b id="rStartTxt"></b><span>ändern</span></summary><input type="date" class="input date-in" id="rStart" value="${esc(d.start)}" style="margin-top:8px"></details>
     <p class="hint" id="rHint"></p>
     <div class="row">${rec?`<button class="danger" id="del">Löschen</button>`:""}<button class="primary" id="ok">Speichern</button></div>
   `);
-  const accChips = (sel, attr, list) => list.map(a=>`<button class="chip" data-${attr}="${esc(a.id)}" aria-pressed="${a.id===sel}">${a.kind==="umschlag"?"✉️ ":a.kind==="ziel"?"🎯 ":""}${esc(a.name)}</button>`).join("");
+  const accChips = (sel, attr, list) => list.map(a=>`<button class="chip" data-${attr}="${esc(a.id)}" aria-pressed="${a.id===sel}">${a.kind==="umschlag"?`<i class="zi">${zipSvg(a)}</i>`:a.kind==="ziel"?"🎯 ":""}${esc(a.name)}</button>`).join("");
   const sync = () => {
     const tr = d.type==="transfer";
     document.querySelectorAll("#rType [data-rt]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.rt===d.type)));
     const cats = d.type==="in" ? IN_CATS : OUT_CATS;
     if(!tr && !cats.some(c=>c.id===d.cat)) d.cat = d.type==="in" ? "gehalt" : "wohnen";
     $("#rCatBox").hidden = tr; $("#rAccBox").hidden = tr; $("#rTrBox").hidden = !tr;
-    $("#rCat").innerHTML = cats.map(c=>`<button class="chip" data-rc="${c.id}" aria-pressed="${c.id===d.cat}"><span class="dot" style="background:var(${c.c==="--accent"?"--c3":c.c})"></span>${esc(c.name)}</button>`).join("");
+    $("#rCat").innerHTML = cats.map(c=>catTile(c, "rc", d.cat)).join("");
     const rs = d.type==="out" && !!d.cat; $("#rSubBox").hidden = !rs; if(rs) $("#rSub").innerHTML = subChips(d.cat, d.sub);
     const accList = konten().filter(a=>a.kind!=="depot").concat(umschlaege()); if(!tr && !accList.some(a=>a.id===d.account)) d.account = (accList[0]||{}).id;
     $("#rAcc").innerHTML = accChips(d.account, "ra", accList);
@@ -1742,6 +1880,7 @@ function recSheet(rec){
     document.querySelectorAll("#rWd [data-wd]").forEach(b=>b.setAttribute("aria-pressed", String(!!sd && +b.dataset.wd===sd.getDay())));
     if(sd && document.activeElement!==$("#rDay")) $("#rDay").value = sd.getDate();
     const start = $("#rStart").value, today = iso(new Date());
+    $("#rStartTxt").textContent = start ? new Date(start+"T12:00").toLocaleDateString("de-DE",{weekday:"short", day:"numeric", month:"long", year:"numeric"}) : "–";
     $("#rHint").textContent = !start ? "" : start <= today && (!rec || start!==rec.start) ? "Termine ab dem Startdatum bis heute werden gleich nachgetragen, danach bucht die App automatisch beim Öffnen." : "Die App bucht automatisch, sobald ein Termin erreicht ist (beim Öffnen).";
     $("#ok").disabled = !(parseAmount($("#rAmount").value)>0) || !start || (tr ? !(d.from && d.to && d.from!==d.to) : !(d.cat && d.account));
   };
@@ -1877,7 +2016,7 @@ function setupSheet(){
     <p class="hint" style="margin-top:0">Kurz einrichten, alles lässt sich später unter Konten und in den Einstellungen ändern. Deine Daten bleiben nur auf diesem Gerät.</p>
     <div class="label">Welche Konten nutzt du?</div>
     <div class="chips" id="suAcc">${opts.map(([k,i,n])=>`<button class="chip" data-su="${k}" aria-pressed="${sel.has(k)}">${i} ${n}</button>`).join("")}</div>
-    <div class="optrow"><div><b>✉️ Zips verwenden?</b><p class="hint">Bargeld-Umschläge, z. B. für Lebensmittel, Urlaub oder Geschenke. Bekommen einen eigenen Reiter.</p></div>
+    <div class="optrow"><div><b>Zips verwenden?</b><p class="hint">Bargeld-Umschläge, z. B. für Lebensmittel, Urlaub oder Geschenke. Bekommen einen eigenen Reiter.</p></div>
       <button class="switch" id="suZips" role="switch" aria-checked="true" aria-label="Zips verwenden"><i></i></button></div>
     <div class="row"><button class="primary" id="ok">Los geht's</button></div>
   `);
@@ -1904,7 +2043,7 @@ function budgetSheet(){
     <div class="row"><button class="primary" id="ok">Speichern</button></div>
     <div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
       <div class="label">Funktionen</div>
-      <div class="optrow"><div><b>✉️ Zips</b><p class="hint">Bargeld-Umschläge mit eigenem Reiter. Ausschalten blendet sie nur aus, nichts wird gelöscht.</p></div>
+      <div class="optrow"><div><b>Zips</b><p class="hint">Bargeld-Umschläge mit eigenem Reiter. Ausschalten blendet sie nur aus, nichts wird gelöscht.</p></div>
         <button class="switch" id="tZips" role="switch" aria-checked="${zipsOn()}" aria-label="Zips verwenden"><i></i></button></div>
     </div>
     <div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
@@ -1942,7 +2081,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.16 (22.11.2026)";
+const APP_VERSION = "2.18 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -2065,6 +2204,8 @@ document.addEventListener("click", e => {
   if(e.target.closest("#clearCat")){ state.cat=null; render(); return; }
   const pc = e.target.closest("[data-pcat]");
   if(pc){ state.cat = state.cat===pc.dataset.pcat ? null : pc.dataset.pcat; render(); return; }
+  if(e.target.closest("[data-pieall]")){ state.pieAll = !state.pieAll; render(); return; }
+  if(e.target.closest("#recOpen")){ recListSheet(); return; }
   const pm = e.target.closest("[data-pie]");
   if(pm){ state.pie = pm.dataset.pie; if(state.pie!=="cat") state.cat = null; render(); return; }
   const rc = e.target.closest("[data-rec]");
@@ -2098,6 +2239,7 @@ document.addEventListener("click", e => {
   const pz = e.target.closest("[data-payzip]");
   if(pz){ entrySheet(null, {type:"out", account:pz.dataset.payzip}); return; }
   if(e.target.closest("#openWrapped")){ openWrapped(); return; }
+  if(e.target.closest("#fixFills")){ fixFillsSheet(); return; }
   if(e.target.closest("#zipStarts")){ zipStartSheet(); return; }
   if(e.target.closest("#payZip")){ const z = umschlaege()[0]; entrySheet(null, {type:"out", account:z&&z.id}); return; }
   if(e.target.closest("#fillAll")){ fillAllSheet(); return; }
