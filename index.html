@@ -230,6 +230,55 @@ section > h2 .num{font-family:var(--f-body);font-size:.85rem;color:var(--muted);
 .recs .s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .date-in{font-size:16px}
 @media (prefers-reduced-motion:reduce){.pie .donut circle{transition:none}}
+
+/* ---- Zips 2.4 ---- */
+.hero .acts{display:flex;gap:8px}
+.hero .acts button{flex:1;border:0;border-radius:14px;padding:12px 8px;font-weight:700;font-size:.92rem;background:rgba(255,255,255,.16);color:#fff}
+.hero .acts button.main{background:#fff;color:var(--hero2)}
+.zgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.zcard{background:var(--surface);border-radius:22px;box-shadow:var(--card-shadow);padding:14px;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden;min-width:0}
+.zcard::before{content:"";position:absolute;inset:0 0 auto;height:4px;background:var(--zc)}
+.zcard .open{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:6px;min-width:0}
+.zcard .ic{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;font-size:1.25rem;background:var(--chip);background:color-mix(in srgb,var(--zc) 18%,var(--surface))}
+.zcard .zn{font-weight:600;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zcard .zb{font-family:var(--f-display);font-weight:700;font-size:1.45rem;letter-spacing:-.01em;white-space:nowrap}
+.zcard .zt{font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zcard .zbar{height:6px;border-radius:3px;background:var(--track);overflow:hidden}
+.zcard .zbar i{display:block;height:100%;background:var(--zc);border-radius:3px}
+.zcard .zm{font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zcard .zact{display:flex;gap:6px;margin-top:2px}
+.zcard .zact button{white-space:nowrap;flex:1;border:0;border-radius:10px;padding:8px 4px;font-size:.8rem;font-weight:700;background:var(--chip);color:var(--ink)}
+.zcard .zact button.fill{background:color-mix(in srgb,var(--zc) 20%,var(--surface));background:var(--chip)}
+.zcard.addz{align-items:center;justify-content:center;border:2px dashed var(--line);box-shadow:none;background:none;color:var(--muted);font-weight:600;min-height:150px}
+.zcard.addz::before{display:none}
+.zhead{display:flex;align-items:center;gap:12px}
+.zhead .ic{width:48px;height:48px;border-radius:15px;display:grid;place-items:center;font-size:1.5rem;background:var(--chip);background:color-mix(in srgb,var(--zc) 18%,var(--surface))}
+.zhead .zb{font-family:var(--f-display);font-weight:700;font-size:1.8rem}
+.zacts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.zacts button{border:0;border-radius:12px;padding:10px 2px;background:var(--chip);font-size:.78rem;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:3px}
+.zacts button span{font-size:1.2rem}
+.hist{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;align-items:end;height:90px}
+.hist .col{display:flex;gap:2px;align-items:flex-end;height:100%;justify-content:center}
+.hist i{display:block;width:40%;border-radius:3px 3px 0 0}
+.hist i.in{background:var(--accent)} .hist i.out{background:var(--danger)}
+.hlab{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;font-size:.7rem;color:var(--muted);text-align:center}
+.legend{display:flex;gap:14px;font-size:.75rem;color:var(--muted)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+@media (max-width:340px){.zgrid{grid-template-columns:1fr}}
+/* Rosa Dunkel */
+:root[data-theme="pink"]{
+  --bg:#1a1016; --surface:#26171f; --ink:#fbe9f1; --muted:#c29aae; --line:#3d2633;
+  --accent:#ff8fc0; --accent-soft:#4a2338; --danger:#ff8a7a; --warn:#f2b45c; --chip:#33202b; --track:#3a2531;
+  --shadow:0 10px 30px rgba(0,0,0,.55); --card-shadow:none; --hero1:#c2457f; --hero2:#6e1f48;
+  --c1:#6fa8ff; --c2:#ff8a5c; --c3:#3fd1a0; --c4:#ffc24d; --c5:#ff9ed0; --c6:#7fdc6a; --c7:#b49cff; --c8:#ff7b8f; --c9:#a8909c;
+  color-scheme:dark }
+:root[data-theme="pink"] .hero{box-shadow:0 10px 28px rgba(194,69,127,.35)}
+:root[data-theme="pink"] .fab{box-shadow:0 8px 22px rgba(255,143,192,.35)}
+:root[data-theme="pink"] .hero .pos{color:#ffd1e6}
+.theme{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.theme button{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 2px;font-size:.78rem;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:5px}
+.theme button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.theme i{width:26px;height:26px;border-radius:50%;display:block;border:1px solid rgba(0,0,0,.12)}
 </style>
 </head>
 <body>
@@ -244,7 +293,7 @@ section > h2 .num{font-family:var(--f-body);font-size:.85rem;color:var(--muted);
       <button class="icon" id="next" aria-label="Nächster Monat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
     </div>
     <h1 class="ptitle" id="pageTitle" hidden>Konten</h1>
-    <button class="icon" id="settings" aria-label="Budget einstellen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+    <button class="icon" id="settings" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
     </div>
   </header>
   <main id="main"></main>
@@ -252,8 +301,8 @@ section > h2 .num{font-family:var(--f-body);font-size:.85rem;color:var(--muted);
 </div>
 
 <nav class="tabbar" id="tabs" aria-label="Bereiche">
-  <button data-tab="monat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Monat</button>
   <button data-tab="sips"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/></svg>Zips</button>
+  <button data-tab="monat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Monat</button>
   <button data-tab="konten"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20.5h18"/></svg>Konten</button>
 </nav>
 <button class="fab" id="fab" aria-label="Neue Ausgabe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
@@ -264,6 +313,14 @@ section > h2 .num{font-family:var(--f-body);font-size:.85rem;color:var(--muted);
 <script>
 (function(){
 "use strict";
+const THEMES = {auto:{n:"Auto", sw:"linear-gradient(135deg,#f4f5f2 50%,#111513 50%)"}, light:{n:"Hell", sw:"#f4f5f2"}, dark:{n:"Dunkel", sw:"#111513"}, pink:{n:"Rosa", sw:"linear-gradient(135deg,#c2457f,#1a1016)"}};
+function applyTheme(t){
+  if(!THEMES[t]) t = "auto";
+  if(t==="auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t);
+  const dark = t==="dark" || t==="pink" || (t==="auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+  const m = document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content", t==="pink" ? "#1a1016" : dark ? "#111513" : "#f4f5f2");
+}
+try { applyTheme(localStorage.getItem("hhb.theme")||"auto"); } catch(e){}
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
@@ -337,7 +394,7 @@ function fmtDay(s){
 
 // ---- state ----
 const state = { entries:[], accounts:[], settings:{budget:0}, month:curMonth(), cat:null, ready:false, tab:"monat", recurring:[], pie:"cat", invYear:new Date().getFullYear() };
-try { const t = localStorage.getItem("hhb.tab"); if(t==="konten"||t==="sips") state.tab = t; } catch(e){}
+try { const accs0 = JSON.parse(localStorage.getItem("hhb.accounts")||"{}"); if(Object.values(accs0).some(a=>a.kind==="umschlag")) state.tab = "sips"; } catch(e){}
 function parseSigned(s){
   s = String(s||"").trim().replace(/\s|€/g,"");
   const neg = /^[-−]/.test(s); s = s.replace(/^[-−+]/,"");
@@ -432,6 +489,8 @@ function status(msg){ const el=$("#status"); el.textContent=msg||""; el.hidden=!
 function boot(){
   store = localStore();
   if(!Object.keys(local.read("accounts")).length) local.write("accounts", {giro:{name:"Girokonto", kind:"konto", start:0, order:0}, bargeld:{name:"Bargeld", kind:"bar", start:0, order:1}});
+  // PayPal einmalig als Standard-Konto ergänzen (gelöscht bleibt gelöscht)
+  try { if(!localStorage.getItem("hhb.mig.paypal")){ const accs = local.read("accounts"); if(!Object.values(accs).some(a=>/paypal/i.test(a.name||""))){ accs.paypal = {name:"PayPal", kind:"konto", start:0, order:2}; local.write("accounts", accs); } localStorage.setItem("hhb.mig.paypal","1"); } } catch(e){}
   store.sub("accounts", rows => { state.accounts=rows; render(); });
   store.sub("entries", rows => { state.entries=rows; state.ready=true; render(); });
   store.sub("recurring", rows => { state.recurring=rows; render(); });
@@ -501,9 +560,14 @@ function render(){
   const byCat = OUT_CATS.map(c => ({...c, sum: outs.filter(e=>e.cat===c.id).reduce((s,e)=>s+e.amount,0), n: outs.filter(e=>e.cat===c.id).length}))
     .filter(c=>c.sum>0).sort((a,b)=>b.sum-a.sum);
   if(byCat.length){
-    const mode = state.pie==="place" ? "place" : "cat";
+    const hasZips = umschlaege().length>0;
+    const mode = state.pie==="place" ? "place" : state.pie==="zip" && hasZips ? "zip" : "cat";
     let segs;
     if(mode==="cat") segs = byCat.map(c=>({k:c.id, name:c.name, i:c.i, sum:c.sum, n:c.n, col:c.c}));
+    else if(mode==="zip"){
+      const g = {}; outs.forEach(e => { const a = accById(accOf(e)); const k = a && a.kind==="umschlag" ? a.id : "_"; (g[k] ||= {sum:0,n:0}); g[k].sum += e.amount; g[k].n++; });
+      segs = Object.entries(g).map(([k,v]) => k==="_" ? {name:"Nicht aus Zips", i:"🏦", col:"--c9", ...v} : {name:accName(k), i:zipIcon(accById(k)), col:zipColor(accById(k)), ...v}).sort((a,b)=>b.sum-a.sum);
+    }
     else {
       const g = {}; outs.forEach(e => { const k = e.place || "Ohne Ort"; (g[k] ||= {sum:0,n:0}); g[k].sum += e.amount; g[k].n++; });
       const arr = Object.entries(g).map(([name,v])=>({name, ...v})).sort((a,b)=>b.sum-a.sum);
@@ -515,7 +579,7 @@ function render(){
     const arcs = segs.map(x => { const len = x.sum/spent*100; const o = `<circle r="15.915" cx="21" cy="21" fill="none" stroke="var(${x.col})" stroke-width="5.2" stroke-dasharray="${Math.max(.01,len-gap).toFixed(3)} ${(100-Math.max(.01,len-gap)).toFixed(3)}" stroke-dashoffset="${(25-cum).toFixed(3)}" ${mode==="cat"?`data-pcat="${x.k}"`:""} style="opacity:${mode==="cat"&&state.cat&&state.cat!==x.k?.25:1}"><title>${esc(x.name)}: ${money(x.sum)}</title></circle>`; cum += len; return o; }).join("");
     const sel = mode==="cat" && state.cat ? segs.find(x=>x.k===state.cat) : null;
     const max = segs[0].sum;
-    html += `<section><h2><span>Wofür ging's raus?</span><span class="mini" role="group" aria-label="Ansicht"><button data-pie="cat" aria-pressed="${mode==="cat"}">Kategorien</button><button data-pie="place" aria-pressed="${mode==="place"}">Orte</button></span></h2>
+    html += `<section><h2><span>Wofür ging's raus?</span><span class="mini" role="group" aria-label="Ansicht"><button data-pie="cat" aria-pressed="${mode==="cat"}">Kategorien</button>${hasZips?`<button data-pie="zip" aria-pressed="${mode==="zip"}">Zips</button>`:""}<button data-pie="place" aria-pressed="${mode==="place"}">Orte</button></span></h2>
     <div class="pie"><svg class="donut" viewBox="0 0 42 42" role="img" aria-label="Kuchendiagramm der Ausgaben">${arcs}
       <text x="21" y="20.2" text-anchor="middle" font-size="2.6" fill="var(--muted)">${esc(sel ? sel.name.split(" ")[0] : "Ausgaben")}</text>
       <text class="ctr" x="21" y="25" text-anchor="middle" font-size="4.6" fill="var(--ink)">${esc(money(sel?sel.sum:spent).replace(/,\d\d\s?€/," €"))}</text></svg>
@@ -617,7 +681,7 @@ function entrySheet(entry, preset){
     <div id="catBox"><div class="label" style="margin-bottom:6px">Kategorie</div><div class="chips" id="fCat"></div></div>
     <div id="accBox"><div class="label" style="margin-bottom:6px">Konto</div><div class="chips" id="fAcc"></div></div>
     <div id="splitBox" hidden><div class="label" style="margin-bottom:6px">Direkt auf Zips aufteilen</div>
-      <div class="splits">${umschlaege().map(z=>`<label class="splitrow"><span>✉ ${esc(z.name)} <small class="num" style="color:var(--muted)">(${money(balance(z))})</small></span><input class="input num" inputmode="decimal" placeholder="0" data-split="${esc(z.id)}" autocomplete="off" aria-label="Betrag für ${esc(z.name)}"></label>`).join("")}</div>
+      <div class="splits">${umschlaege().map(z=>`<label class="splitrow"><span>${zipIcon(z)} ${esc(z.name)} <small class="num" style="color:var(--muted)">(${money(balance(z))})</small></span><input class="input num" inputmode="decimal" placeholder="0" data-split="${esc(z.id)}" autocomplete="off" aria-label="Betrag für ${esc(z.name)}"></label>`).join("")}</div>
       <p class="splitrest" id="splitRest"></p></div>
     <div id="trBox"><div class="label" style="margin-bottom:6px">Von</div><div class="chips" id="fFrom"></div>
       <div class="label" style="margin:12px 0 6px">Nach</div><div class="chips" id="fTo"></div>
@@ -644,7 +708,7 @@ function entrySheet(entry, preset){
   let editAcc = false;
   const na = {slot:null, kind:"konto"};
   const accChips = (sel, attr) => state.accounts.slice().sort((a,b)=>(KIND_ORDER[a.kind||"konto"]-KIND_ORDER[b.kind||"konto"])||(a.order||0)-(b.order||0))
-    .map(a=>`<button class="chip" data-${editAcc?"delacc":attr}="${esc(a.id)}" aria-pressed="${!editAcc && a.id===sel}" ${editAcc?`aria-label="${esc(a.name)} löschen"`:""}>${a.kind==="ziel"?"Ziel: ":a.kind==="umschlag"?"✉ ":""}${esc(a.name)}${editAcc?'<span class="x" aria-hidden="true">×</span>':""}</button>`).join("")
+    .map(a=>`<button class="chip" data-${editAcc?"delacc":attr}="${esc(a.id)}" aria-pressed="${!editAcc && a.id===sel}" ${editAcc?`aria-label="${esc(a.name)} löschen"`:""}>${a.kind==="ziel"?"🎯 ":a.kind==="umschlag"?zipIcon(a)+" ":""}${esc(a.name)}${editAcc?'<span class="x" aria-hidden="true">×</span>':""}</button>`).join("")
     + (attr==="acc" ? "" : editAcc ? `<button class="chip ghost" data-editdone="1">Fertig</button>` : `<button class="chip ghost" data-newfor="${attr}">+ Neu</button><button class="chip ghost" data-editacc="1">Bearbeiten</button>`);
   const drawAcc = () => {
     $("#fAcc").innerHTML = accChips(d.account, "acc");
@@ -821,41 +885,133 @@ function renderKonten(){
 }
 
 // ---- Sips (Bargeld-Zips) ----
+const ZIP_ICONS = [[/urlaub|reise|ferien/i,"✈️"],[/auto|kfz|tank|werkstatt/i,"🚗"],[/geschenk|geburtstag|weihnacht/i,"🎁"],[/lebensmittel|essen|einkauf/i,"🛒"],[/rückzahl|schuld|kredit/i,"💸"],[/notgroschen|not|puffer/i,"🛟"],[/kleid|mode|klamott/i,"👕"],[/haus|wohn|miete|möbel/i,"🏠"],[/tier|hund|katze/i,"🐾"],[/handy|technik/i,"📱"],[/freizeit|hobby|spaß/i,"🎉"],[/gesund|arzt|apothek/i,"💊"],[/sparen|spar/i,"🐷"],[/haar|friseur|beauty|drogerie/i,"💇"],[/abo|vertrag|versicherung/i,"📄"]];
+const zipIcon = a => { for(const [r,i] of ZIP_ICONS) if(r.test(a.name||"")) return i; return "✉️"; };
+const zipColor = a => { const i = umschlaege().findIndex(z=>z.id===a.id); return "--c"+((Math.max(0,i)%8)+1); };
+function zipMonth(id, m){
+  let inn = 0, out = 0;
+  for(const e of state.entries){
+    if((e.date||"").slice(0,7)!==m) continue;
+    if(e.type==="transfer"){ if(e.to===id) inn += e.amount; if(e.from===id) out += e.amount; }
+    else if(accOf(e)===id && !isKorr(e)){ if(e.type==="out") out += e.amount; else inn += e.amount; }
+  }
+  return {inn, out};
+}
+const MON = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 function renderSips(){
   const us = umschlaege();
   const inEnv = us.reduce((s,a)=>s+balance(a),0);
   const bar = konten().filter(a=>a.kind==="bar");
   const free = bar.reduce((s,a)=>s+balance(a),0);
+  const m = curMonth();
+  const tot = us.reduce((r,a)=>{ const x = zipMonth(a.id, m); r.inn += x.inn; r.out += x.out; return r; }, {inn:0,out:0});
   const [whole, cents] = money(Math.abs(inEnv)).replace(/\s?€/,"").split(",");
   let html = reminderHtml() + `<div class="hero">
     <div><div class="label">In allen Zips</div><div class="big num">${inEnv<0?"−":""}${esc(whole)}<span class="cents">,${esc(cents)} €</span></div></div>
-    <div class="trio" style="grid-template-columns:1fr 1fr">
-      <div><div class="label">Bargeld noch frei</div><div class="v num ${free<0?"neg":""}">${money(free)}</div></div>
-      <div><div class="label">Bargeld gesamt</div><div class="v num">${money(free+inEnv)}</div></div>
+    <div class="trio">
+      <div><div class="label">Bargeld frei</div><div class="v num ${free<0?"neg":""}">${money(free)}</div></div>
+      <div><div class="label">${MON[Number(m.slice(5))-1]} befüllt</div><div class="v num pos">${money(tot.inn)}</div></div>
+      <div><div class="label">${MON[Number(m.slice(5))-1]} raus</div><div class="v num">${money(tot.out)}</div></div>
     </div>
-    <p class="hint">„Befüllen“ nimmt Geld aus deinem Bargeld, „Rausnehmen“ legt es zurück. Ausgaben bezahlst du direkt aus einem Zip, indem du ihn beim Eintragen als Konto wählst. Tipp auf einen Namen, um den Zip umzubenennen oder zu löschen.</p>
+    ${us.length?`<div class="acts"><button class="main" id="fillAll">Zips befüllen</button><button id="payZip">Aus Zip bezahlen</button></div>`:""}
   </div>`;
   html += `<section><h2><span>Deine Zips</span><span class="num">${us.length}</span></h2>`;
   if(!us.length) html += `<div class="empty" style="padding:20px 16px"><strong>Noch keine Zips</strong>Für dein Bargeld im Budgetplaner. Leg los mit einem Tipp:</div>
     <div class="chips" style="justify-content:center">${["Urlaub","Auto","Rückzahlung","Geschenke","Lebensmittel","Notgroschen"].map(n=>`<button class="chip" data-newenv="${n}">+ ${n}</button>`).join("")}</div>`;
-  html += `<div class="goals">${us.map(a => {
-    const b = balance(a), t = a.target||0, pct = t ? Math.max(0,Math.min(1,b/t)) : 0;
-    return `<div class="goal">
-      <div class="top"><button class="name" data-account="${esc(a.id)}">✉ ${esc(a.name)}</button><span class="of num"><b class="${b<0?"neg":""}">${money(b)}</b>${t?` von ${money(t)}`:""}</span></div>
-      ${t?`<div class="bar" role="img" aria-label="${Math.round(pct*100)} Prozent gefüllt"><i style="width:${(pct*100).toFixed(1)}%"></i></div>`:""}
-      <div class="foot"><button class="put" style="background:none;padding-left:0;color:var(--muted)" data-take="${esc(a.id)}">Rausnehmen</button><button class="put" data-fill="${esc(a.id)}">Befüllen</button></div>
+  else html += `<div class="zgrid">${us.map(a => {
+    const b = balance(a), t = a.target||0, pct = t ? Math.max(0,Math.min(1,b/t)) : 0, x = zipMonth(a.id, m);
+    return `<div class="zcard" style="--zc:var(${zipColor(a)})">
+      <button class="open" data-zip="${esc(a.id)}" aria-label="${esc(a.name)} öffnen">
+        <span class="ic" aria-hidden="true">${zipIcon(a)}</span>
+        <span class="zn">${esc(a.name)}</span>
+        <span class="zb num ${b<0?"neg":""}">${money(b)}</span>
+        ${t?`<span class="zbar" role="img" aria-label="${Math.round(pct*100)} Prozent von ${money(t)}"><i style="width:${(pct*100).toFixed(1)}%"></i></span><span class="zt">${b>=t?"Ziel erreicht":`${Math.round(pct*100)} % von ${money(t)}`}</span>`:""}
+        <span class="zm">${x.inn||x.out ? `${MON[Number(m.slice(5))-1]}: ${x.inn?"+"+money(x.inn):""}${x.inn&&x.out?" · ":""}${x.out?"−"+money(x.out):""}` : "Diesen Monat noch nichts"}</span>
+      </button>
+      <div class="zact"><button data-payzip="${esc(a.id)}">Bezahlen</button><button class="fill" data-fill="${esc(a.id)}">Befüllen</button></div>
     </div>`;
-  }).join("")}</div>
-  <div class="addrow"><button class="addbtn" id="addEnv">+ Zip</button></div></section>`;
+  }).join("")}<button class="zcard addz" id="addEnv">+ Neuer Zip</button></div>`;
+  html += `</section>`;
   if(us.length){
     const ids = new Set(us.map(a=>a.id));
     const moves = state.entries.filter(e => e.type==="transfer" ? (ids.has(e.from)||ids.has(e.to)) : ids.has(accOf(e)))
       .sort((a,b)=> a.date===b.date ? (b.createdAt||0)-(a.createdAt||0) : (a.date<b.date?1:-1)).slice(0,15);
     html += `<section><h2><span>Letzte Bewegungen</span></h2>`;
-    html += moves.length ? `<ul class="entries">${moves.map(entryRow).join("")}</ul>` : `<p class="hint">Noch keine Bewegungen. Tipp bei einem Zip auf „Befüllen“.</p>`;
+    html += moves.length ? `<ul class="entries">${moves.map(entryRow).join("")}</ul>` : `<p class="hint">Noch keine Bewegungen. Tipp auf „Zips befüllen“.</p>`;
     html += `</section>`;
   }
   $("#main").innerHTML = html;
+}
+
+// Zip-Detail
+function zipSheet(a){
+  const b = balance(a), t = a.target||0, pct = t ? Math.max(0,Math.min(1,b/t)) : 0;
+  const now = new Date(); const months = [];
+  for(let i=5;i>=0;i--){ const d = new Date(now.getFullYear(), now.getMonth()-i, 1); const mm = d.getFullYear()+"-"+pad(d.getMonth()+1); months.push({mm, l:MON[d.getMonth()], ...zipMonth(a.id, mm)}); }
+  const mx = Math.max(1, ...months.map(x=>Math.max(x.inn,x.out)));
+  const moves = state.entries.filter(e => e.type==="transfer" ? (e.from===a.id||e.to===a.id) : accOf(e)===a.id)
+    .sort((x,y)=> x.date===y.date ? (y.createdAt||0)-(x.createdAt||0) : (x.date<y.date?1:-1)).slice(0,12);
+  const spent = state.entries.filter(e=>e.type==="out" && accOf(e)===a.id && !isKorr(e));
+  const byCat = OUT_CATS.map(c=>({c, sum: spent.filter(e=>e.cat===c.id).reduce((s,e)=>s+e.amount,0)})).filter(x=>x.sum).sort((x,y)=>y.sum-x.sum).slice(0,3);
+  openSheet(`
+    <div class="sheet-head"><button class="txt" id="cancel">Schließen</button><h3 id="sheetTitle">Zip</h3><span style="min-width:80px"></span></div>
+    <div class="zhead" style="--zc:var(${zipColor(a)})"><span class="ic" aria-hidden="true">${zipIcon(a)}</span><div style="min-width:0"><div style="font-weight:600">${esc(a.name)}</div><div class="zb num ${b<0?"neg":""}">${money(b)}</div></div></div>
+    ${t?`<div><div class="bar" role="img" aria-label="${Math.round(pct*100)} Prozent"><i style="width:${(pct*100).toFixed(1)}%"></i></div><p class="hint" style="margin-top:6px">${b>=t?"Ziel erreicht 🎉":`Noch ${money(t-b)} bis ${money(t)}`}</p></div>`:""}
+    <div class="zacts"><button data-zact="pay"><span>💳</span>Bezahlen</button><button data-zact="fill"><span>➕</span>Befüllen</button><button data-zact="take"><span>↩️</span>Rausnehmen</button><button data-zact="edit"><span>✏️</span>Bearbeiten</button></div>
+    <div><div class="label" style="margin-bottom:8px">Letzte 6 Monate</div>
+      <div class="hist" role="img" aria-label="Befüllt und ausgegeben pro Monat">${months.map(x=>`<div class="col"><i class="in" style="height:${x.inn?Math.max(3,x.inn/mx*100):0}%" title="${x.l}: +${money(x.inn)}"></i><i class="out" style="height:${x.out?Math.max(3,x.out/mx*100):0}%" title="${x.l}: −${money(x.out)}"></i></div>`).join("")}</div>
+      <div class="hlab">${months.map(x=>`<span>${x.l}</span>`).join("")}</div>
+      <div class="legend" style="margin-top:8px"><span><i style="background:var(--accent)"></i>Befüllt</span><span><i style="background:var(--danger)"></i>Raus</span></div>
+    </div>
+    ${byCat.length?`<div><div class="label" style="margin-bottom:6px">Wofür ausgegeben</div><p class="hint" style="color:var(--ink)">${byCat.map(x=>`${x.c.i} ${esc(x.c.name)} <b class="num">${money(x.sum)}</b>`).join(" · ")}</p></div>`:""}
+    <div><div class="label" style="margin-bottom:6px">Bewegungen</div>${moves.length?`<ul class="entries">${moves.map(entryRow).join("")}</ul>`:`<p class="hint">Noch keine.</p>`}</div>
+  `);
+  $("#cancel").onclick = closeSheet;
+  document.querySelectorAll("[data-zact]").forEach(btn => btn.onclick = () => {
+    const bar0 = konten().find(x=>x.kind==="bar") || konten()[0]; const k = btn.dataset.zact;
+    if(k==="pay") entrySheet(null, {type:"out", account:a.id});
+    else if(k==="fill") entrySheet(null, {type:"transfer", from:bar0&&bar0.id, to:a.id});
+    else if(k==="take") entrySheet(null, {type:"transfer", from:a.id, to:bar0&&bar0.id});
+    else accountSheet(a);
+  });
+}
+
+// Alle Zips auf einmal befüllen
+function fillAllSheet(){
+  const us = umschlaege(); const srcs = konten().filter(x=>x.kind!=="depot");
+  let src = (srcs.find(x=>x.kind==="bar")||srcs[0]||{}).id;
+  const hasLast = us.some(a=>a.lastFill);
+  openSheet(`
+    <div class="sheet-head"><button class="txt" id="cancel">Abbrechen</button><h3 id="sheetTitle">Zips befüllen</h3><span style="min-width:80px"></span></div>
+    <div><div class="label" style="margin-bottom:6px">Geld kommt aus</div><div class="chips" id="faSrc"></div></div>
+    ${hasLast?`<button class="danger" style="color:var(--ink)" id="faLast">Wie letztes Mal</button>`:""}
+    <div class="splits">${us.map(a=>`<label class="splitrow" style="--zc:var(${zipColor(a)})"><span>${zipIcon(a)} ${esc(a.name)} <small class="num" style="color:var(--muted)">(${money(balance(a))})</small></span><input class="input num" inputmode="decimal" placeholder="${a.lastFill?esc(toInput(a.lastFill)):"0"}" data-fa="${esc(a.id)}" autocomplete="off" aria-label="Betrag für ${esc(a.name)}"></label>`).join("")}</div>
+    <p class="splitrest" id="faSum"></p>
+    <div class="row"><button class="primary" id="ok">Befüllen</button></div>
+  `);
+  const vals = () => us.map(a=>({a, v: parseAmount(document.querySelector(`[data-fa="${a.id}"]`).value)}));
+  const sync = () => {
+    $("#faSrc").innerHTML = srcs.map(x=>`<button class="chip" data-fasrc="${esc(x.id)}" aria-pressed="${x.id===src}">${esc(x.name)}</button>`).join("");
+    const vs = vals(); const sum = vs.reduce((s,x)=>s+(x.v>0?x.v:0),0); const bad = vs.some(x=>isNaN(x.v)||x.v<0);
+    const left = balance(accById(src)||{start:0,id:""}) - sum;
+    $("#faSum").innerHTML = bad ? `<span style="color:var(--danger)">Bitte nur Zahlen eingeben</span>` : `Zusammen <b class="num">${money(sum)}</b> · danach in ${esc(accName(src))} <b class="num ${left<0?"neg":""}">${money(left)}</b>`;
+    $("#ok").disabled = bad || !sum || !src;
+    $("#ok").textContent = sum ? `${money(sum)} verteilen` : "Befüllen";
+  };
+  sync();
+  document.querySelectorAll("[data-fa]").forEach(i=>i.oninput = sync);
+  $("#faSrc").onclick = e => { const b = e.target.closest("[data-fasrc]"); if(b){ src = b.dataset.fasrc; sync(); } };
+  if(hasLast) $("#faLast").onclick = () => { us.forEach(a=>{ if(a.lastFill) document.querySelector(`[data-fa="${a.id}"]`).value = toInput(a.lastFill); }); sync(); };
+  $("#cancel").onclick = closeSheet;
+  $("#ok").onclick = async () => {
+    const vs = vals().filter(x=>x.v>0); const today = iso(new Date()), now = Date.now();
+    closeSheet();
+    for(const {a,v} of vs){
+      await store.set("entries", newId(), {type:"transfer", from:src, to:a.id, amount:v, date:today, note:"", createdAt:now});
+      const {id, ...d} = a; await store.set("accounts", id, {...d, lastFill:v});
+    }
+    toast(`${vs.length} Zip${vs.length>1?"s":""} befüllt`);
+  };
 }
 
 function accountSheet(acc, kind, presetName){
@@ -920,6 +1076,7 @@ function accountSheet(acc, kind, presetName){
       data.saveback = isFinite(pct) && pct>0 ? pct : 1; data.savebackCap = parseAmount($("#aSbCap").value); data.savebackTo = r.roundupTo;
     }
     if(isZiel) data.target = parseAmount($("#aTarget").value);
+    if(acc && acc.lastFill) data.lastFill = acc.lastFill;
     closeSheet();
     try { await save("accounts", id, data); toast(acc ? "Gespeichert" : word+" angelegt"); } catch(e){}
   };
@@ -1078,10 +1235,15 @@ function korrSheet(x){
 
 function budgetSheet(){
   openSheet(`
-    <div class="sheet-head"><button class="txt" id="cancel">Abbrechen</button><h3 id="sheetTitle">Monatsbudget</h3><span style="min-width:80px"></span></div>
+    <div class="sheet-head"><button class="txt" id="cancel">Abbrechen</button><h3 id="sheetTitle">Einstellungen</h3><span style="min-width:80px"></span></div>
+    <div class="label">Monatsbudget</div>
     <p class="hint">Wie viel willst du pro Monat höchstens ausgeben? Leer lassen, um kein Budget anzuzeigen.</p>
     <label class="amount"><input id="fBudget" inputmode="decimal" placeholder="0" value="${esc(toInput(state.settings.budget||0))}" aria-label="Budget in Euro" autocomplete="off"><span>€</span></label>
     <div class="row"><button class="primary" id="ok">Speichern</button></div>
+    <div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
+      <div class="label">Aussehen</div>
+      <div class="theme" id="themePick">${Object.entries(THEMES).map(([k,v])=>`<button data-theme-pick="${k}" aria-pressed="${(lsGet("hhb.theme")||"auto")===k}"><i style="background:${v.sw}"></i>${v.n}</button>`).join("")}</div>
+    </div>
     <div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
       <div class="label">Datensicherung</div>
       <p class="hint">Deine Einträge liegen nur auf diesem Gerät. Sichere sie ab und zu als Datei, z. B. in iCloud Drive.${lastBackupText()}</p>
@@ -1095,6 +1257,7 @@ function budgetSheet(){
   $("#exp").onclick = exportBackup;
   $("#csv").onclick = exportCsv;
   $("#imp").onclick = pickBackup;
+  $("#themePick").onclick = e => { const b = e.target.closest("[data-theme-pick]"); if(!b) return; const t = b.dataset.themePick; try { localStorage.setItem("hhb.theme", t); } catch(_){} applyTheme(t); document.querySelectorAll("[data-theme-pick]").forEach(x=>x.setAttribute("aria-pressed", String(x===b))); };
   $("#ok").onclick = async () => {
     const budget = parseAmount($("#fBudget").value);
     closeSheet();
@@ -1104,7 +1267,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.3 (22.11.2026)";
+const APP_VERSION = "2.4 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -1227,7 +1390,7 @@ document.addEventListener("click", e => {
   const pc = e.target.closest("[data-pcat]");
   if(pc){ state.cat = state.cat===pc.dataset.pcat ? null : pc.dataset.pcat; render(); return; }
   const pm = e.target.closest("[data-pie]");
-  if(pm){ state.pie = pm.dataset.pie; if(state.pie==="place") state.cat = null; render(); return; }
+  if(pm){ state.pie = pm.dataset.pie; if(state.pie!=="cat") state.cat = null; render(); return; }
   const rc = e.target.closest("[data-rec]");
   if(rc){ const r = state.recurring.find(x=>x.id===rc.dataset.rec); if(r) recSheet(r); return; }
   if(e.target.closest("#addRec")){ recSheet(null); return; }
@@ -1251,6 +1414,12 @@ document.addEventListener("click", e => {
   if(e.target.closest("#addEnv")){ accountSheet(null,"umschlag"); return; }
   const ne = e.target.closest("[data-newenv]");
   if(ne){ accountSheet(null,"umschlag",ne.dataset.newenv); return; }
+  const zo = e.target.closest("[data-zip]");
+  if(zo){ const a = accById(zo.dataset.zip); if(a) zipSheet(a); return; }
+  const pz = e.target.closest("[data-payzip]");
+  if(pz){ entrySheet(null, {type:"out", account:pz.dataset.payzip}); return; }
+  if(e.target.closest("#payZip")){ const z = umschlaege()[0]; entrySheet(null, {type:"out", account:z&&z.id}); return; }
+  if(e.target.closest("#fillAll")){ fillAllSheet(); return; }
   const fl = e.target.closest("[data-fill]");
   if(fl){ const bar = konten().find(a=>a.kind==="bar") || konten()[0]; entrySheet(null, {type:"transfer", from:bar&&bar.id, to:fl.dataset.fill}); return; }
   const tk = e.target.closest("[data-take]");
