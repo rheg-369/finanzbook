@@ -1300,6 +1300,45 @@ function korrSheet(x){
   $("#del").onclick = async () => { const {id, ...data} = x; closeSheet(); try { await store.del("entries", id); toast("Gelöscht", () => save("entries", id, data)); } catch(e){} };
 }
 
+// ---- Alles zurücksetzen (mit Sicherheitsabfrage) ----
+const RESET_KEYS = ["entries","accounts","settings","recurring","lastCheck","checkSnooze","snooze","mig.paypal","mig.union"];
+const RESET_WORD = "LÖSCHEN";
+function resetSheet(){
+  const nE = state.entries.length, nA = state.accounts.length, nR = state.recurring.length;
+  openSheet(`
+    <div class="sheet-head"><button class="txt" id="cancel">Abbrechen</button><h3 id="sheetTitle">Zurücksetzen</h3><span style="min-width:80px"></span></div>
+    <p class="warnmsg" style="font-size:.95rem;font-weight:600">Damit löschst du alles auf diesem iPhone: ${nE} ${nE===1?"Eintrag":"Einträge"}, alle Konten, Zips und Sparziele, ${nR} ${nR===1?"Dauerauftrag":"Daueraufträge"} und dein Budget.</p>
+    <p class="hint">Tipp: Speichere vorher eine Sicherung, dann kannst du alles später über „Sicherung laden“ zurückholen.</p>
+    <button class="danger" style="color:var(--ink)" id="rsBackup">Erst Sicherung speichern</button>
+    <div><div class="label" style="margin-bottom:6px">Zum Bestätigen „${RESET_WORD}“ eintippen</div>
+      <input class="input" id="rsWord" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="${RESET_WORD}" aria-label="Bestätigungswort eintippen"></div>
+    <button class="primary" id="rsGo" style="background:var(--danger)" disabled>Endgültig zurücksetzen</button>
+  `);
+  const ok = () => { const v = $("#rsWord").value.trim().toUpperCase(); return v===RESET_WORD || v==="LOESCHEN"; };
+  $("#rsWord").oninput = () => { $("#rsGo").disabled = !ok(); };
+  $("#cancel").onclick = closeSheet;
+  $("#rsBackup").onclick = exportBackup;
+  $("#rsGo").onclick = () => {
+    if(!ok()) return;
+    try {
+      // Notfall-Kopie für 10 Minuten, falls es doch ein Versehen war
+      const snap = {at: Date.now(), data: Object.fromEntries(RESET_KEYS.map(k=>[k, localStorage.getItem("hhb."+k)]))};
+      localStorage.setItem("hhb.resetUndo", JSON.stringify(snap));
+      RESET_KEYS.forEach(k => localStorage.removeItem("hhb."+k));
+      sessionStorage.setItem("hhb.importMsg", "Alle Daten wurden zurückgesetzt");
+    } catch(e){}
+    closeSheet(); location.reload();
+  };
+}
+function resetUndoHtml(){
+  try {
+    const u = JSON.parse(localStorage.getItem("hhb.resetUndo")||"null");
+    if(!u) return "";
+    if(Date.now() - u.at > 10*60*1000){ localStorage.removeItem("hhb.resetUndo"); return ""; }
+    return `<div class="remind" role="status"><span>Du hast gerade alle Daten zurückgesetzt. Versehen? Noch ${Math.max(1, Math.ceil((10*60*1000 - (Date.now()-u.at))/60000))} Min. lang rückgängig machbar.</span><button class="later" id="undoResetNo">Passt so</button><button class="go" id="undoReset">Rückgängig</button></div>`;
+  } catch(e){ return ""; }
+}
+
 function budgetSheet(){
   openSheet(`
     <div class="sheet-head"><button class="txt" id="cancel">Abbrechen</button><h3 id="sheetTitle">Einstellungen</h3><span style="min-width:80px"></span></div>
@@ -1317,12 +1356,14 @@ function budgetSheet(){
       <div class="row"><button class="danger" style="color:var(--ink);flex:1" id="exp">Sicherung speichern</button><button class="danger" style="color:var(--ink);flex:1" id="imp">Sicherung laden</button></div>
       <button class="danger" style="color:var(--ink)" id="csv">Als Tabelle (CSV) exportieren</button>
       
+      <button class="danger" id="resetAll" style="margin-top:8px">Alle Daten zurücksetzen</button>
       <p class="hint" style="text-align:center">Version ${APP_VERSION}</p>
     </div>
   `);
   $("#cancel").onclick = closeSheet;
   $("#exp").onclick = exportBackup;
   $("#csv").onclick = exportCsv;
+  $("#resetAll").onclick = resetSheet;
   $("#imp").onclick = pickBackup;
   $("#themePick").onclick = e => { const b = e.target.closest("[data-theme-pick]"); if(!b) return; const t = b.dataset.themePick; try { localStorage.setItem("hhb.theme", t); } catch(_){} applyTheme(t); document.querySelectorAll("[data-theme-pick]").forEach(x=>x.setAttribute("aria-pressed", String(x===b))); };
   $("#ok").onclick = async () => {
@@ -1334,7 +1375,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.8 (22.11.2026)";
+const APP_VERSION = "2.9 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -1342,7 +1383,7 @@ function checkHtml(){
   if(+(lsGet("hhb.checkSnooze")||0) > Date.now()) return "";
   return `<div class="remind" role="status"><span>Neuer Monat: Stimmen deine Kontostände und dein Bargeld noch?</span><button class="later" id="checkLater">Später</button><button class="go" id="checkNow">Jetzt prüfen</button></div>`;
 }
-function reminderHtml(){ return checkHtml() + backupHtml(); }
+function reminderHtml(){ return resetUndoHtml() + checkHtml() + backupHtml(); }
 function backupHtml(){
   if(!state.entries.length) return "";
   const now = Date.now();
@@ -1461,6 +1502,8 @@ document.addEventListener("click", e => {
   const rc = e.target.closest("[data-rec]");
   if(rc){ const r = state.recurring.find(x=>x.id===rc.dataset.rec); if(r) recSheet(r); return; }
   if(e.target.closest("#addRec")){ recSheet(null); return; }
+  if(e.target.closest("#undoReset")){ try { const u = JSON.parse(localStorage.getItem("hhb.resetUndo")); Object.entries(u.data).forEach(([k,v]) => { if(v===null) localStorage.removeItem("hhb."+k); else localStorage.setItem("hhb."+k, v); }); localStorage.removeItem("hhb.resetUndo"); sessionStorage.setItem("hhb.importMsg", "Daten wiederhergestellt"); } catch(_){} location.reload(); return; }
+  if(e.target.closest("#undoResetNo")){ try { localStorage.removeItem("hhb.resetUndo"); } catch(_){} render(); return; }
   const kr = e.target.closest("[data-korr]");
   if(kr){ const x = state.entries.find(y=>y.id===kr.dataset.korr); if(x) korrSheet(x); return; }
   if(e.target.closest("#checkNow") || e.target.closest("#checkAcc")){ checkSheet(); return; }
