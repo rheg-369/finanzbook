@@ -202,6 +202,10 @@ const OUT_CATS = [
 ];
 const IN_CATS = [
   {id:"gehalt", name:"Gehalt", c:"--accent"},
+  {id:"taschengeld", name:"Taschengeld", c:"--accent"},
+  {id:"trinkgeld", name:"Trinkgeld", c:"--accent"},
+  {id:"geschenk", name:"Geschenk", c:"--accent"},
+  {id:"verkauf", name:"Verkauf", c:"--accent"},
   {id:"einnahme-sonst", name:"Sonstige Einnahme", c:"--accent"},
 ];
 // Vordefinierte Orte, gruppiert nach der Kategorie, die beim Auswählen vorgeschlagen wird
@@ -665,7 +669,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "1.3 (22.11.2026)";
+const APP_VERSION = "1.4 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function reminderHtml(){
