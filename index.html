@@ -171,7 +171,7 @@ section > h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;colo
     <h1 class="ptitle" id="pageTitle" hidden>Konten</h1>
     <button class="icon" id="settings" aria-label="Budget einstellen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
     </div>
-    <div class="seg" id="tabs" role="tablist"><button data-tab="monat">Monat</button><button data-tab="konten">Konten &amp; Sparziele</button></div>
+    <div class="seg seg3" id="tabs" role="tablist"><button data-tab="monat">Monat</button><button data-tab="sips">Sips</button><button data-tab="konten">Konten</button></div>
   </header>
   <main id="main"></main>
   <div class="status" id="status" hidden></div>
@@ -253,7 +253,7 @@ function fmtDay(s){
 
 // ---- state ----
 const state = { entries:[], accounts:[], settings:{budget:0}, month:curMonth(), cat:null, ready:false, tab:"monat" };
-try { if(localStorage.getItem("hhb.tab")==="konten") state.tab = "konten"; } catch(e){}
+try { const t = localStorage.getItem("hhb.tab"); if(t==="konten"||t==="sips") state.tab = t; } catch(e){}
 function parseSigned(s){
   s = String(s||"").trim().replace(/\s|€/g,"");
   const neg = /^[-−]/.test(s); s = s.replace(/^[-−+]/,"");
@@ -264,7 +264,8 @@ function parseSigned(s){
 }
 const toSigned = c => c ? (c<0?"-":"") + (Math.abs(c)/100).toFixed(2).replace(".",",").replace(/,00$/,"") : "";
 const accOf = e => e.account || "giro";
-const konten = () => state.accounts.filter(a=>a.kind!=="ziel").sort((a,b)=>(a.order||0)-(b.order||0));
+const umschlaege = () => state.accounts.filter(a=>a.kind==="umschlag").sort((a,b)=>(a.order||0)-(b.order||0));
+const konten = () => state.accounts.filter(a=>a.kind!=="ziel" && a.kind!=="umschlag").sort((a,b)=>(a.order||0)-(b.order||0));
 const ziele = () => state.accounts.filter(a=>a.kind==="ziel").sort((a,b)=>(a.order||0)-(b.order||0));
 const accById = id => state.accounts.find(a=>a.id===id);
 const accName = id => (accById(id)||{name:"Unbekannt"}).name;
@@ -277,7 +278,8 @@ function movement(id){
   return m;
 }
 const balance = a => (a.start||0) + movement(a.id);
-const KINDS = {konto:"Konto", bar:"Bargeld", depot:"Depot", ziel:"Sparziel"};
+const KINDS = {konto:"Konto", bar:"Bargeld", depot:"Depot", ziel:"Sparziel", umschlag:"Umschlag"};
+const KIND_ORDER = {konto:0, bar:0, depot:0, umschlag:1, ziel:2};
 // Round-up (z. B. Trade Republic): Aufrundung auf den nächsten vollen Euro × Multiplikator, als Umbuchung aufs Depot
 function roundupFor(amount, acc){
   if(!acc || !acc.roundup || !acc.roundupTo || !accById(acc.roundupTo)) return 0;
@@ -333,7 +335,9 @@ function render(){
   const m = state.month;
   document.querySelectorAll("#tabs [data-tab]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.tab===state.tab)));
   $("#monthNav").hidden = state.tab!=="monat"; $("#pageTitle").hidden = state.tab==="monat";
+  $("#pageTitle").textContent = state.tab==="sips" ? "Sips" : "Konten";
   if(state.tab==="konten" && state.ready){ renderKonten(); return; }
+  if(state.tab==="sips" && state.ready){ renderSips(); return; }
   $("#monthTitle").textContent = monthName(m);
   $("#next").disabled = m >= curMonth();
   const main = $("#main");
@@ -410,7 +414,8 @@ function render(){
 function entryRow(e){
   if(e.type==="transfer"){
     const toKind = (accById(e.to)||{}).kind;
-    const label = e.auto ? "Round-up" : ({ziel:"Zurückgelegt", bar:"Abgehoben", depot:"Investiert"})[toKind] || "Umbuchung";
+    const fromKind = (accById(e.from)||{}).kind;
+    const label = e.auto ? "Round-up" : toKind==="umschlag" ? "In Umschlag gesteckt" : fromKind==="umschlag" ? "Aus Umschlag genommen" : ({ziel:"Zurückgelegt", bar:"Abgehoben", depot:"Investiert"})[toKind] || "Umbuchung";
     return `<li><button class="entry" data-edit="${esc(e.id)}">
       <span class="badge" style="background:var(--muted)" aria-hidden="true">⇄</span>
       <span class="mid"><div class="t">${esc(e.note || label)}</div><div class="s">${esc(accName(e.from))} → ${esc(accName(e.to))}</div></span>
@@ -478,8 +483,8 @@ function entrySheet(entry, preset){
     if(!cats().some(c=>c.id===d.cat)) d.cat = d.type==="in" ? "gehalt" : null;
     $("#fCat").innerHTML = cats().map(c=>`<button class="chip" data-cat="${c.id}" aria-pressed="${c.id===d.cat}"><span class="dot" style="background:var(${c.c})"></span>${esc(c.name)}</button>`).join("");
   };
-  const accChips = (sel, attr) => state.accounts.slice().sort((a,b)=>(a.kind==="ziel")-(b.kind==="ziel")||(a.order||0)-(b.order||0))
-    .map(a=>`<button class="chip" data-${attr}="${esc(a.id)}" aria-pressed="${a.id===sel}">${a.kind==="ziel"?"Ziel: ":""}${esc(a.name)}</button>`).join("");
+  const accChips = (sel, attr) => state.accounts.slice().sort((a,b)=>(KIND_ORDER[a.kind||"konto"]-KIND_ORDER[b.kind||"konto"])||(a.order||0)-(b.order||0))
+    .map(a=>`<button class="chip" data-${attr}="${esc(a.id)}" aria-pressed="${a.id===sel}">${a.kind==="ziel"?"Ziel: ":a.kind==="umschlag"?"✉ ":""}${esc(a.name)}</button>`).join("");
   const drawAcc = () => {
     $("#fAcc").innerHTML = accChips(d.account, "acc");
     $("#fFrom").innerHTML = accChips(d.from, "from");
@@ -553,21 +558,23 @@ function entrySheet(entry, preset){
 
 // ---- Konten & Sparziele ----
 function renderKonten(){
-  const ks = konten(), zs = ziele();
-  const onAcc = ks.reduce((s,a)=>s+balance(a),0), inGoals = zs.reduce((s,a)=>s+balance(a),0);
-  const total = onAcc + inGoals;
+  const ks = konten(), zs = ziele(), us = umschlaege();
+  const onAcc = ks.reduce((s,a)=>s+balance(a),0), inGoals = zs.reduce((s,a)=>s+balance(a),0), inEnv = us.reduce((s,a)=>s+balance(a),0);
+  const total = onAcc + inGoals + inEnv;
   const [whole, cents] = money(Math.abs(total)).replace(/\s?€/,"").split(",");
   let html = reminderHtml() + `<div class="hero">
     <div><div class="label">Gesamtvermögen</div><div class="big num ${total<0?"neg":""}">${total<0?"−":""}${esc(whole)}<span class="cents">,${esc(cents)} €</span></div></div>
-    <div class="trio" style="grid-template-columns:1fr 1fr">
-      <div><div class="label">Auf Konten</div><div class="v num">${money(onAcc)}</div></div>
-      <div><div class="label">In Sparzielen</div><div class="v num pos">${money(inGoals)}</div></div>
+    <div class="trio">
+      <div><div class="label">Konten</div><div class="v num">${money(onAcc)}</div></div>
+      <div><div class="label">Umschläge</div><div class="v num">${money(inEnv)}</div></div>
+      <div><div class="label">Sparziele</div><div class="v num pos">${money(inGoals)}</div></div>
     </div></div>`;
   html += `<section><h2><span>Konten</span></h2><ul class="accs">${ks.map(a => {
     const b = balance(a);
     return `<li><button class="acc" data-account="${esc(a.id)}"><span class="mid"><div class="t">${esc(a.name)}</div><div class="s">${esc(KINDS[a.kind||"konto"])}${a.roundup&&a.roundupTo?` · Round-up ${a.roundup}× aufs ${esc(accName(a.roundupTo))}`:""}</div></span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button></li>`;
   }).join("")}</ul>
   <div class="addrow"><button class="addbtn" id="addKonto">+ Konto</button><button class="addbtn" id="addTransfer">Umbuchen</button>${ks.some(a=>a.kind==="bar")?`<button class="addbtn" id="withdraw">Abheben</button>`:""}</div></section>`;
+
   html += `<section><h2><span>Sparziele</span></h2>`;
   if(!zs.length) html += `<div class="empty" style="padding:24px 16px"><strong>Noch kein Sparziel</strong>Leg zum Beispiel „Urlaub“ mit 1.500 € an und leg nach und nach Geld zurück.</div>`;
   html += `<div class="goals">${zs.map(a => {
@@ -582,18 +589,58 @@ function renderKonten(){
   $("#main").innerHTML = html;
 }
 
-function accountSheet(acc, kind){
+// ---- Sips (Bargeld-Umschläge) ----
+function renderSips(){
+  const us = umschlaege();
+  const inEnv = us.reduce((s,a)=>s+balance(a),0);
+  const bar = konten().filter(a=>a.kind==="bar");
+  const free = bar.reduce((s,a)=>s+balance(a),0);
+  const [whole, cents] = money(Math.abs(inEnv)).replace(/\s?€/,"").split(",");
+  let html = reminderHtml() + `<div class="hero">
+    <div><div class="label">In allen Umschlägen</div><div class="big num">${inEnv<0?"−":""}${esc(whole)}<span class="cents">,${esc(cents)} €</span></div></div>
+    <div class="trio" style="grid-template-columns:1fr 1fr">
+      <div><div class="label">Bargeld noch frei</div><div class="v num ${free<0?"neg":""}">${money(free)}</div></div>
+      <div><div class="label">Bargeld gesamt</div><div class="v num">${money(free+inEnv)}</div></div>
+    </div>
+    <p class="hint">„Befüllen“ nimmt Geld aus deinem Bargeld, „Rausnehmen“ legt es zurück. Ausgaben bezahlst du direkt aus einem Umschlag, indem du ihn beim Eintragen als Konto wählst. Tipp auf einen Namen, um den Umschlag umzubenennen oder zu löschen.</p>
+  </div>`;
+  html += `<section><h2><span>Deine Umschläge</span><span class="num">${us.length}</span></h2>`;
+  if(!us.length) html += `<div class="empty" style="padding:20px 16px"><strong>Noch keine Umschläge</strong>Für dein Bargeld im Budgetplaner. Leg los mit einem Tipp:</div>
+    <div class="chips" style="justify-content:center">${["Urlaub","Auto","Rückzahlung","Geschenke","Lebensmittel","Notgroschen"].map(n=>`<button class="chip" data-newenv="${n}">+ ${n}</button>`).join("")}</div>`;
+  html += `<div class="goals">${us.map(a => {
+    const b = balance(a), t = a.target||0, pct = t ? Math.max(0,Math.min(1,b/t)) : 0;
+    return `<div class="goal">
+      <div class="top"><button class="name" data-account="${esc(a.id)}">✉ ${esc(a.name)}</button><span class="of num"><b class="${b<0?"neg":""}">${money(b)}</b>${t?` von ${money(t)}`:""}</span></div>
+      ${t?`<div class="bar" role="img" aria-label="${Math.round(pct*100)} Prozent gefüllt"><i style="width:${(pct*100).toFixed(1)}%"></i></div>`:""}
+      <div class="foot"><button class="put" style="background:none;padding-left:0;color:var(--muted)" data-take="${esc(a.id)}">Rausnehmen</button><button class="put" data-fill="${esc(a.id)}">Befüllen</button></div>
+    </div>`;
+  }).join("")}</div>
+  <div class="addrow"><button class="addbtn" id="addEnv">+ Umschlag</button></div></section>`;
+  if(us.length){
+    const ids = new Set(us.map(a=>a.id));
+    const moves = state.entries.filter(e => e.type==="transfer" ? (ids.has(e.from)||ids.has(e.to)) : ids.has(accOf(e)))
+      .sort((a,b)=> a.date===b.date ? (b.createdAt||0)-(a.createdAt||0) : (a.date<b.date?1:-1)).slice(0,15);
+    html += `<section><h2><span>Letzte Bewegungen</span></h2>`;
+    html += moves.length ? `<ul class="entries">${moves.map(entryRow).join("")}</ul>` : `<p class="hint">Noch keine Bewegungen. Tipp bei einem Umschlag auf „Befüllen“.</p>`;
+    html += `</section>`;
+  }
+  $("#main").innerHTML = html;
+}
+
+function accountSheet(acc, kind, presetName){
   kind = acc ? (acc.kind||"konto") : kind;
-  const isZiel = kind==="ziel";
+  const isEnv = kind==="umschlag";
+  const isZiel = kind==="ziel" || isEnv;
+  const word = isEnv ? "Umschlag" : kind==="ziel" ? "Sparziel" : "Konto";
   const r = {kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&acc.roundupTo||null};
   const targets = () => state.accounts.filter(a => (a.kind==="depot"||a.kind==="ziel") && (!acc || a.id!==acc.id));
   const cur = acc ? balance(acc) : 0;
   openSheet(`
-    <div class="sheet-head"><button class="txt" id="cancel">Abbrechen</button><h3 id="sheetTitle">${acc?(isZiel?"Sparziel":"Konto"):(isZiel?"Neues Sparziel":"Neues Konto")}</h3><span style="min-width:80px"></span></div>
-    <input class="input" id="aName" placeholder="${isZiel?"Name, z. B. Urlaub":"Name, z. B. Trade Republic oder Tagesgeld"}" value="${esc(acc?acc.name:"")}" autocomplete="off">
-    ${isZiel?`<div><div class="label" style="margin-bottom:6px">Zielbetrag</div><input class="input num" id="aTarget" inputmode="decimal" placeholder="z. B. 1.500" value="${esc(toInput(acc&&acc.target||0))}" autocomplete="off"></div>`:""}
-    <div><div class="label" style="margin-bottom:6px">${isZiel?"Schon angespart":"Aktueller Kontostand"}</div><input class="input num" id="aBal" inputmode="decimal" placeholder="0" value="${esc(toSigned(cur))}" autocomplete="off"></div>
-    <p class="sublabel">${isZiel?"Weiteres Geld legst du über „Zurücklegen“ dazu.":"Ab jetzt rechnet die App den Stand mit deinen Einträgen weiter. Minus für Dispo, z. B. -250."}</p>
+    <div class="sheet-head"><button class="txt" id="cancel">Abbrechen</button><h3 id="sheetTitle">${acc?word:(isEnv?"Neuer ":"Neues ")+word}</h3><span style="min-width:80px"></span></div>
+    <input class="input" id="aName" placeholder="${isEnv?"Name, z. B. Auto oder Geschenke":isZiel?"Name, z. B. Urlaub":"Name, z. B. Trade Republic oder Tagesgeld"}" value="${esc(acc?acc.name:(presetName||""))}" autocomplete="off">
+    ${isZiel?`<div><div class="label" style="margin-bottom:6px">${isEnv?"Zielbetrag (optional)":"Zielbetrag"}</div><input class="input num" id="aTarget" inputmode="decimal" placeholder="z. B. 1.500" value="${esc(toInput(acc&&acc.target||0))}" autocomplete="off"></div>`:""}
+    <div><div class="label" style="margin-bottom:6px">${isEnv?"Aktuell im Umschlag":isZiel?"Schon angespart":"Aktueller Kontostand"}</div><input class="input num" id="aBal" inputmode="decimal" placeholder="0" value="${esc(toSigned(cur))}" autocomplete="off"></div>
+    <p class="sublabel">${isEnv?"Ab jetzt steckst du Geld mit „Befüllen“ rein. Ausgaben kannst du direkt aus dem Umschlag bezahlen.":isZiel?"Weiteres Geld legst du über „Zurücklegen“ dazu.":"Ab jetzt rechnet die App den Stand mit deinen Einträgen weiter. Minus für Dispo, z. B. -250."}</p>
     ${isZiel?"":`<div><div class="label" style="margin-bottom:6px">Art</div><div class="chips" id="aKind">${["konto","bar","depot"].map(k=>`<button class="chip" data-kind="${k}">${KINDS[k]}</button>`).join("")}</div></div>
     <div id="ruBox"><div class="label" style="margin-bottom:6px">Round-up</div>
       <p class="sublabel" style="margin:0 0 8px">Jede Ausgabe von diesem Konto wird auf den nächsten Euro aufgerundet, die Differenz mal Faktor geht aufs Depot. Beispiel bei 10×: 0,85 € Kauf ergibt 1,50 €.</p>
@@ -629,11 +676,11 @@ function accountSheet(acc, kind){
     if(r.kind==="konto" && r.roundup && r.roundupTo){ data.roundup = r.roundup; data.roundupTo = r.roundupTo; }
     if(isZiel) data.target = parseAmount($("#aTarget").value);
     closeSheet();
-    try { await save("accounts", id, data); toast(acc ? "Gespeichert" : (isZiel?"Sparziel angelegt":"Konto angelegt")); } catch(e){}
+    try { await save("accounts", id, data); toast(acc ? "Gespeichert" : word+" angelegt"); } catch(e){}
   };
   if(acc) $("#del").onclick = async () => {
     const w = $("#aWarn");
-    if(usedBy(acc.id)){ w.textContent = "Hier hängen noch Buchungen dran. Lösch oder ändere sie zuerst, dann kannst du "+(isZiel?"das Sparziel":"das Konto")+" löschen."; w.hidden=false; return; }
+    if(usedBy(acc.id)){ w.textContent = "Hier hängen noch Buchungen dran. Lösch oder ändere sie zuerst, dann kannst du "+(isEnv?"den Umschlag":isZiel?"das Sparziel":"das Konto")+" löschen."; w.hidden=false; return; }
     if(!isZiel && konten().length<2){ w.textContent = "Mindestens ein Konto muss bleiben."; w.hidden=false; return; }
     const {id, ...data} = acc; closeSheet();
     try { await store.del("accounts", id); toast("Gelöscht", () => save("accounts", id, data)); } catch(e){ toast("Löschen fehlgeschlagen."); }
@@ -669,7 +716,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "1.4 (22.11.2026)";
+const APP_VERSION = "1.5 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function reminderHtml(){
@@ -744,6 +791,13 @@ document.addEventListener("click", e => {
   if(pt){ const k = konten().find(a=>a.id!==pt.dataset.put); entrySheet(null, {type:"transfer", to:pt.dataset.put, from:k?k.id:null, note:""}); return; }
   if(e.target.closest("#addKonto")){ accountSheet(null,"konto"); return; }
   if(e.target.closest("#addZiel")){ accountSheet(null,"ziel"); return; }
+  if(e.target.closest("#addEnv")){ accountSheet(null,"umschlag"); return; }
+  const ne = e.target.closest("[data-newenv]");
+  if(ne){ accountSheet(null,"umschlag",ne.dataset.newenv); return; }
+  const fl = e.target.closest("[data-fill]");
+  if(fl){ const bar = konten().find(a=>a.kind==="bar") || konten()[0]; entrySheet(null, {type:"transfer", from:bar&&bar.id, to:fl.dataset.fill}); return; }
+  const tk = e.target.closest("[data-take]");
+  if(tk){ const bar = konten().find(a=>a.kind==="bar") || konten()[0]; entrySheet(null, {type:"transfer", from:tk.dataset.take, to:bar&&bar.id}); return; }
   if(e.target.closest("#addTransfer")){ entrySheet(null, {type:"transfer"}); return; }
   if(e.target.closest("#withdraw")){ const bar = konten().find(a=>a.kind==="bar"); const src = konten().find(a=>a.kind==="konto"); entrySheet(null, {type:"transfer", to:bar&&bar.id, from:src&&src.id}); return; }
   if(e.target.closest("#snooze")){ try { localStorage.setItem("hhb.snooze", String(Date.now()+2*DAY)); } catch(_){} render(); return; }
