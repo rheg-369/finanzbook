@@ -153,6 +153,12 @@ section > h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;colo
 .seg3{grid-template-columns:1fr 1fr 1fr}
 .sublabel{font-size:.82rem;color:var(--muted);margin:-4px 0 0}
 .warnmsg{font-size:.85rem;color:var(--danger);margin:0}
+.splits{display:flex;flex-direction:column;gap:8px}
+.splitrow{display:grid;grid-template-columns:1fr 7.5em;gap:10px;align-items:center}
+.splitrow span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.splitrow input{text-align:right;padding:10px 12px}
+.splitrest{font-size:.88rem;margin:8px 0 0;color:var(--muted)}
+.splitrest b{color:var(--ink)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(100px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:12px;font-size:.9rem;z-index:30;display:flex;gap:14px;align-items:center;max-width:calc(100% - 32px)}
 .toast button{border:0;background:none;color:var(--accent-soft);font-weight:600;padding:0}
 </style>
@@ -468,6 +474,9 @@ function entrySheet(entry, preset){
       <input class="input" id="fPlaceIn" placeholder="Eigenen Ort eingeben, z. B. Bio-Laden" autocomplete="off" style="margin-top:8px" hidden></div>
     <div id="catBox"><div class="label" style="margin-bottom:6px">Kategorie</div><div class="chips" id="fCat"></div></div>
     <div id="accBox"><div class="label" style="margin-bottom:6px">Konto</div><div class="chips" id="fAcc"></div></div>
+    <div id="splitBox" hidden><div class="label" style="margin-bottom:6px">Direkt auf Zips aufteilen</div>
+      <div class="splits">${umschlaege().map(z=>`<label class="splitrow"><span>✉ ${esc(z.name)} <small class="num" style="color:var(--muted)">(${money(balance(z))})</small></span><input class="input num" inputmode="decimal" placeholder="0" data-split="${esc(z.id)}" autocomplete="off" aria-label="Betrag für ${esc(z.name)}"></label>`).join("")}</div>
+      <p class="splitrest" id="splitRest"></p></div>
     <div id="trBox"><div class="label" style="margin-bottom:6px">Von</div><div class="chips" id="fFrom"></div>
       <div class="label" style="margin:12px 0 6px">Nach</div><div class="chips" id="fTo"></div>
       <p class="hint" style="margin-top:10px">Umbuchungen zählen weder als Ausgabe noch als Einnahme.</p></div>
@@ -494,7 +503,10 @@ function entrySheet(entry, preset){
     $("#accBox").hidden = d.type==="transfer" || state.accounts.length<2;
     $("#trBox").hidden = d.type!=="transfer";
   };
-  const valid = () => parseAmount($("#fAmount").value)>0 && d.date && (d.type==="transfer" ? (d.from && d.to && d.from!==d.to && accById(d.from) && accById(d.to)) : (d.cat && accById(d.account||"giro")));
+  const splitOn = () => !entry && d.type==="in" && umschlaege().length>0 && (accById(d.account)||{}).kind!=="umschlag";
+  const splits = () => splitOn() ? [...document.querySelectorAll("[data-split]")].map(i=>({to:i.dataset.split, amount:parseAmount(i.value)})).filter(x=>x.amount>0) : [];
+  const splitSum = () => splits().reduce((s,x)=>s+x.amount,0);
+  const valid = () => parseAmount($("#fAmount").value)>0 && splitSum() <= parseAmount($("#fAmount").value) && d.date && (d.type==="transfer" ? (d.from && d.to && d.from!==d.to && accById(d.from) && accById(d.to)) : (d.cat && accById(d.account||"giro")));
   const sync = () => {
     drawAcc();
     document.querySelectorAll("#fType [data-type]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.type===d.type)));
@@ -503,6 +515,12 @@ function entrySheet(entry, preset){
     $("#dateCustom").setAttribute("aria-pressed", String(!dateChips.some(([,v])=>v===d.date)));
     $("#fDateIn").value = d.date;
     $("#ok").disabled = !valid();
+    $("#splitBox").hidden = !splitOn();
+    if(splitOn()){
+      const total = parseAmount($("#fAmount").value), used = splitSum(), rest = total - used;
+      $("#splitRest").innerHTML = rest < 0 ? `<span class="neg">Du hast <b class="neg">${money(-rest)}</b> mehr verteilt, als reinkommt.</span>`
+        : used ? `Noch frei: <b class="num">${money(rest)}</b>, bleibt auf ${esc(accName(d.account))}` : `Optional. Was du nicht verteilst, bleibt auf ${esc(accName(d.account))}.`;
+    }
     const ra = d.type==="out" ? accById(d.account) : null, rv = ra ? roundupFor(parseAmount($("#fAmount").value), ra) : 0;
     $("#ruHint").hidden = !rv;
     if(rv) $("#ruHint").textContent = `Round-up: ${money(rv)} gehen aufs ${accName(ra.roundupTo)}`;
@@ -529,7 +547,10 @@ function entrySheet(entry, preset){
   $("#fAcc").onclick = e => { const b=e.target.closest("[data-acc]"); if(b){ d.account=b.dataset.acc; sync(); } };
   $("#fFrom").onclick = e => { const b=e.target.closest("[data-from]"); if(b){ d.from=b.dataset.from; if(d.to===d.from) d.to=null; sync(); } };
   $("#fTo").onclick = e => { const b=e.target.closest("[data-to]"); if(b){ d.to=b.dataset.to; if(d.from===d.to) d.from=null; sync(); } };
-  $("#fCat").onclick = e => { const b=e.target.closest("[data-cat]"); if(b){ d.cat=b.dataset.cat; sync(); } };
+  $("#fCat").onclick = e => { const b=e.target.closest("[data-cat]"); if(b){ d.cat=b.dataset.cat;
+    if(!entry && d.type==="in" && ["trinkgeld","taschengeld","geschenk"].includes(d.cat)){ const bar = konten().find(a=>a.kind==="bar"); if(bar) d.account = bar.id; }
+    sync(); } };
+  document.querySelectorAll("[data-split]").forEach(i => i.oninput = sync);
   $("#fDate").onclick = e => { const b=e.target.closest("[data-date]"); if(b){ d.date=b.dataset.date; sync(); } };
   $("#fDateIn").onchange = e => { if(e.target.value){ d.date=e.target.value; } sync(); };
   $("#fAmount").oninput = sync;
@@ -541,8 +562,11 @@ function entrySheet(entry, preset){
     const base = {type:d.type, amount, date:d.date, note:$("#fNote").value.trim(), createdAt: entry ? (entry.createdAt||Date.now()) : Date.now()};
     const data = d.type==="transfer" ? {...base, from:d.from, to:d.to} : {...base, cat:d.cat, account:d.account||"giro"};
     if(d.type==="out" && d.place) data.place = d.place;
+    const sp = splits();
     closeSheet();
-    try { await save("entries", id, data); await syncRoundup(id, data); if(!entry){ toast(({in:"Einnahme",out:"Ausgabe",transfer:"Umbuchung"})[d.type]+" eingetragen: "+money(amount)); if(d.date.slice(0,7)!==state.month){ state.month=d.date.slice(0,7); render(); } } } catch(e){}
+    try { await save("entries", id, data); await syncRoundup(id, data);
+      for(const x of sp) await save("entries", newId(), {type:"transfer", amount:x.amount, from:data.account, to:x.to, date:data.date, note:"", split:id, createdAt:Date.now()});
+      if(!entry){ toast(sp.length ? `Einnahme eingetragen, ${money(sp.reduce((s,x)=>s+x.amount,0))} auf ${sp.length} Zip${sp.length>1?"s":""} verteilt` : ({in:"Einnahme",out:"Ausgabe",transfer:"Umbuchung"})[d.type]+" eingetragen: "+money(amount)); if(d.date.slice(0,7)!==state.month){ state.month=d.date.slice(0,7); render(); } } } catch(e){}
   };
   $("#ok").onclick = submit;
   $("#fNote").onkeydown = e => { if(e.key==="Enter"){ e.preventDefault(); submit(); } };
@@ -716,7 +740,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "1.6 (22.11.2026)";
+const APP_VERSION = "1.7 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function reminderHtml(){
