@@ -682,10 +682,14 @@ function entrySheet(entry, preset){
     <div id="placeBox"><div class="label" style="margin-bottom:6px">Wo?</div>
       <select class="input" id="fPlace" aria-label="Wo war die Ausgabe?"></select>
       <input class="input" id="fPlaceIn" placeholder="Eigenen Ort eingeben, z. B. Bio-Laden" autocomplete="off" style="margin-top:8px" hidden></div>
-    <div id="catBox"><div class="label" style="margin-bottom:6px">Kategorie</div><div class="chips" id="fCat"></div></div>
-    <div id="accBox"><div class="label" style="margin-bottom:6px">Konto</div><div class="chips" id="fAcc"></div></div>
-    <div id="splitBox" hidden><div class="label" style="margin-bottom:6px">Direkt auf Zips aufteilen</div>
-      <div class="splits">${umschlaege().map(z=>`<label class="splitrow"><span>${zipIcon(z)} ${esc(z.name)} <small class="num" style="color:var(--muted)">(${money(balance(z))})</small></span><input class="input num" inputmode="decimal" placeholder="0" data-split="${esc(z.id)}" autocomplete="off" aria-label="Betrag für ${esc(z.name)}"></label>`).join("")}</div>
+    <div id="catBox"><div class="label" style="margin-bottom:6px" id="catLabel">Kategorie</div><div class="chips" id="fCat"></div>
+      <select class="input" id="fCatSel" aria-label="Art der Einnahme" hidden></select></div>
+    <div id="destBox" hidden><div class="label" style="margin-bottom:6px">Wohin?</div>
+      <div class="seg" id="fDest"><button data-dest="konto">Auf ein Konto</button><button data-dest="zips">Auf Zips verteilen</button></div></div>
+    <div id="accBox"><div class="label" style="margin-bottom:6px" id="accLabel">Konto</div><div class="chips" id="fAcc"></div></div>
+    <div id="splitBox" hidden><div class="label" style="margin-bottom:6px">Verteilen auf</div>
+      <div class="splits" id="splitRows"></div>
+      <select class="input" id="splitAdd" aria-label="Zip zum Verteilen hinzufügen" style="margin-top:8px"></select>
       <p class="splitrest" id="splitRest"></p></div>
     <div id="trBox"><div class="label" style="margin-bottom:6px">Von</div><div class="chips" id="fFrom"></div>
       <div class="label" style="margin:12px 0 6px">Nach</div><div class="chips" id="fTo"></div>
@@ -707,8 +711,12 @@ function entrySheet(entry, preset){
   const cats = () => d.type==="in" ? IN_CATS : OUT_CATS;
   const drawCats = () => {
     if(!cats().some(c=>c.id===d.cat)) d.cat = d.type==="in" ? "gehalt" : null;
-    $("#fCat").innerHTML = cats().map(c=>`<button class="chip" data-cat="${c.id}" aria-pressed="${c.id===d.cat}"><span class="dot" style="background:var(${c.c})"></span>${esc(c.name)}</button>`).join("");
+    const isIn = d.type==="in";
+    $("#fCat").hidden = isIn; $("#fCatSel").hidden = !isIn; $("#catLabel").textContent = isIn ? "Was kommt rein?" : "Kategorie";
+    if(isIn){ $("#fCatSel").innerHTML = IN_CATS.filter(c=>c.id!=="saveback" || d.cat==="saveback").map(c=>`<option value="${c.id}">${c.i} ${esc(c.name)}</option>`).join(""); $("#fCatSel").value = d.cat; }
+    else $("#fCat").innerHTML = cats().map(c=>`<button class="chip" data-cat="${c.id}" aria-pressed="${c.id===d.cat}"><span class="dot" style="background:var(${c.c})"></span>${esc(c.name)}</button>`).join("");
   };
+  let dest = "konto"; const chosen = [];
   let editAcc = false;
   const na = {slot:null, kind:"konto"};
   const accChips = (sel, attr) => state.accounts.slice().sort((a,b)=>(KIND_ORDER[a.kind||"konto"]-KIND_ORDER[b.kind||"konto"])||(a.order||0)-(b.order||0))
@@ -716,6 +724,7 @@ function entrySheet(entry, preset){
     + (attr==="acc" ? "" : editAcc ? `<button class="chip ghost" data-editdone="1">Fertig</button>` : `<button class="chip ghost" data-newfor="${attr}">+ Neu</button><button class="chip ghost" data-editacc="1">Bearbeiten</button>`);
   const drawAcc = () => {
     $("#fAcc").innerHTML = accChips(d.account, "acc");
+    if(typeof splitOn==="function" && splitOn()) document.querySelectorAll("#fAcc [data-acc]").forEach(b => { const k = (accById(b.dataset.acc)||{}).kind; if(k==="depot"||k==="umschlag"||k==="ziel") b.hidden = true; });
     $("#fFrom").innerHTML = accChips(d.from, "from");
     $("#fTo").innerHTML = accChips(d.to, "to");
     $("#catBox").hidden = d.type==="transfer";
@@ -723,7 +732,16 @@ function entrySheet(entry, preset){
     $("#accBox").hidden = d.type==="transfer" || state.accounts.length<2;
     $("#trBox").hidden = d.type!=="transfer";
   };
-  const splitOn = () => !entry && d.type==="in" && umschlaege().length>0 && (accById(d.account)||{}).kind!=="umschlag";
+  const canSplit = () => !entry && d.type==="in" && umschlaege().length>0;
+  const splitOn = () => canSplit() && dest==="zips" && (accById(d.account)||{}).kind!=="umschlag";
+  const drawSplit = () => {
+    const keep = {}; document.querySelectorAll("[data-split]").forEach(i => keep[i.dataset.split] = i.value);
+    $("#splitRows").innerHTML = chosen.map(id => { const z = accById(id); if(!z) return ""; return `<div class="splitrow" style="grid-template-columns:1fr 7.5em auto"><span>${zipIcon(z)} ${esc(z.name)} <small class="num" style="color:var(--muted)">(${money(balance(z))})</small></span><input class="input num" inputmode="decimal" placeholder="0" data-split="${esc(id)}" value="${esc(keep[id]||"")}" autocomplete="off" aria-label="Betrag für ${esc(z.name)}"><button class="chip" data-unsplit="${esc(id)}" aria-label="${esc(z.name)} entfernen" style="padding:6px 10px">×</button></div>`; }).join("");
+    const left = umschlaege().filter(z=>!chosen.includes(z.id));
+    $("#splitAdd").hidden = !left.length;
+    $("#splitAdd").innerHTML = `<option value="">＋ Zip hinzufügen …</option>` + (left.length>1 ? `<option value="__all">Alle Zips</option>` : "") + left.map(z=>`<option value="${esc(z.id)}">${zipIcon(z)} ${esc(z.name)}</option>`).join("");
+    document.querySelectorAll("[data-split]").forEach(i => i.oninput = sync);
+  };
   const splits = () => splitOn() ? [...document.querySelectorAll("[data-split]")].map(i=>({to:i.dataset.split, amount:parseAmount(i.value)})).filter(x=>x.amount>0) : [];
   const splitSum = () => splits().reduce((s,x)=>s+x.amount,0);
   const valid = () => parseAmount($("#fAmount").value)>0 && splitSum() <= parseAmount($("#fAmount").value) && d.date && (d.type==="transfer" ? (d.from && d.to && d.from!==d.to && accById(d.from) && accById(d.to)) : (d.cat && accById(d.account||"giro")));
@@ -735,11 +753,14 @@ function entrySheet(entry, preset){
     $("#dateCustom").setAttribute("aria-pressed", String(!dateChips.some(([,v])=>v===d.date)));
     $("#fDateIn").value = d.date;
     $("#ok").disabled = !valid();
+    $("#destBox").hidden = !canSplit();
+    document.querySelectorAll("#fDest [data-dest]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.dest===dest)));
+    $("#accLabel").textContent = splitOn() ? "Geld kommt an auf" : "Konto";
     $("#splitBox").hidden = !splitOn();
     if(splitOn()){
       const total = parseAmount($("#fAmount").value), used = splitSum(), rest = total - used;
       $("#splitRest").innerHTML = rest < 0 ? `<span class="neg">Du hast <b class="neg">${money(-rest)}</b> mehr verteilt, als reinkommt.</span>`
-        : used ? `Noch frei: <b class="num">${money(rest)}</b>, bleibt auf ${esc(accName(d.account))}` : `Optional. Was du nicht verteilst, bleibt auf ${esc(accName(d.account))}.`;
+        : !chosen.length ? `Wähl oben die Zips aus, auf die du verteilen willst.` : used ? `Noch frei: <b class="num">${money(rest)}</b>, bleibt auf ${esc(accName(d.account))}` : `Was du nicht verteilst, bleibt auf ${esc(accName(d.account))}.`;
     }
     const ra = d.type==="out" ? accById(d.account) : null, rv = ra ? roundupFor(parseAmount($("#fAmount").value), ra) : 0;
     const sv = ra ? savebackFor(parseAmount($("#fAmount").value), ra, d.date, entry&&entry.id) : 0;
@@ -796,6 +817,12 @@ function entrySheet(entry, preset){
   };
   $("#fFrom").onclick = e => { if(manage(e)) return; const b=e.target.closest("[data-from]"); if(b){ d.from=b.dataset.from; if(d.to===d.from) d.to=null; sync(); } };
   $("#fTo").onclick = e => { if(manage(e)) return; const b=e.target.closest("[data-to]"); if(b){ d.to=b.dataset.to; if(d.from===d.to) d.from=null; sync(); } };
+  const autoBar = () => { if(!entry && d.type==="in" && ["trinkgeld","taschengeld","geschenk"].includes(d.cat)){ const bar = konten().find(a=>a.kind==="bar"); if(bar) d.account = bar.id; } };
+  $("#fCatSel").onchange = e => { d.cat = e.target.value; autoBar(); sync(); };
+  $("#fDest").onclick = e => { const b = e.target.closest("[data-dest]"); if(!b) return; dest = b.dataset.dest; if(dest==="zips" && (accById(d.account)||{}).kind==="umschlag"){ const bar = konten().find(a=>a.kind==="bar")||konten()[0]; if(bar) d.account = bar.id; } drawSplit(); sync(); };
+  $("#splitAdd").onchange = e => { const v = e.target.value; if(v==="__all") umschlaege().forEach(z=>{ if(!chosen.includes(z.id)) chosen.push(z.id); }); else if(v) chosen.push(v); drawSplit(); sync(); const ins = document.querySelectorAll("[data-split]"); if(ins.length && v && v!=="__all") ins[ins.length-1].focus(); };
+  $("#splitRows").onclick = e => { const b = e.target.closest("[data-unsplit]"); if(b){ chosen.splice(chosen.indexOf(b.dataset.unsplit),1); drawSplit(); sync(); } };
+  drawSplit();
   $("#fCat").onclick = e => { const b=e.target.closest("[data-cat]"); if(b){ d.cat=b.dataset.cat;
     if(!entry && d.type==="in" && ["trinkgeld","taschengeld","geschenk"].includes(d.cat)){ const bar = konten().find(a=>a.kind==="bar"); if(bar) d.account = bar.id; }
     sync(); } };
@@ -1272,7 +1299,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.5 (22.11.2026)";
+const APP_VERSION = "2.6 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
