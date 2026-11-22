@@ -159,6 +159,9 @@ section > h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;colo
 .splitrow input{text-align:right;padding:10px 12px}
 .splitrest{font-size:.88rem;margin:8px 0 0;color:var(--muted)}
 .splitrest b{color:var(--ink)}
+.chip.ghost{border-style:dashed;color:var(--muted)}
+.chip .x{margin-left:2px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:var(--surface);display:inline-grid;place-items:center;font-size:.75rem;font-weight:700;line-height:1}
+.newacc{border:1.5px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(100px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:12px;font-size:.9rem;z-index:30;display:flex;gap:14px;align-items:center;max-width:calc(100% - 32px)}
 .toast button{border:0;background:none;color:var(--accent-soft);font-weight:600;padding:0}
 </style>
@@ -479,6 +482,13 @@ function entrySheet(entry, preset){
       <p class="splitrest" id="splitRest"></p></div>
     <div id="trBox"><div class="label" style="margin-bottom:6px">Von</div><div class="chips" id="fFrom"></div>
       <div class="label" style="margin:12px 0 6px">Nach</div><div class="chips" id="fTo"></div>
+      <div class="newacc" id="newAcc" hidden>
+        <div class="label">Neu anlegen für „<span id="naSlot"></span>“</div>
+        <input class="input" id="naName" placeholder="Name, z. B. PayPal oder Tagesgeld" autocomplete="off">
+        <div class="chips" id="naKind">${["konto","bar","depot","umschlag","ziel"].map(k=>`<button class="chip" data-nakind="${k}">${KINDS[k]==="Umschlag"?"Zip":KINDS[k]}</button>`).join("")}</div>
+        <div class="row"><button class="danger" style="color:var(--ink)" id="naCancel">Abbrechen</button><button class="primary" id="naOk">Anlegen</button></div>
+      </div>
+      <p class="warnmsg" id="trWarn" hidden></p>
       <p class="hint" style="margin-top:10px">Umbuchungen zählen weder als Ausgabe noch als Einnahme.</p></div>
     <div><div class="label" style="margin-bottom:6px">Datum</div><div class="chips" id="fDate">
       ${dateChips.map(([n,v])=>`<button class="chip" data-date="${v}">${n}</button>`).join("")}
@@ -492,8 +502,11 @@ function entrySheet(entry, preset){
     if(!cats().some(c=>c.id===d.cat)) d.cat = d.type==="in" ? "gehalt" : null;
     $("#fCat").innerHTML = cats().map(c=>`<button class="chip" data-cat="${c.id}" aria-pressed="${c.id===d.cat}"><span class="dot" style="background:var(${c.c})"></span>${esc(c.name)}</button>`).join("");
   };
+  let editAcc = false;
+  const na = {slot:null, kind:"konto"};
   const accChips = (sel, attr) => state.accounts.slice().sort((a,b)=>(KIND_ORDER[a.kind||"konto"]-KIND_ORDER[b.kind||"konto"])||(a.order||0)-(b.order||0))
-    .map(a=>`<button class="chip" data-${attr}="${esc(a.id)}" aria-pressed="${a.id===sel}">${a.kind==="ziel"?"Ziel: ":a.kind==="umschlag"?"✉ ":""}${esc(a.name)}</button>`).join("");
+    .map(a=>`<button class="chip" data-${editAcc?"delacc":attr}="${esc(a.id)}" aria-pressed="${!editAcc && a.id===sel}" ${editAcc?`aria-label="${esc(a.name)} löschen"`:""}>${a.kind==="ziel"?"Ziel: ":a.kind==="umschlag"?"✉ ":""}${esc(a.name)}${editAcc?'<span class="x" aria-hidden="true">×</span>':""}</button>`).join("")
+    + (attr==="acc" ? "" : editAcc ? `<button class="chip ghost" data-editdone="1">Fertig</button>` : `<button class="chip ghost" data-newfor="${attr}">+ Neu</button><button class="chip ghost" data-editacc="1">Bearbeiten</button>`);
   const drawAcc = () => {
     $("#fAcc").innerHTML = accChips(d.account, "acc");
     $("#fFrom").innerHTML = accChips(d.from, "from");
@@ -545,8 +558,36 @@ function entrySheet(entry, preset){
   drawCats(); sync();
   $("#fType").onclick = e => { const b=e.target.closest("[data-type]"); if(b){ d.type=b.dataset.type; if(d.type==="transfer"){ d.from ||= d.account||k0; } else { d.account ||= d.from||k0; drawCats(); } sync(); } };
   $("#fAcc").onclick = e => { const b=e.target.closest("[data-acc]"); if(b){ d.account=b.dataset.acc; sync(); } };
-  $("#fFrom").onclick = e => { const b=e.target.closest("[data-from]"); if(b){ d.from=b.dataset.from; if(d.to===d.from) d.to=null; sync(); } };
-  $("#fTo").onclick = e => { const b=e.target.closest("[data-to]"); if(b){ d.to=b.dataset.to; if(d.from===d.to) d.from=null; sync(); } };
+  const manage = e => {
+    const nf = e.target.closest("[data-newfor]");
+    if(nf){ na.slot = nf.dataset.newfor; $("#naSlot").textContent = na.slot==="from" ? "Von" : "Nach"; $("#naName").value = ""; $("#newAcc").hidden = false; syncNa(); $("#naName").focus(); return true; }
+    if(e.target.closest("[data-editacc]")){ editAcc = true; $("#newAcc").hidden = true; sync(); return true; }
+    if(e.target.closest("[data-editdone]")){ editAcc = false; $("#trWarn").hidden = true; sync(); return true; }
+    const del = e.target.closest("[data-delacc]");
+    if(del){
+      const a = accById(del.dataset.delacc), w = $("#trWarn");
+      if(!a) return true;
+      if(usedBy(a.id)){ w.textContent = `„${a.name}“ hat noch Buchungen und kann nicht gelöscht werden. Lösch zuerst die Buchungen oder lass es einfach stehen.`; w.hidden = false; return true; }
+      if(a.kind!=="ziel" && a.kind!=="umschlag" && konten().length<2){ w.textContent = "Mindestens ein Konto muss bleiben."; w.hidden = false; return true; }
+      const {id, ...data} = a;
+      store.del("accounts", id).then(() => { if(d.from===id) d.from=null; if(d.to===id) d.to=null; if(d.account===id) d.account=k0; w.hidden = true; sync(); toast(`„${a.name}“ gelöscht`, () => save("accounts", id, data).then(sync)); });
+      return true;
+    }
+    return false;
+  };
+  const syncNa = () => { document.querySelectorAll("#naKind [data-nakind]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.nakind===na.kind))); $("#naOk").disabled = !$("#naName").value.trim(); };
+  $("#naName").oninput = syncNa;
+  $("#naKind").onclick = e => { const b=e.target.closest("[data-nakind]"); if(b){ na.kind=b.dataset.nakind; syncNa(); } };
+  $("#naCancel").onclick = () => { $("#newAcc").hidden = true; };
+  $("#naOk").onclick = async () => {
+    const name = $("#naName").value.trim(); if(!name) return;
+    const id = newId();
+    try { await save("accounts", id, {name, kind:na.kind, start:0, order:Date.now()}); } catch(e){ return; }
+    if(na.slot==="from"){ d.from = id; if(d.to===id) d.to=null; } else { d.to = id; if(d.from===id) d.from=null; }
+    $("#newAcc").hidden = true; sync(); toast(`„${name}“ angelegt`);
+  };
+  $("#fFrom").onclick = e => { if(manage(e)) return; const b=e.target.closest("[data-from]"); if(b){ d.from=b.dataset.from; if(d.to===d.from) d.to=null; sync(); } };
+  $("#fTo").onclick = e => { if(manage(e)) return; const b=e.target.closest("[data-to]"); if(b){ d.to=b.dataset.to; if(d.from===d.to) d.from=null; sync(); } };
   $("#fCat").onclick = e => { const b=e.target.closest("[data-cat]"); if(b){ d.cat=b.dataset.cat;
     if(!entry && d.type==="in" && ["trinkgeld","taschengeld","geschenk"].includes(d.cat)){ const bar = konten().find(a=>a.kind==="bar"); if(bar) d.account = bar.id; }
     sync(); } };
@@ -740,7 +781,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "1.7 (22.11.2026)";
+const APP_VERSION = "1.8 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function reminderHtml(){
