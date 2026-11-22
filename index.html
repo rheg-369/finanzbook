@@ -302,7 +302,7 @@ section > h2 .num{font-family:var(--f-body);font-size:.85rem;color:var(--muted);
 
 <nav class="tabbar" id="tabs" aria-label="Bereiche">
   <button data-tab="sips"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/></svg>Zips</button>
-  <button data-tab="monat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Monat</button>
+  <button data-tab="monat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Übersicht</button>
   <button data-tab="konten"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20.5h18"/></svg>Konten</button>
 </nav>
 <button class="fab" id="fab" aria-label="Neue Ausgabe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
@@ -422,10 +422,10 @@ const balance = a => (a.start||0) + movement(a.id);
 // Investiert: alles, was in einem Jahr auf Depot-Konten geflossen ist (Einzahlungen, Round-up, Saveback)
 function investedYear(year){
   const D = new Set(state.accounts.filter(a=>a.kind==="depot").map(a=>a.id));
-  const r = {manual:0, roundup:0, saveback:0, out:0, months:Array(12).fill(0)};
+  const r = {manual:0, roundup:0, saveback:0, out:0, months:Array(12).fill(0), by:{}};
   const y = String(year);
   for(const e of state.entries){
-    if((e.date||"").slice(0,4)!==y) continue;
+    if(!(e.date||"").startsWith(y)) continue;
     const m = Number((e.date||"").slice(5,7))-1;
     let v = 0;
     if(e.type==="transfer"){
@@ -433,6 +433,7 @@ function investedYear(year){
       else if(D.has(e.from) && !D.has(e.to)){ r.out += e.amount; }
     } else if(e.type==="in" && e.cat==="saveback" && D.has(accOf(e))){ v = e.amount; r.saveback += v; }
     if(v && m>=0 && m<12) r.months[m] += v;
+    if(v){ const dep = e.type==="transfer" ? e.to : accOf(e); r.by[dep] = (r.by[dep]||0) + v; }
   }
   r.total = r.manual + r.roundup + r.saveback;
   return r;
@@ -491,6 +492,7 @@ function boot(){
   if(!Object.keys(local.read("accounts")).length) local.write("accounts", {giro:{name:"Girokonto", kind:"konto", start:0, order:0}, bargeld:{name:"Bargeld", kind:"bar", start:0, order:1}});
   // PayPal einmalig als Standard-Konto ergänzen (gelöscht bleibt gelöscht)
   try { if(!localStorage.getItem("hhb.mig.paypal")){ const accs = local.read("accounts"); if(!Object.values(accs).some(a=>/paypal/i.test(a.name||""))){ accs.paypal = {name:"PayPal", kind:"konto", start:0, order:2}; local.write("accounts", accs); } localStorage.setItem("hhb.mig.paypal","1"); } } catch(e){}
+  try { if(!localStorage.getItem("hhb.mig.union")){ const accs = local.read("accounts"); if(!Object.values(accs).some(a=>/union/i.test(a.name||""))){ accs.union = {name:"Union Depot", kind:"depot", start:0, order:4}; local.write("accounts", accs); } localStorage.setItem("hhb.mig.union","1"); } } catch(e){}
   store.sub("accounts", rows => { state.accounts=rows; render(); });
   store.sub("entries", rows => { state.entries=rows; state.ready=true; render(); });
   store.sub("recurring", rows => { state.recurring=rows; render(); });
@@ -526,7 +528,8 @@ function render(){
   const ins = inMonth.filter(e => e.type==="in" && !isKorr(e));
   const spent = outs.reduce((s,e)=>s+(e.amount||0),0);
   const earned = ins.reduce((s,e)=>s+(e.amount||0),0);
-  const saldo = earned - spent;
+  const invM = investedYear(m).total;
+  const saldo = earned - spent - invM;
   const [whole, cents] = money(spent).replace(/\s?€/,"").split(",");
 
   // budget
@@ -552,8 +555,9 @@ function render(){
     <div class="trio">
       <div><div class="label">Einnahmen</div><div class="v num pos">${money(earned)}</div></div>
       <div><div class="label">Ausgaben</div><div class="v num">${money(spent)}</div></div>
-      <div><div class="label">Saldo</div><div class="v num ${saldo<0?"neg":saldo>0?"pos":""}">${saldo>0?"+":""}${money(saldo)}</div></div>
+      <div><div class="label">Investiert</div><div class="v num">${money(invM)}</div></div>
     </div>
+    <div class="bline" style="font-size:.92rem"><span>Bleibt nach Ausgaben &amp; Investieren</span><span><b class="num">${saldo>0?"+":saldo<0?"−":""}${money(Math.abs(saldo))}</b></span></div>
   </div>`;
 
   // categories + Kuchendiagramm
@@ -852,11 +856,12 @@ function renderKonten(){
     const ML = ["J","F","M","A","M","J","J","A","S","O","N","D"];
     html += `<section><h2><span>Investiert</span></h2><div class="inv">
       <div class="yr"><button data-invyear="${Y-1}" ${Y<=minY?"disabled":""} aria-label="Vorheriges Jahr">‹</button><b>${Y}</b><button data-invyear="${Y+1}" ${Y>=now?"disabled":""} aria-label="Nächstes Jahr">›</button></div>
-      <div class="tot"><div class="label">In ${Y} ins Depot eingezahlt</div><div class="v num">${money(r.total)}</div></div>
+      <div class="tot"><div class="label">In ${Y} investiert</div><div class="v num">${money(r.total)}</div></div>
       <div class="parts">
         <div><span>Selbst eingezahlt</span><b class="num">${money(r.manual)}</b></div>
         <div><span>Round-up</span><b class="num">${money(r.roundup)}</b></div>
         <div><span>Saveback</span><b class="num">${money(r.saveback)}</b></div>
+        ${Object.keys(r.by).length>1 || konten().filter(a=>a.kind==="depot").length>1 ? `<div style="border-top:1px solid var(--line);padding-top:6px;margin-top:2px"><span style="font-weight:600;color:var(--ink)">Nach Depot</span></div>${konten().filter(a=>a.kind==="depot").map(d=>`<div><span>📈 ${esc(d.name)}</span><b class="num">${money(r.by[d.id]||0)}</b></div>`).join("")}` : ""}
         ${r.out?`<div><span>Aus dem Depot entnommen</span><b class="num neg">−${money(r.out)}</b></div><div><span>Netto investiert</span><b class="num">${money(r.total-r.out)}</b></div>`:""}
       </div>
       <div class="months" role="img" aria-label="Einzahlungen pro Monat">${r.months.map(v=>`<i class="${v?"":"z"}" style="height:${v?Math.max(4,v/mx*100):3}%"></i>`).join("")}</div>
@@ -1126,7 +1131,7 @@ function recRow(r){
   const c = r.type==="transfer" ? null : catById(r.cat);
   const sign = r.type==="in" ? "+" : r.type==="out" ? "−" : "";
   const where = r.type==="transfer" ? accName(r.from)+" → "+accName(r.to) : accName(r.account);
-  return `<li><button class="acc" data-rec="${esc(r.id)}"><span class="badge" style="${c?tint(c.c):""}" aria-hidden="true">${c?c.i:((accById(r.to)||{}).kind==="depot"?"📈":"⇄")}</span><span class="mid"><div class="t">${esc(r.name || (c?c.name:"Umbuchung"))}</div><div class="s">${esc(IV[r.interval]||"")} · nächster ${esc(fmtShort(r.next||r.start))} · ${esc(where)}</div></span><span class="a num ${r.type==="in"?"pos":""}">${sign}${money(r.amount)}</span></button></li>`;
+  return `<li><button class="acc" data-rec="${esc(r.id)}"><span class="badge" style="${c?tint(c.c):""}" aria-hidden="true">${c?c.i:((accById(r.to)||{}).kind==="depot"?"📈":"⇄")}</span><span class="mid"><div class="t">${esc(r.name || (c?c.name:(accById(r.to)||{}).kind==="depot"?"Sparplan":"Umbuchung"))}</div><div class="s">${esc(IV[r.interval]||"")} · nächster ${esc(fmtShort(r.next||r.start))} · ${esc(where)}</div></span><span class="a num ${r.type==="in"?"pos":""}">${sign}${money(r.amount)}</span></button></li>`;
 }
 function recSheet(rec){
   const k0 = (konten()[0]||{}).id || "giro";
@@ -1267,7 +1272,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.4 (22.11.2026)";
+const APP_VERSION = "2.5 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
