@@ -59,7 +59,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
 .label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
 .big{font-family:var(--f-display);font-weight:700;font-size:2.6rem;letter-spacing:-.02em;line-height:1.05;margin-top:2px}
 .big .cents{font-size:.55em;color:var(--muted)}
-.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.trio{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;border-top:1px solid var(--line);padding-top:12px}
 .trio div{min-width:0}
 .trio .v{font-weight:600;margin-top:2px;font-size:.98rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pos{color:var(--accent)} .neg{color:var(--danger)}
@@ -204,6 +204,12 @@ header{padding-block:10px 8px}
 .hero .bline{color:rgba(255,255,255,.75)} .hero .bline b{color:#fff}
 .hero .linkbtn{color:#fff;text-decoration:underline;text-underline-offset:3px}
 .hero .hint{color:rgba(255,255,255,.78)}
+.optrow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.optrow .hint{margin:2px 0 0}
+.switch{flex:none;width:52px;height:32px;border-radius:16px;border:0;background:var(--line);position:relative;transition:background .2s;padding:0}
+.switch i{position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.switch[aria-checked="true"]{background:var(--accent)}
+.switch[aria-checked="true"] i{transform:translateX(20px)}
 .hero .avail{border-top:1px solid rgba(255,255,255,.18);padding-top:12px}
 .avail summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
 .avail summary::-webkit-details-marker{display:none}
@@ -428,7 +434,7 @@ function fmtDay(s){
 
 // ---- state ----
 const state = { entries:[], accounts:[], settings:{budget:0}, month:curMonth(), cat:null, ready:false, tab:"monat", recurring:[], pie:"cat", invYear:new Date().getFullYear() };
-try { const accs0 = JSON.parse(localStorage.getItem("hhb.accounts")||"{}"); if(Object.values(accs0).some(a=>a.kind==="umschlag")) state.tab = "sips"; } catch(e){}
+try { const accs0 = JSON.parse(localStorage.getItem("hhb.accounts")||"{}"); const st0 = (JSON.parse(localStorage.getItem("hhb.settings")||"{}").main)||{}; if(st0.zips!==false && Object.values(accs0).some(a=>a.kind==="umschlag")) state.tab = "sips"; } catch(e){}
 function parseSigned(s){
   s = String(s||"").trim().replace(/\s|€/g,"");
   const neg = /^[-−]/.test(s); s = s.replace(/^[-−+]/,"");
@@ -439,7 +445,9 @@ function parseSigned(s){
 }
 const toSigned = c => c ? (c<0?"-":"") + (Math.abs(c)/100).toFixed(2).replace(".",",").replace(/,00$/,"") : "";
 const accOf = e => e.account || "giro";
-const umschlaege = () => state.accounts.filter(a=>a.kind==="umschlag").sort((a,b)=>(a.order||0)-(b.order||0));
+const zipsOn = () => state.settings.zips !== false;
+const hasDepot = () => state.accounts.some(a=>a.kind==="depot");
+const umschlaege = () => !zipsOn() ? [] : state.accounts.filter(a=>a.kind==="umschlag").sort((a,b)=>(a.order||0)-(b.order||0));
 const konten = () => state.accounts.filter(a=>a.kind!=="ziel" && a.kind!=="umschlag").sort((a,b)=>(a.order||0)-(b.order||0));
 const ziele = () => state.accounts.filter(a=>a.kind==="ziel").sort((a,b)=>(a.order||0)-(b.order||0));
 const accById = id => state.accounts.find(a=>a.id===id);
@@ -523,6 +531,10 @@ function status(msg){ const el=$("#status"); el.textContent=msg||""; el.hidden=!
 
 function boot(){
   store = localStore();
+  if(!Object.keys(local.read("accounts")).length && !Object.keys(local.read("entries")).length){
+    // Neue Installation: keine persönlichen Vorgaben (PayPal, Union Depot), stattdessen Ersteinrichtung
+    try { localStorage.setItem("hhb.mig.paypal","1"); localStorage.setItem("hhb.mig.union","1"); localStorage.setItem("hhb.needSetup","1"); } catch(e){}
+  }
   if(!Object.keys(local.read("accounts")).length) local.write("accounts", {giro:{name:"Girokonto", kind:"konto", start:0, order:0}, bargeld:{name:"Bargeld", kind:"bar", start:0, order:1}});
   // PayPal einmalig als Standard-Konto ergänzen (gelöscht bleibt gelöscht)
   try { if(!localStorage.getItem("hhb.mig.paypal")){ const accs = local.read("accounts"); if(!Object.values(accs).some(a=>/paypal/i.test(a.name||""))){ accs.paypal = {name:"PayPal", kind:"konto", start:0, order:2}; local.write("accounts", accs); } localStorage.setItem("hhb.mig.paypal","1"); } } catch(e){}
@@ -531,6 +543,7 @@ function boot(){
   store.sub("entries", rows => { state.entries=rows; state.ready=true; render(); });
   store.sub("recurring", rows => { state.recurring=rows; render(); });
   runRecurring();
+  if(localStorage.getItem("hhb.needSetup")) setTimeout(setupSheet, 350);
   store.sub("settings", rows => { const m = rows.find(r=>r.id==="main"); state.settings = m ? m : {budget:0}; render(); });
   if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
   if("serviceWorker" in navigator && location.protocol.startsWith("http")){
@@ -566,7 +579,7 @@ function availHtml(m, earned, spent, invM){
   const sg = n => (n<0?"−":"")+money(Math.abs(n));
   const [w,c] = sg(v).replace(/\s?€/,"").split(",");
   const [y,mo] = m.split("-").map(Number), daysLeft = cur ? new Date(y,mo,0).getDate() - new Date().getDate() + 1 : 0;
-  const rows = [["Einnahmen", "+"+money(earned), "pos"], ["Ausgaben", "−"+money(spent)], ["Investiert", "−"+money(invM)]];
+  const rows = [["Einnahmen", "+"+money(earned), "pos"], ["Ausgaben", "−"+money(spent)]]; if(hasDepot()||invM) rows.push(["Investiert", "−"+money(invM)]);
   if(cur){ rows.push(["Noch fällige Fixkosten", "−"+money(pFix)]); if(pInv) rows.push(["Noch fällige Sparpläne", "−"+money(pInv)]); }
   const list = pend.map(x=>`<div class="pl"><span>${esc(fmtShort(x.d))} · ${esc(x.r.name || (x.inv?"Sparplan":(catById(x.r.cat)||{}).name||"Dauerauftrag"))}</span><span class="num">−${money(x.r.amount)}</span></div>`).join("");
   return `<details class="avail"><summary>
@@ -584,6 +597,8 @@ function availHtml(m, earned, spent, invM){
 // ---- render ----
 function render(){
   const m = state.month;
+  if(!zipsOn() && state.tab==="sips") state.tab = "monat";
+  $('#tabs [data-tab="sips"]').hidden = !zipsOn();
   document.querySelectorAll("#tabs [data-tab]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.tab===state.tab)));
   $("#monthNav").hidden = state.tab!=="monat"; $("#pageTitle").hidden = state.tab==="monat";
   $("#pageTitle").textContent = state.tab==="sips" ? "Zips" : "Konten";
@@ -625,7 +640,7 @@ function render(){
     <div class="trio">
       <div><div class="label">Einnahmen</div><div class="v num pos">${money(earned)}</div></div>
       <div><div class="label">Ausgaben</div><div class="v num">${money(spent)}</div></div>
-      <div><div class="label">Investiert</div><div class="v num">${money(invM)}</div></div>
+      ${hasDepot()||invM?`<div><div class="label">Investiert</div><div class="v num">${money(invM)}</div></div>`:""}
     </div>
     ${availHtml(m, earned, spent, invM)}
   </div>`;
@@ -772,7 +787,7 @@ function entrySheet(entry, preset){
       <div class="newacc" id="newAcc" hidden>
         <div class="label">Neu anlegen für „<span id="naSlot"></span>“</div>
         <input class="input" id="naName" placeholder="Name, z. B. PayPal oder Tagesgeld" autocomplete="off">
-        <div class="chips" id="naKind">${["konto","bar","depot","umschlag","ziel"].map(k=>`<button class="chip" data-nakind="${k}">${KINDS[k]==="Umschlag"?"Zip":KINDS[k]}</button>`).join("")}</div>
+        <div class="chips" id="naKind">${["konto","bar","depot","umschlag","ziel"].filter(k=>k!=="umschlag"||zipsOn()).map(k=>`<button class="chip" data-nakind="${k}">${KINDS[k]==="Umschlag"?"Zip":KINDS[k]}</button>`).join("")}</div>
         <div class="row"><button class="danger" style="color:var(--ink)" id="naCancel">Abbrechen</button><button class="primary" id="naOk">Anlegen</button></div>
       </div>
       <p class="warnmsg" id="trWarn" hidden></p>
@@ -1062,7 +1077,8 @@ function renderSips(){
       </button>
       <div class="zact"><button data-payzip="${esc(a.id)}">Bezahlen</button><button class="fill" data-fill="${esc(a.id)}">Befüllen</button></div>
     </div>`;
-  }).join("")}<button class="zcard addz" id="addEnv">+ Neuer Zip</button></div>`;
+  }).join("")}<button class="zcard addz" id="addEnv">+ Neuer Zip</button></div>
+    <div class="addrow" style="margin-top:12px"><button class="addbtn" id="zipStarts">Anfangsbestände eintragen</button></div>`;
   html += `</section>`;
   if(us.length){
     const ids = new Set(us.map(a=>a.id));
@@ -1106,6 +1122,27 @@ function zipSheet(a){
     else if(k==="take") entrySheet(null, {type:"transfer", from:a.id, to:bar0&&bar0.id});
     else accountSheet(a);
   });
+}
+
+// Anfangsbestände aller Zips (ohne Buchung, ohne Bargeld-Abzug)
+function zipStartSheet(){
+  const us = umschlaege();
+  openSheet(`
+    <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Anfangsbestände</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="hint" style="margin-top:0">Wie viel steckte schon im Zip, bevor ihr mit der App angefangen habt? Das zählt nicht als Ausgabe und wird nicht vom Bargeld abgezogen.</p>
+    <div class="splits">${us.map(a=>`<label class="splitrow" style="--zc:var(${zipColor(a)})"><span>${zipIcon(a)} ${esc(a.name)}</span><input class="input num" inputmode="decimal" placeholder="0" value="${esc(toInput(a.start||0))}" data-zs="${esc(a.id)}" autocomplete="off" aria-label="Anfangsbestand ${esc(a.name)}"></label>`).join("")}</div>
+    <p class="splitrest" id="zsSum"></p>
+    <div class="row"><button class="primary" id="ok">Speichern</button></div>
+  `);
+  const vals = () => us.map(a=>({a, v: parseAmount(document.querySelector(`[data-zs="${a.id}"]`).value)}));
+  const sync = () => { const vs = vals(), bad = vs.some(x=>isNaN(x.v)||x.v<0); $("#zsSum").innerHTML = bad ? `<span style="color:var(--danger)">Bitte nur Zahlen eingeben</span>` : `Zusammen <b class="num">${money(vs.reduce((s,x)=>s+x.v,0))}</b>`; $("#ok").disabled = bad; };
+  sync(); document.querySelectorAll("[data-zs]").forEach(i=>i.oninput = sync);
+  $("#cancel").onclick = closeSheet;
+  $("#ok").onclick = async () => {
+    const vs = vals().filter(x=>x.v!==(x.a.start||0)); closeSheet();
+    for(const {a,v} of vs){ const {id, ...d} = a; await store.set("accounts", id, {...d, start:v}); }
+    toast(vs.length ? "Anfangsbestände gespeichert" : "Nichts geändert");
+  };
 }
 
 // Alle Zips auf einmal befüllen
@@ -1153,14 +1190,14 @@ function accountSheet(acc, kind, presetName){
   const word = isEnv ? "Zip" : kind==="ziel" ? "Sparziel" : "Konto";
   const r = {kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&(acc.roundupTo||acc.savebackTo)||null, saveback: acc&&acc.saveback||0};
   const targets = () => state.accounts.filter(a => (a.kind==="depot"||a.kind==="ziel") && (!acc || a.id!==acc.id));
-  const cur = acc ? balance(acc) : 0;
+  const cur = isEnv ? (acc ? acc.start||0 : 0) : acc ? balance(acc) : 0;
   openSheet(`
     <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">${acc?word:(isEnv?"Neuer ":"Neues ")+word}</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <input class="input" id="aName" placeholder="${isEnv?"Name, z. B. Auto oder Geschenke":isZiel?"Name, z. B. Urlaub":"Name, z. B. Trade Republic oder Tagesgeld"}" value="${esc(acc?acc.name:(presetName||""))}" autocomplete="off">
     ${isEnv?`<div><div class="label" style="margin-bottom:6px">Symbol</div><div class="chips" id="aIcon">${ZIP_PICK.map(i=>`<button class="chip" data-icon="${i}" style="padding:6px 9px;font-size:1.15rem" aria-label="Symbol ${i}">${i}</button>`).join("")}</div></div>`:""}
     ${isZiel?`<div><div class="label" style="margin-bottom:6px">${isEnv?"Zielbetrag (optional)":"Zielbetrag"}</div><input class="input num" id="aTarget" inputmode="decimal" placeholder="z. B. 1.500" value="${esc(toInput(acc&&acc.target||0))}" autocomplete="off"></div>`:""}
-    <div><div class="label" style="margin-bottom:6px">${isEnv?"Aktuell im Zip":isZiel?"Schon angespart":acc?"Aktueller Kontostand":"Anfangsbestand (heutiger Kontostand)"}</div><input class="input num" id="aBal" inputmode="decimal" placeholder="0" value="${esc(toSigned(cur))}" autocomplete="off"></div>
-    <p class="sublabel">${isEnv?"Ab jetzt steckst du Geld mit „Befüllen“ rein. Ausgaben kannst du direkt aus dem Zip bezahlen.":isZiel?"Weiteres Geld legst du über „Zurücklegen“ dazu.":acc?`Anfangsbestand: ${money(acc.start||0)}. Änderst du den Stand hier, wird der Anfangsbestand angepasst. Für Abweichungen im Alltag lieber „Kontostände prüfen“ nutzen, dann bleibt die Differenz sichtbar.`:"Ab jetzt rechnet die App den Stand mit deinen Einträgen weiter. Minus für Dispo, z. B. -250."}</p>
+    <div><div class="label" style="margin-bottom:6px">${isEnv?"Anfangsbestand":isZiel?"Schon angespart":acc?"Aktueller Kontostand":"Anfangsbestand (heutiger Kontostand)"}</div><input class="input num" id="aBal" inputmode="decimal" placeholder="0" value="${esc(toSigned(cur))}" autocomplete="off"></div>
+    <p class="sublabel">${isEnv?`Geld, das schon im Zip steckt. Zählt nicht als Ausgabe und wird nicht vom Bargeld abgezogen.${acc?` Aktuell im Zip: <b class="num">${money(balance(acc))}</b>.`:" Neues Geld kommt später mit „Befüllen“ dazu."}`:isZiel?"Weiteres Geld legst du über „Zurücklegen“ dazu.":acc?`Anfangsbestand: ${money(acc.start||0)}. Änderst du den Stand hier, wird der Anfangsbestand angepasst. Für Abweichungen im Alltag lieber „Kontostände prüfen“ nutzen, dann bleibt die Differenz sichtbar.`:"Ab jetzt rechnet die App den Stand mit deinen Einträgen weiter. Minus für Dispo, z. B. -250."}</p>
     ${isZiel?"":`<div><div class="label" style="margin-bottom:6px">Art</div><div class="chips" id="aKind">${["konto","bar","depot"].map(k=>`<button class="chip" data-kind="${k}">${KINDS[k]}</button>`).join("")}</div></div>
     <div id="ruBox"><div class="label" style="margin-bottom:6px">Round-up</div>
       <p class="sublabel" style="margin:0 0 8px">Jede Ausgabe von diesem Konto wird auf den nächsten Euro aufgerundet, die Differenz mal Faktor geht aufs Depot. Beispiel bei 10×: 0,85 € Kauf ergibt 1,50 €.</p>
@@ -1206,7 +1243,7 @@ function accountSheet(acc, kind, presetName){
     const name = $("#aName").value.trim(); const want = parseSigned($("#aBal").value);
     if(!name || isNaN(want)) return;
     const id = acc ? acc.id : newId();
-    const data = {name, kind: r.kind, start: want - (acc ? movement(acc.id) : 0), order: acc ? (acc.order||0) : Date.now()};
+    const data = {name, kind: r.kind, start: isEnv ? want : want - (acc ? movement(acc.id) : 0), order: acc ? (acc.order||0) : Date.now()};
     if(r.kind==="konto" && r.roundup && r.roundupTo){ data.roundup = r.roundup; data.roundupTo = r.roundupTo; }
     if(r.kind==="konto" && r.saveback && r.roundupTo){
       const pct = Number(String($("#aSbPct").value).replace(",",".")); 
@@ -1447,6 +1484,34 @@ function resetUndoHtml(){
   } catch(e){ return ""; }
 }
 
+const settingsData = () => { const {id, ...d} = state.settings||{}; return d; };
+function setupSheet(){
+  try { localStorage.removeItem("hhb.needSetup"); } catch(e){}
+  const opts = [["giro","🏦","Girokonto",true],["bargeld","💶","Bargeld",true],["paypal","🅿️","PayPal",false],["tagesgeld","🐷","Tagesgeld",false],["depot","📈","Depot",false]];
+  const sel = new Set(opts.filter(o=>o[3]).map(o=>o[0])); let zips = true;
+  openSheet(`
+    <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Willkommen 👋</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="hint" style="margin-top:0">Kurz einrichten, alles lässt sich später unter Konten und in den Einstellungen ändern. Deine Daten bleiben nur auf diesem Gerät.</p>
+    <div class="label">Welche Konten nutzt du?</div>
+    <div class="chips" id="suAcc">${opts.map(([k,i,n])=>`<button class="chip" data-su="${k}" aria-pressed="${sel.has(k)}">${i} ${n}</button>`).join("")}</div>
+    <div class="optrow"><div><b>✉️ Zips verwenden?</b><p class="hint">Bargeld-Umschläge, z. B. für Lebensmittel, Urlaub oder Geschenke. Bekommen einen eigenen Reiter.</p></div>
+      <button class="switch" id="suZips" role="switch" aria-checked="true" aria-label="Zips verwenden"><i></i></button></div>
+    <div class="row"><button class="primary" id="ok">Los geht's</button></div>
+  `);
+  $("#suAcc").onclick = e => { const b = e.target.closest("[data-su]"); if(!b) return; const k = b.dataset.su; sel.has(k) ? sel.delete(k) : sel.add(k); b.setAttribute("aria-pressed", String(sel.has(k))); $("#ok").disabled = !sel.size; };
+  $("#suZips").onclick = e => { zips = !zips; e.currentTarget.setAttribute("aria-checked", String(zips)); };
+  $("#cancel").onclick = closeSheet;
+  $("#ok").onclick = async () => {
+    const kinds = {giro:"konto", bargeld:"bar", paypal:"konto", tagesgeld:"konto", depot:"depot"};
+    const accs = {}; opts.forEach(([k,,n],i) => { if(sel.has(k)) accs[k] = {name:n, kind:kinds[k], start:0, order:i}; });
+    local.write("accounts", accs);
+    closeSheet();
+    await save("settings","main",{...settingsData(), zips});
+    store.set("accounts", Object.keys(accs)[0], accs[Object.keys(accs)[0]]);
+    state.tab = zips ? "sips" : "monat"; render();
+    toast("Fertig eingerichtet. Startbestände trägst du unter Konten ein.");
+  };
+}
 function budgetSheet(){
   openSheet(`
     <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Einstellungen</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
@@ -1454,6 +1519,11 @@ function budgetSheet(){
     <p class="hint">Wie viel willst du pro Monat höchstens ausgeben? Leer lassen, um kein Budget anzuzeigen.</p>
     <label class="amount"><input id="fBudget" inputmode="decimal" placeholder="0" value="${esc(toInput(state.settings.budget||0))}" aria-label="Budget in Euro" autocomplete="off"><span>€</span></label>
     <div class="row"><button class="primary" id="ok">Speichern</button></div>
+    <div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
+      <div class="label">Funktionen</div>
+      <div class="optrow"><div><b>✉️ Zips</b><p class="hint">Bargeld-Umschläge mit eigenem Reiter. Ausschalten blendet sie nur aus, nichts wird gelöscht.</p></div>
+        <button class="switch" id="tZips" role="switch" aria-checked="${zipsOn()}" aria-label="Zips verwenden"><i></i></button></div>
+    </div>
     <div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
       <div class="label">Aussehen</div>
       <div class="theme" id="themePick">${Object.entries(THEMES).map(([k,v])=>`<button data-theme-pick="${k}" aria-pressed="${(lsGet("hhb.theme")||"auto")===k}"><i style="background:${v.sw}"></i>${v.n}</button>`).join("")}</div>
@@ -1472,18 +1542,19 @@ function budgetSheet(){
   $("#exp").onclick = exportBackup;
   $("#csv").onclick = exportCsv;
   $("#resetAll").onclick = resetSheet;
+  $("#tZips").onclick = async e => { const on = !zipsOn(); e.currentTarget.setAttribute("aria-checked", String(on)); try { await save("settings","main",{...settingsData(), zips:on}); toast(on ? "Zips eingeschaltet" : "Zips ausgeblendet"); } catch(_){} };
   $("#imp").onclick = pickBackup;
   $("#themePick").onclick = e => { const b = e.target.closest("[data-theme-pick]"); if(!b) return; const t = b.dataset.themePick; try { localStorage.setItem("hhb.theme", t); } catch(_){} applyTheme(t); document.querySelectorAll("[data-theme-pick]").forEach(x=>x.setAttribute("aria-pressed", String(x===b))); };
   $("#ok").onclick = async () => {
     const budget = parseAmount($("#fBudget").value);
     closeSheet();
-    try { await save("settings","main",{budget}); toast(budget ? "Budget gespeichert" : "Budget entfernt"); } catch(e){}
+    try { await save("settings","main",{...settingsData(), budget}); toast(budget ? "Budget gespeichert" : "Budget entfernt"); } catch(e){}
   };
   setTimeout(()=>$("#fBudget").focus(), 60);
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.13 (22.11.2026)";
+const APP_VERSION = "2.14 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -1638,6 +1709,7 @@ document.addEventListener("click", e => {
   if(zo){ const a = accById(zo.dataset.zip); if(a) zipSheet(a); return; }
   const pz = e.target.closest("[data-payzip]");
   if(pz){ entrySheet(null, {type:"out", account:pz.dataset.payzip}); return; }
+  if(e.target.closest("#zipStarts")){ zipStartSheet(); return; }
   if(e.target.closest("#payZip")){ const z = umschlaege()[0]; entrySheet(null, {type:"out", account:z&&z.id}); return; }
   if(e.target.closest("#fillAll")){ fillAllSheet(); return; }
   const fl = e.target.closest("[data-fill]");
