@@ -1,6 +1,6 @@
 // Haushaltsbuch: hält die App-Dateien auf dem Gerät, damit sie ohne Internet startet.
 // Mit Internet wird immer zuerst die neueste Version geladen (network-first), ohne Internet die gespeicherte.
-const CACHE = "haushaltsbuch-v15";
+const CACHE = "haushaltsbuch-v16";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
