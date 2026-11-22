@@ -204,6 +204,20 @@ header{padding-block:10px 8px}
 .hero .bline{color:rgba(255,255,255,.75)} .hero .bline b{color:#fff}
 .hero .linkbtn{color:#fff;text-decoration:underline;text-underline-offset:3px}
 .hero .hint{color:rgba(255,255,255,.78)}
+.hero .avail{border-top:1px solid rgba(255,255,255,.18);padding-top:12px}
+.avail summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
+.avail summary::-webkit-details-marker{display:none}
+.avail .abig{font-family:var(--f-display);font-weight:700;font-size:2rem;letter-spacing:-.02em;line-height:1.1;margin-top:2px}
+.avail .abig .cents{font-size:.55em;opacity:.75}
+.avail .asub{font-size:.85rem;opacity:.85;margin-top:2px}
+.avail .achev{font-size:1.6rem;opacity:.7;transition:transform .2s}
+.avail[open] .achev{transform:rotate(90deg)}
+.avail .abrk{display:flex;flex-direction:column;gap:6px;margin-top:12px;font-size:.9rem;background:rgba(0,0,0,.14);border-radius:14px;padding:12px}
+.avail .abrk>div{display:flex;justify-content:space-between;gap:10px}
+.avail .abrk span{opacity:.85}
+.avail .atot{border-top:1px solid rgba(255,255,255,.22);padding-top:6px;font-weight:700}
+.avail .atot span{opacity:1}
+.avail .pl{font-size:.85rem}
 section{margin-top:26px}
 section > h2{font-family:var(--f-display);font-size:1.15rem;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:700;margin:0 0 10px 4px;align-items:center}
 section > h2 .num{font-family:var(--f-body);font-size:.85rem;color:var(--muted);font-weight:500}
@@ -530,6 +544,43 @@ function boot(){
   }
 }
 
+// ---- Noch verfügbar ----
+function pendingRecs(m){
+  // noch fällige Daueraufträge in Monat m (nach heute, noch nicht gebucht)
+  const today = iso(new Date()), end = m+"-31", out = [];
+  for(const r of state.recurring){
+    const isInv = r.type==="transfer" && (accById(r.to)||{}).kind==="depot";
+    if(!(r.type==="out" || isInv) || !r.amount || !r.start) continue;
+    const day = Number(r.start.slice(8,10)); let d = r.next || r.start, g = 0;
+    while(d <= end && g++ < 100){
+      if(d.slice(0,7)===m && d > today && !state.entries.some(e=>e.id==="rec-"+r.id+"-"+d)) out.push({r, d, inv:isInv});
+      d = addInterval(d, r.interval, day);
+    }
+  }
+  return out.sort((a,b)=>a.d.localeCompare(b.d));
+}
+function availHtml(m, earned, spent, invM){
+  const cur = m===curMonth(), pend = cur ? pendingRecs(m) : [];
+  const pFix = pend.filter(x=>!x.inv).reduce((s,x)=>s+x.r.amount,0), pInv = pend.filter(x=>x.inv).reduce((s,x)=>s+x.r.amount,0);
+  const v = earned - spent - invM - pFix - pInv;
+  const sg = n => (n<0?"−":"")+money(Math.abs(n));
+  const [w,c] = sg(v).replace(/\s?€/,"").split(",");
+  const [y,mo] = m.split("-").map(Number), daysLeft = cur ? new Date(y,mo,0).getDate() - new Date().getDate() + 1 : 0;
+  const rows = [["Einnahmen", "+"+money(earned), "pos"], ["Ausgaben", "−"+money(spent)], ["Investiert", "−"+money(invM)]];
+  if(cur){ rows.push(["Noch fällige Fixkosten", "−"+money(pFix)]); if(pInv) rows.push(["Noch fällige Sparpläne", "−"+money(pInv)]); }
+  const list = pend.map(x=>`<div class="pl"><span>${esc(fmtShort(x.d))} · ${esc(x.r.name || (x.inv?"Sparplan":(catById(x.r.cat)||{}).name||"Dauerauftrag"))}</span><span class="num">−${money(x.r.amount)}</span></div>`).join("");
+  return `<details class="avail"><summary>
+      <div><div class="label">${cur?"Noch verfügbar":"Übrig im "+esc(monthName(m).split(" ")[0])}</div>
+        <div class="abig num ${v<0?"neg":""}">${esc(w)}<span class="cents">,${esc(c)} €</span></div>
+        ${cur && v>0 && daysLeft>0 ? `<div class="asub">ca. <b class="num">${money(Math.floor(v/daysLeft))}</b> pro Tag für ${daysLeft===1?"heute":"die restlichen "+daysLeft+" Tage"}</div>` : cur && v<0 ? `<div class="asub">Mehr ausgegeben als reingekommen</div>` : ""}
+      </div><span class="achev" aria-hidden="true">›</span></summary>
+    <div class="abrk">${rows.map(([a,b,k])=>`<div><span>${a}</span><b class="num ${k||""}">${b}</b></div>`).join("")}
+      <div class="atot"><span>${cur?"Noch verfügbar":"Übrig"}</span><b class="num">${sg(v)}</b></div>
+      ${list ? `<div class="label" style="margin-top:6px">Kommt diesen Monat noch</div>${list}` : ""}
+      ${cur ? `<p class="hint">Einnahmen minus Ausgaben und Investiertes, abzüglich der Daueraufträge, die diesen Monat noch abgebucht werden.</p>` : ""}
+    </div></details>`;
+}
+
 // ---- render ----
 function render(){
   const m = state.month;
@@ -549,7 +600,6 @@ function render(){
   const spent = outs.reduce((s,e)=>s+(e.amount||0),0);
   const earned = ins.reduce((s,e)=>s+(e.amount||0),0);
   const invM = investedYear(m).total;
-  const saldo = earned - spent - invM;
   const [whole, cents] = money(spent).replace(/\s?€/,"").split(",");
 
   // budget
@@ -577,7 +627,7 @@ function render(){
       <div><div class="label">Ausgaben</div><div class="v num">${money(spent)}</div></div>
       <div><div class="label">Investiert</div><div class="v num">${money(invM)}</div></div>
     </div>
-    <div class="bline" style="font-size:.92rem"><span>Bleibt nach Ausgaben &amp; Investieren</span><span><b class="num">${saldo>0?"+":saldo<0?"−":""}${money(Math.abs(saldo))}</b></span></div>
+    ${availHtml(m, earned, spent, invM)}
   </div>`;
 
   // categories + Kuchendiagramm
@@ -1433,7 +1483,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.12 (22.11.2026)";
+const APP_VERSION = "2.13 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
