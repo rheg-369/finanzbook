@@ -204,6 +204,24 @@ const IN_CATS = [
   {id:"gehalt", name:"Gehalt", c:"--accent"},
   {id:"einnahme-sonst", name:"Sonstige Einnahme", c:"--accent"},
 ];
+// Vordefinierte Orte, gruppiert nach der Kategorie, die beim Auswählen vorgeschlagen wird
+const PLACES = {
+  lebensmittel: ["REWE","EDEKA","Lidl","Aldi Süd","Aldi Nord","Kaufland","Penny","Netto","Norma","Bäckerei","Metzgerei","Wochenmarkt"],
+  restaurant: ["Restaurant","Café","Imbiss","Lieferando","McDonald's","Burger King","Starbucks","Bar"],
+  mobilitaet: ["Tankstelle","Aral","Shell","Deutsche Bahn","ÖPNV-Ticket","Parken","Taxi / Uber","Werkstatt"],
+  shopping: ["Amazon","dm","Rossmann","Müller","Zalando","H&M","IKEA","MediaMarkt / Saturn","Decathlon","Primark","Otto"],
+  freizeit: ["Kino","Fitnessstudio","Konzert / Event","Urlaub / Reise","Geschenk"],
+  gesundheit: ["Apotheke","Arzt","Optiker","Friseur"],
+  wohnen: ["Miete","Strom","Gas / Heizung","Rundfunkbeitrag","OBI","Hornbach","Bauhaus"],
+  abos: ["Netflix","Spotify","Disney+","Amazon Prime","Handyvertrag","Internet","Versicherung"],
+};
+const placeCat = p => { for(const [c, list] of Object.entries(PLACES)) if(list.includes(p)) return c; return null; };
+const PRESET = new Set(Object.values(PLACES).flat());
+function recentPlaces(){
+  const seen = new Map();
+  state.entries.filter(e => e.place && !PRESET.has(e.place)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).forEach(e => { if(!seen.has(e.place)) seen.set(e.place, true); });
+  return [...seen.keys()].slice(0,12);
+}
 const catById = id => OUT_CATS.concat(IN_CATS).find(c => c.id===id) || OUT_CATS[OUT_CATS.length-1];
 
 // ---- money & dates ----
@@ -390,11 +408,11 @@ function entryRow(e){
   const c = catById(e.cat);
   const multi = state.accounts.length > 1;
   const isIn = e.type==="in";
-  const title = e.note || c.name;
+  const title = e.note || e.place || c.name;
   const ru = e.type==="out" ? childOf(e.id) : null;
   return `<li><button class="entry" data-edit="${esc(e.id)}">
     <span class="badge" style="background:var(${c.c})" aria-hidden="true">${esc(c.name.slice(0,2))}</span>
-    <span class="mid"><div class="t">${esc(title)}</div>${(e.note||multi)?`<div class="s">${esc([e.note?c.name:"", multi?accName(accOf(e)):"", ru?"Round-up "+money(ru.amount):""].filter(Boolean).join(" · "))}</div>`:""}</span>
+    <span class="mid"><div class="t">${esc(title)}</div>${(e.note||e.place||multi||ru)?`<div class="s">${esc([(e.note||e.place)?c.name:"", e.note&&e.place?e.place:"", multi?accName(accOf(e)):"", ru?"Round-up "+money(ru.amount):""].filter(Boolean).join(" · "))}</div>`:""}</span>
     <span class="a num ${isIn?"pos":""}">${isIn?"+":"−"}${money(e.amount)}</span>
   </button></li>`;
 }
@@ -428,6 +446,9 @@ function entrySheet(entry, preset){
     <div class="seg seg3" id="fType"><button data-type="out">Ausgabe</button><button data-type="in">Einnahme</button><button data-type="transfer">Umbuchung</button></div>
     <label class="amount"><input id="fAmount" inputmode="decimal" placeholder="0,00" value="${esc(toInput(d.amount))}" aria-label="Betrag in Euro" autocomplete="off"><span>€</span></label>
     <p class="hint" id="ruHint" style="text-align:center;margin-top:-8px" hidden></p>
+    <div id="placeBox"><div class="label" style="margin-bottom:6px">Wo?</div>
+      <select class="input" id="fPlace" aria-label="Wo war die Ausgabe?"></select>
+      <input class="input" id="fPlaceIn" placeholder="Eigenen Ort eingeben, z. B. Bio-Laden" autocomplete="off" style="margin-top:8px" hidden></div>
     <div id="catBox"><div class="label" style="margin-bottom:6px">Kategorie</div><div class="chips" id="fCat"></div></div>
     <div id="accBox"><div class="label" style="margin-bottom:6px">Konto</div><div class="chips" id="fAcc"></div></div>
     <div id="trBox"><div class="label" style="margin-bottom:6px">Von</div><div class="chips" id="fFrom"></div>
@@ -437,7 +458,7 @@ function entrySheet(entry, preset){
       ${dateChips.map(([n,v])=>`<button class="chip" data-date="${v}">${n}</button>`).join("")}
       <label class="chip" id="dateCustom">Datum <input type="date" id="fDateIn" value="${esc(d.date)}" aria-label="Datum wählen"></label>
     </div></div>
-    <input class="input" id="fNote" placeholder="Notiz, z. B. REWE oder Tankstelle" value="${esc(d.note||"")}" autocomplete="off" enterkeyhint="done">
+    <input class="input" id="fNote" placeholder="Notiz (optional)" value="${esc(d.note||"")}" autocomplete="off" enterkeyhint="done">
     <div class="row">${entry?`<button class="danger" id="del">Löschen</button>`:""}<button class="primary" id="ok">${entry?"Speichern":"Eintragen"}</button></div>
   `);
   const cats = () => d.type==="in" ? IN_CATS : OUT_CATS;
@@ -452,6 +473,7 @@ function entrySheet(entry, preset){
     $("#fFrom").innerHTML = accChips(d.from, "from");
     $("#fTo").innerHTML = accChips(d.to, "to");
     $("#catBox").hidden = d.type==="transfer";
+    $("#placeBox").hidden = d.type!=="out";
     $("#accBox").hidden = d.type==="transfer" || state.accounts.length<2;
     $("#trBox").hidden = d.type!=="transfer";
   };
@@ -468,6 +490,23 @@ function entrySheet(entry, preset){
     $("#ruHint").hidden = !rv;
     if(rv) $("#ruHint").textContent = `Round-up: ${money(rv)} gehen aufs ${accName(ra.roundupTo)}`;
   };
+  const CUSTOM = "__custom__";
+  const recent = recentPlaces();
+  const opt = p => `<option value="${esc(p)}">${esc(p)}</option>`;
+  $("#fPlace").innerHTML = `<option value="">– kein Ort –</option>`
+    + (recent.length ? `<optgroup label="Zuletzt genutzt">${recent.map(opt).join("")}</optgroup>` : "")
+    + OUT_CATS.filter(c=>PLACES[c.id]).map(c => `<optgroup label="${esc(c.name)}">${PLACES[c.id].map(opt).join("")}</optgroup>`).join("")
+    + `<option value="${CUSTOM}">Eigener Ort …</option>`;
+  $("#fPlace").value = d.place || "";
+  $("#fPlace").onchange = e => {
+    const v = e.target.value;
+    $("#fPlaceIn").hidden = v!==CUSTOM;
+    if(v===CUSTOM){ d.place = ""; $("#fPlaceIn").value = ""; $("#fPlaceIn").focus(); return; }
+    d.place = v;
+    const pc = placeCat(v);
+    if(pc && (!d.cat || !entry)) { d.cat = pc; sync(); }
+  };
+  $("#fPlaceIn").oninput = e => { d.place = e.target.value.trim(); };
   drawCats(); sync();
   $("#fType").onclick = e => { const b=e.target.closest("[data-type]"); if(b){ d.type=b.dataset.type; if(d.type==="transfer"){ d.from ||= d.account||k0; } else { d.account ||= d.from||k0; drawCats(); } sync(); } };
   $("#fAcc").onclick = e => { const b=e.target.closest("[data-acc]"); if(b){ d.account=b.dataset.acc; sync(); } };
@@ -484,6 +523,7 @@ function entrySheet(entry, preset){
     const id = entry ? entry.id : newId();
     const base = {type:d.type, amount, date:d.date, note:$("#fNote").value.trim(), createdAt: entry ? (entry.createdAt||Date.now()) : Date.now()};
     const data = d.type==="transfer" ? {...base, from:d.from, to:d.to} : {...base, cat:d.cat, account:d.account||"giro"};
+    if(d.type==="out" && d.place) data.place = d.place;
     closeSheet();
     try { await save("entries", id, data); await syncRoundup(id, data); if(!entry){ toast(({in:"Einnahme",out:"Ausgabe",transfer:"Umbuchung"})[d.type]+" eingetragen: "+money(amount)); if(d.date.slice(0,7)!==state.month){ state.month=d.date.slice(0,7); render(); } } } catch(e){}
   };
@@ -650,10 +690,10 @@ async function exportBackup(){
 }
 async function exportCsv(){
   const eurStr = c => (c/100).toFixed(2).replace(".",",");
-  const rows = [["Datum","Art","Kategorie","Konto","Nach Konto","Betrag","Notiz"]].concat(
+  const rows = [["Datum","Art","Kategorie","Ort","Konto","Nach Konto","Betrag","Notiz"]].concat(
     state.entries.slice().sort((a,b)=>a.date<b.date?-1:1).map(e => e.type==="transfer"
-      ? [e.date, "Umbuchung", "", accName(e.from), accName(e.to), eurStr(e.amount), e.note||""]
-      : [e.date, e.type==="in"?"Einnahme":"Ausgabe", catById(e.cat).name, accName(accOf(e)), "", eurStr((e.type==="in"?1:-1)*e.amount), e.note||""]));
+      ? [e.date, "Umbuchung", "", "", accName(e.from), accName(e.to), eurStr(e.amount), e.note||""]
+      : [e.date, e.type==="in"?"Einnahme":"Ausgabe", catById(e.cat).name, e.place||"", accName(accOf(e)), "", eurStr((e.type==="in"?1:-1)*e.amount), e.note||""]));
   const csv = "\ufeff"+rows.map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(";")).join("\r\n");
   if(await saveFile("haushaltsbuch-"+iso(new Date())+".csv", csv, "text/csv")) toast("Tabelle exportiert");
 }
