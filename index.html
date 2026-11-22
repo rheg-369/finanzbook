@@ -738,6 +738,7 @@ function renderKonten(){
     </div>`;
   }).join("")}</div>
   <div class="addrow"><button class="addbtn" id="addZiel">+ Sparziel</button></div></section>`;
+  html += `<section><h2><span>Sicherung</span></h2><p class="hint" style="margin:0 0 4px">${esc(lastBackupText().trim())}</p><div class="addrow"><button class="addbtn" id="backupNow">Sicherung speichern</button><button class="addbtn" id="impBtn">Sicherung laden</button></div></section>`;
   $("#main").innerHTML = html;
 }
 
@@ -911,15 +912,14 @@ function budgetSheet(){
       <p class="hint">Deine Einträge liegen nur auf diesem Gerät. Sichere sie ab und zu als Datei, z. B. in iCloud Drive.${lastBackupText()}</p>
       <div class="row"><button class="danger" style="color:var(--ink);flex:1" id="exp">Sicherung speichern</button><button class="danger" style="color:var(--ink);flex:1" id="imp">Sicherung laden</button></div>
       <button class="danger" style="color:var(--ink)" id="csv">Als Tabelle (CSV) exportieren</button>
-      <input type="file" id="impFile" accept="application/json,.json" hidden>
+      
       <p class="hint" style="text-align:center">Version ${APP_VERSION}</p>
     </div>
   `);
   $("#cancel").onclick = closeSheet;
   $("#exp").onclick = exportBackup;
   $("#csv").onclick = exportCsv;
-  $("#imp").onclick = () => $("#impFile").click();
-  $("#impFile").onchange = e => { const f = e.target.files[0]; if(f) importBackup(f); };
+  $("#imp").onclick = pickBackup;
   $("#ok").onclick = async () => {
     const budget = parseAmount($("#fBudget").value);
     closeSheet();
@@ -929,7 +929,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.1 (22.11.2026)";
+const APP_VERSION = "2.2 (22.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -977,18 +977,67 @@ async function exportCsv(){
   const csv = "\ufeff"+rows.map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(";")).join("\r\n");
   if(await saveFile("haushaltsbuch-"+iso(new Date())+".csv", csv, "text/csv")) toast("Tabelle exportiert");
 }
+const DEFAULT_ACCS = () => ({giro:{name:"Girokonto", kind:"konto", start:0, order:0}, bargeld:{name:"Bargeld", kind:"bar", start:0, order:1}});
+const asMap = x => Array.isArray(x) ? Object.fromEntries(x.filter(e=>e&&e.id).map(({id,...r})=>[id,r])) : (x && typeof x==="object" ? x : {});
+// Sicherung einlesen (auch ältere Versionen: ohne Konten, Einträge ohne Konto = Girokonto)
+function parseBackup(text){
+  const d = JSON.parse(text);
+  if(!d || d.app!=="haushaltsbuch" || typeof d.entries!=="object") throw 0;
+  const entries = asMap(d.entries), accounts = asMap(d.accounts);
+  let settings = d.settings && typeof d.settings==="object" ? d.settings : null;
+  if(settings && !settings.main && "budget" in settings) settings = {main: settings};
+  return {entries, accounts, settings, at: d.exportedAt};
+}
+function fixAccounts(accs, entries){
+  if(!Object.keys(accs).length) accs = DEFAULT_ACCS();
+  for(const e of Object.values(entries)){
+    const ids = e.type==="transfer" ? [e.from, e.to] : [e.account || "giro"];
+    for(const id of ids) if(id && !accs[id]) accs[id] = id==="giro" ? DEFAULT_ACCS().giro : id==="bargeld" ? DEFAULT_ACCS().bargeld : {name:"Konto aus Sicherung", kind:"konto", start:0, order:Date.now()};
+  }
+  return accs;
+}
+function pickBackup(){
+  const i = document.createElement("input"); i.type = "file"; i.hidden = true;
+  i.onchange = () => { const f = i.files[0]; i.remove(); if(f) importBackup(f); };
+  document.body.appendChild(i); i.click();
+}
 function importBackup(file){
   const r = new FileReader();
   r.onload = () => {
-    try {
-      const d = JSON.parse(r.result);
-      if(d.app!=="haushaltsbuch" || typeof d.entries!=="object") throw 0;
-      const cur = local.read("entries"); const n = Object.keys(d.entries).filter(k=>!cur[k]).length;
-      local.write("entries", Object.assign(cur, d.entries));
-      if(d.settings && d.settings.main) local.write("settings", d.settings);
-      if(d.accounts && typeof d.accounts==="object") local.write("accounts", Object.assign(local.read("accounts"), d.accounts));
-      closeSheet(); try { sessionStorage.setItem("hhb.importMsg", n+" Einträge eingespielt"); } catch(e){} location.reload();
-    } catch(e){ toast("Diese Datei ist keine Haushaltsbuch-Sicherung."); }
+    let b; try { b = parseBackup(r.result); } catch(e){ toast("Diese Datei ist keine Haushaltsbuch-Sicherung."); return; }
+    const cur = local.read("entries");
+    const nE = Object.keys(b.entries).length, nNew = Object.keys(b.entries).filter(k=>!cur[k]).length, nA = Object.keys(b.accounts).length;
+    const when = b.at ? new Date(b.at).toLocaleDateString("de-DE") + ", " + new Date(b.at).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}) + " Uhr" : "unbekannt";
+    openSheet(`
+      <div class="sheet-head"><button class="txt" id="cancel">Abbrechen</button><h3 id="sheetTitle">Sicherung laden</h3><span style="min-width:80px"></span></div>
+      <p class="hint">Sicherung vom <b>${esc(when)}</b> mit ${nE} Einträgen${nA?` und ${nA} Konten (inkl. Zips und Sparziele)`:""}.</p>
+      <button class="primary" id="impReplace">Wiederherstellen</button>
+      <p class="sublabel" style="margin:0">Alles auf diesem iPhone wird durch die Sicherung ersetzt. Gut für ein neues Handy oder wenn etwas schiefgelaufen ist.</p>
+      <button class="danger" style="color:var(--ink)" id="impMerge">Nur Fehlendes ergänzen</button>
+      <p class="sublabel" style="margin:0">Deine jetzigen Einträge bleiben, nur was in der Sicherung zusätzlich ist, kommt dazu (${nNew} Einträge).</p>
+      <div id="impConfirm" hidden style="display:flex;flex-direction:column;gap:10px">
+        <p class="warnmsg">Sicher? Einträge, die du seit dieser Sicherung gemacht hast, gehen verloren.</p>
+        <div class="row"><button class="danger" id="impNo" style="flex:1;color:var(--ink)">Nein</button><button class="primary" id="impYes" style="background:var(--danger)">Ja, ersetzen</button></div>
+      </div>
+    `);
+    const done = msg => { closeSheet(); try { sessionStorage.setItem("hhb.importMsg", msg); } catch(e){} location.reload(); };
+    $("#cancel").onclick = closeSheet;
+    $("#impConfirm").hidden = true;
+    $("#impReplace").onclick = () => { $("#impConfirm").hidden = false; $("#impConfirm").style.display = "flex"; };
+    $("#impNo").onclick = () => { $("#impConfirm").hidden = true; $("#impConfirm").style.display = "none"; };
+    $("#impYes").onclick = () => {
+      local.write("entries", b.entries);
+      local.write("accounts", fixAccounts(b.accounts, b.entries));
+      if(b.settings) local.write("settings", b.settings);
+      done("Sicherung wiederhergestellt: " + nE + " Einträge");
+    };
+    $("#impMerge").onclick = () => {
+      const all = Object.assign({}, b.entries, cur);
+      local.write("entries", all);
+      local.write("accounts", fixAccounts(Object.assign({}, b.accounts, local.read("accounts")), all));
+      if(b.settings && !local.read("settings").main) local.write("settings", b.settings);
+      done(nNew + " Einträge ergänzt");
+    };
   };
   r.readAsText(file);
 }
@@ -1006,6 +1055,7 @@ document.addEventListener("click", e => {
   if(ed){ const x = state.entries.find(y=>y.id===ed.dataset.edit); if(x) entrySheet(x); return; }
   if(e.target.closest("#setBudget")){ budgetSheet(); return; }
   if(e.target.closest("#backupNow")){ exportBackup(); return; }
+  if(e.target.closest("#impBtn")){ pickBackup(); return; }
   const tb = e.target.closest("#tabs [data-tab]");
   if(tb){ state.tab = tb.dataset.tab; try{ localStorage.setItem("hhb.tab", state.tab); }catch(_){} render(); window.scrollTo({top:0}); return; }
   const ac = e.target.closest("[data-account]");
