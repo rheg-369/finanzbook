@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-0ypbKRZBEXARnU5XZ9ThbG7kSav8o4GiDJ2H2T32YG8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-eQt56qfqCnITN/0Xjt5Xkc5bd6+Tk6RAmH+7O7nsqlk='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -683,6 +683,9 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .ob-next{width:100%;border:0;border-radius:999px;padding:17px;font-size:1.02rem;font-weight:600;letter-spacing:.01em;background:linear-gradient(160deg,var(--hero1),var(--hero2));color:#fbf8f1;box-shadow:0 14px 30px -12px color-mix(in srgb,var(--hero2) 80%,transparent)}
 .ob-next:disabled{opacity:.4;box-shadow:none}
 .accs li.paired{position:relative}
+.acc .a small.dep{display:block;font-family:var(--f-body);font-size:.76rem;font-weight:500;color:var(--muted);text-align:right;margin-top:3px}
+.depinfo{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--track);border-radius:16px;padding:12px 14px;font-size:.92rem}
+.depinfo span{color:var(--muted)}.depinfo small{display:block;font-size:.78rem;color:var(--muted);margin-top:2px}
 .acc.dsub{padding-top:2px!important;padding-left:66px!important;border-top:0!important}
 .acc.dsub .t{font-size:.82rem;color:var(--muted);font-weight:500}
 .acc.dsub .s{font-size:.74rem}
@@ -896,6 +899,7 @@ const accOf = e => e.account || "giro";
 const zipsOn = () => state.settings.zips !== false;
 const hasDepot = () => state.accounts.some(a=>a.kind==="depot");
 const pairOf = a => a && a.kind==="konto" && a.depot ? state.accounts.find(x=>x.id===a.depot && x.kind==="depot") : null;
+const depName = n => String(n||"").replace(/(\s+depot)+\s*$/i,"").trim()+" Depot";
 const isPairedDepot = id => state.accounts.some(k=>k.kind==="konto" && k.depot===id);
 const umschlaege = () => !zipsOn() ? [] : state.accounts.filter(a=>a.kind==="umschlag").sort((a,b)=>(a.order||0)-(b.order||0));
 const konten = () => state.accounts.filter(a=>a.kind!=="ziel" && a.kind!=="umschlag").sort((a,b)=>(a.order||0)-(b.order||0));
@@ -1021,6 +1025,7 @@ function boot(){
       if(!d) d = Object.keys(accs).find(id => accs[id].kind==="depot" && !used.has(id) && (() => { const dn = (accs[id].name||"").toLowerCase(), kn = (k.name||"").toLowerCase(); return kn.length>2 && (dn.startsWith(kn) || (ini(k.name).length>1 && dn.startsWith(ini(k.name)+" "))); })());
       if(d){ k.depot = d; used.add(d); } }
     local.write("accounts", accs); localStorage.setItem("hhb.mig.pair","1"); } } catch(e){}
+  try { const accs = local.read("accounts"); let ch = false; for(const a of Object.values(accs)){ if(a.kind==="depot" && /depot\s+depot\s*$/i.test(a.name||"")){ a.name = depName(a.name); ch = true; } } if(ch) local.write("accounts", accs); } catch(e){}
   try { if(!localStorage.getItem("hhb.mig.nosb")){ const accs = local.read("accounts"); for(const a of Object.values(accs)){ delete a.saveback; delete a.savebackCap; delete a.savebackTo; } local.write("accounts", accs); localStorage.setItem("hhb.mig.nosb","1"); } } catch(e){}
   store.sub("accounts", rows => { state.accounts=rows; render(); });
   store.sub("entries", rows => { const was = state.ready ? curPeriod() : null; state.entries=rows; state.ready=true; if(!state.navMoved && was!==null && state.month===was) state.month = curPeriod(); render(); });
@@ -1305,13 +1310,13 @@ function openOnboarding(fresh){
     if(fresh && !ents){
       const nw = {}; let o = 0;
       ACC.forEach(([k,,n])=>{ if(!st.acc.has(k) || k==="neo") return; nw[k] = make(k, k==="giro" && st.bank.trim() ? st.bank.trim() : n, k==="bargeld"?"bar":"konto", o++); });
-      if(st.acc.has("neo")){ nw.neo = {...make("neo", st.neo, "konto", o++), depot:"neodepot"}; nw.neodepot = make("neodepot", st.neo+" Depot", "depot", o++); }
+      if(st.acc.has("neo")){ nw.neo = {...make("neo", st.neo, "konto", o++), depot:"neodepot"}; nw.neodepot = make("neodepot", depName(st.neo), "depot", o++); }
       if(!Object.keys(nw).length) nw.giro = make("giro","Girokonto","konto",0);
       if(st.inv && !st.acc.has("neo")) nw.depot = make("depot", st.depot.trim() || "Depot", "depot", 10);
       if(st.zips) [...st.zipSel].forEach((n,k)=>{ const e = (ZIPS.find(z=>z[0]===n)||[])[1]; nw["z"+k+newId()] = {name:n, kind:"umschlag", start:0, order:20+k, ...(e?{icon:e}:{})}; });
       local.write("accounts", nw);
     } else {
-      if(st.acc.has("neo") && !Object.values(accs).some(a=>a.kind==="konto" && (a.name||"").toLowerCase()===st.neo.toLowerCase())){ const did = "depot"+newId(); accs[did] = make("", st.neo+" Depot", "depot", 9.5); accs["neo"+newId()] = {...make("", st.neo, "konto", 9), depot:did}; }
+      if(st.acc.has("neo") && !Object.values(accs).some(a=>a.kind==="konto" && (a.name||"").toLowerCase()===st.neo.toLowerCase())){ const did = "depot"+newId(); accs[did] = make("", depName(st.neo), "depot", 9.5); accs["neo"+newId()] = {...make("", st.neo, "konto", 9), depot:did}; }
       ACC.forEach(([k,,n],o)=>{ if(!st.acc.has(k) || k==="neo") return; const exists = k==="giro" ? Object.values(accs).some(a=>a.kind==="konto") : k==="bargeld" ? Object.values(accs).some(a=>a.kind==="bar") : Object.values(accs).some(a=>new RegExp(n,"i").test(a.name||"")); if(!exists) accs[k+newId()] = make(k,n,k==="bargeld"?"bar":"konto",o); });
       if(st.inv && !st.acc.has("neo") && !Object.values(accs).some(a=>a.kind==="depot")) accs["depot"+newId()] = make("depot", st.depot.trim() || "Depot", "depot", 10);
       local.write("accounts", accs);
@@ -1933,6 +1938,7 @@ function renderKonten(){
   html += `<section><h2><span>Konten</span><button class="linkbtn" id="addKonto">+ Neu</button></h2><ul class="accs">${ks.filter(a=>!(a.kind==="depot" && isPairedDepot(a.id))).map(a => {
     const b = balance(a), dp = pairOf(a);
     const extra = `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.roundupTo&&a.roundupTo!==a.depot?` → ${esc(accName(a.roundupTo))}`:""}`;
+    if(dp) return `<li><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(--c4)" aria-hidden="true">${svgI("invest")}</span><span class="mid"><div class="t">${esc(a.name)}</div><div class="s">Konto &amp; Depot${extra?" · "+extra:""}</div></span><span class="a num ${b<0?"neg":""}">${money(b)}<small class="dep">im Depot ${money(balance(dp))}</small></span></button></li>`;
     return `<li class="${dp?"paired":""}"><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(${a.kind==="depot"||dp?"--c4":a.kind==="bar"?"--c3":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":dp?"invest":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button>${dp?`<button class="acc dsub" data-account="${esc(dp.id)}"><span class="mid"><div class="t">Depot</div><div class="s">${esc(dp.name)}</div></span><span class="a num">${money(balance(dp))}</span></button>`:""}</li>`;
   }).join("")}</ul></section>`;
 
@@ -2210,6 +2216,7 @@ function fillAllSheet(){
 }
 
 function accountSheet(acc, kind, presetName){
+  if(acc && acc.kind==="depot" && isPairedDepot(acc.id)){ const k = state.accounts.find(x=>x.kind==="konto" && x.depot===acc.id); if(k) acc = k; }
   kind = acc ? (acc.kind||"konto") : kind;
   const isEnv = kind==="umschlag";
   const isZiel = kind==="ziel" || isEnv;
@@ -2224,6 +2231,7 @@ function accountSheet(acc, kind, presetName){
     ${isZiel?`<div><div class="label" style="margin-bottom:6px">${isEnv?"Zielbetrag (optional)":"Zielbetrag"}</div><input class="input num" id="aTarget" inputmode="decimal" placeholder="z. B. 1.500" value="${esc(toInput(acc&&acc.target||0))}" autocomplete="off"></div>`:""}
     <div><div class="label" style="margin-bottom:6px">${isEnv?"Anfangsbestand":isZiel?"Schon angespart":acc?"Aktueller Kontostand":"Anfangsbestand (heutiger Kontostand)"}</div><input class="input num" id="aBal" inputmode="decimal" placeholder="0" value="${esc(toSigned(cur))}" autocomplete="off"></div>
     <p class="sublabel">${isEnv?`Geld, das schon im Zip steckt. Zählt nicht als Ausgabe und wird nicht vom Bargeld abgezogen.${acc?` Aktuell im Zip: <b class="num">${money(balance(acc))}</b>.`:" Neues Geld kommt später mit „Befüllen“ dazu."}`:isZiel?"Weiteres Geld legst du über „Zurücklegen“ dazu.":acc?`Änderst du den Stand hier, wird der Anfangsbestand angepasst. Für Abweichungen im Alltag lieber „Kontostände prüfen“ nutzen, dann bleibt die Differenz sichtbar.`:"Ab jetzt rechnet die App den Stand mit deinen Einträgen weiter. Minus für Dispo, z. B. -250."}</p>
+    ${acc && pairOf(acc) ? (() => { const dp = pairOf(acc); return `<div class="depinfo"><div><b>Im Depot</b><small>Round-up und Sparpläne, rechnet die App selbst</small></div><b class="num">${money(balance(dp))}</b></div>`; })() : ""}
     ${acc && !isEnv ? (() => { const x = accBreak(acc.id); const row = (l,v,k) => `<div><span>${l}</span><b class="num ${k||""}">${v}</b></div>`;
       return `<details class="abrk2"><summary><span>So setzt sich der Stand zusammen</span><span class="achev" aria-hidden="true">›</span></summary><div class="abrk">
         ${row("Anfangsbestand", money(acc.start||0))}
@@ -2277,7 +2285,8 @@ function accountSheet(acc, kind, presetName){
     const id = acc ? acc.id : newId();
     const data = {name, kind: r.kind, start: isEnv ? want : want - (acc ? movement(acc.id) : 0), order: acc ? (acc.order||0) : Date.now()};
     if(r.kind==="konto" && r.pair){
-      if(r.pair==="__new"){ const did = newId(); await save("accounts", did, {name: name+" Depot", kind:"depot", start:0, order:(data.order||0)+0.5}); r.pair = did; }
+      if(r.pair==="__new"){ const did = newId(); await save("accounts", did, {name: depName(name), kind:"depot", start:0, order:(data.order||0)+0.5}); r.pair = did; }
+      else { const dp = accById(r.pair); if(dp && dp.name!==depName(name)){ const {id:did, ...dd} = dp; await save("accounts", did, {...dd, name: depName(name)}); } }
       data.depot = r.pair; if((r.roundup||r.saveback) && !r.roundupTo) r.roundupTo = r.pair;
     }
     if(r.kind==="konto" && r.roundup && r.roundupTo){ data.roundup = r.roundup; data.roundupTo = r.roundupTo; }
@@ -2650,7 +2659,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.28 (23.11.2026)";
+const APP_VERSION = "2.29 (23.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
