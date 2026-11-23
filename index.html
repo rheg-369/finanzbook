@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-iVsWB+fPVCtRTiXnupALVGOecFkZulEfcMrBob0JOEw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-9nMSGqJm+ds5O4xrCT3ud9s9Du98HsxFhK3Zz91KlMM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -581,6 +581,11 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .tgrows>div{display:flex;justify-content:space-between;gap:10px}.tgrows span{display:flex;align-items:center;gap:6px;color:var(--muted)}
 .tgrows .zi svg{width:14px;height:14px}
 .tgint{align-self:flex-start;display:flex;align-items:center;gap:6px;border:0;background:none;padding:2px 0;color:var(--accent);font-weight:600;font-size:.86rem}.tgint svg{width:15px;height:15px}
+.ruchip{align-self:center;display:flex;align-items:center;gap:8px;margin-top:-6px;padding:7px 12px 7px 7px;border-radius:999px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));font-size:.84rem;max-width:100%}
+.ruchip .ru-ic{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--surface);flex:none}.ruchip .ru-ic svg{width:14px;height:14px}
+.ruchip .ru-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ruchip b{font-weight:600}
+.ruchip .ru-to{color:var(--muted)}
+.ruchip .ru-calc{color:var(--muted);font-size:.76rem;padding-left:8px;border-left:1px solid var(--line);white-space:nowrap}
 .paycard{border-color:color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
 .paycard button{background:var(--accent)!important;color:#fff!important}
 .fixcard button{flex:none;border:0;border-radius:999px;padding:10px 14px;font-weight:600;font-size:.85rem;background:var(--ink);color:var(--surface)}
@@ -881,7 +886,7 @@ function investedYear(year){
     if(e.type==="transfer"){
       if(D.has(e.to) && !D.has(e.from)){ v = e.amount; if(e.auto) r.roundup += v; else r.manual += v; }
       else if(D.has(e.from) && !D.has(e.to)){ r.out += e.amount; }
-    } else if(e.type==="in" && e.cat==="saveback" && D.has(accOf(e))){ v = e.amount; r.saveback += v; }
+    }
     if(v && m>=0 && m<12) r.months[m] += v;
     if(v){ const dep = e.type==="transfer" ? e.to : accOf(e); r.by[dep] = (r.by[dep]||0) + v; }
   }
@@ -898,7 +903,10 @@ function roundupFor(amount, acc){
 const childOf = id => state.entries.find(e => e.auto && e.parent===id && e.type==="transfer");
 const sbOf = id => state.entries.find(e => e.auto && e.parent===id && e.type==="in");
 // Saveback (z. B. Trade Republic): Prozent der Kartenzahlung als Einnahme ins Depot, mit Monatsdeckel
+// Saveback ist seit v2.25 entfernt (Geschenk, kein Investment): es wird nichts mehr gebucht.
+const isSb = e => e.cat==="saveback";
 function savebackFor(amount, acc, date, parentId){
+  return 0;
   if(!acc || !acc.saveback || !acc.savebackTo || !accById(acc.savebackTo)) return 0;
   const raw = Math.round(amount * acc.saveback / 100);
   const cap = acc.savebackCap || 0;
@@ -956,6 +964,7 @@ function boot(){
       if(!d) d = Object.keys(accs).find(id => accs[id].kind==="depot" && !used.has(id) && (() => { const dn = (accs[id].name||"").toLowerCase(), kn = (k.name||"").toLowerCase(); return kn.length>2 && (dn.startsWith(kn) || (ini(k.name).length>1 && dn.startsWith(ini(k.name)+" "))); })());
       if(d){ k.depot = d; used.add(d); } }
     local.write("accounts", accs); localStorage.setItem("hhb.mig.pair","1"); } } catch(e){}
+  try { if(!localStorage.getItem("hhb.mig.nosb")){ const accs = local.read("accounts"); for(const a of Object.values(accs)){ delete a.saveback; delete a.savebackCap; delete a.savebackTo; } local.write("accounts", accs); localStorage.setItem("hhb.mig.nosb","1"); } } catch(e){}
   store.sub("accounts", rows => { state.accounts=rows; render(); });
   store.sub("entries", rows => { state.entries=rows; state.ready=true; render(); });
   store.sub("recurring", rows => { state.recurring=rows; render(); });
@@ -980,7 +989,7 @@ const WR_WD = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","
 const wrYear = () => { const d = new Date(); return d.getMonth()<=1 ? d.getFullYear()-1 : d.getFullYear(); };
 function wrStats(Y){
   const y = String(Y), ents = state.entries.filter(e=>(e.date||"").startsWith(y));
-  const outs = ents.filter(e=>e.type==="out" && !isKorr(e)), ins = ents.filter(e=>e.type==="in" && !isKorr(e));
+  const outs = ents.filter(e=>e.type==="out" && !isKorr(e)), ins = ents.filter(e=>e.type==="in" && !isKorr(e) && !isSb(e));
   const sum = a => a.reduce((s,e)=>s+(e.amount||0),0);
   const spent = sum(outs), earned = sum(ins), inv = investedYear(Y);
   const months = Array(12).fill(0); outs.forEach(e=>{ months[Number(e.date.slice(5,7))-1] += e.amount; });
@@ -1041,8 +1050,8 @@ function wrSlides(st){
   }
   if(st.inv.total){
     S.push({tone:"gold", html:`<p class="wr-k">Für euer zukünftiges Ich</p>${wrCount(st.inv.total,"xl")}<p class="wr-lead">investiert.</p>
-      <div class="wr-trio">${st.inv.manual?`<div><span>Sparpläne &amp; Einzahlungen</span><b>${money(st.inv.manual)}</b></div>`:""}${st.inv.roundup?`<div><span>Round-up</span><b>${money(st.inv.roundup)}</b></div>`:""}${st.inv.saveback?`<div><span>Saveback</span><b>${money(st.inv.saveback)}</b></div>`:""}</div>
-      ${st.inv.roundup+st.inv.saveback?`<p class="wr-tiny">${money(st.inv.roundup+st.inv.saveback)} davon ganz nebenbei.</p>`:""}`});
+      <div class="wr-trio">${st.inv.manual?`<div><span>Sparpläne &amp; Einzahlungen</span><b>${money(st.inv.manual)}</b></div>`:""}${st.inv.roundup?`<div><span>Round-up</span><b>${money(st.inv.roundup)}</b></div>`:""}</div>
+      ${st.inv.roundup?`<p class="wr-tiny">${money(st.inv.roundup)} davon ganz nebenbei mit Round-up.</p>`:""}`});
   }
   S.push({tone:"night", html:`<p class="wr-k">Kleine Fakten</p>
     <div class="wr-facts"><div><b>${st.n}</b><span>Einträge</span></div><div><b>${money(st.perDay)}</b><span>pro Tag im Schnitt</span></div><div><b>${WR_WD[st.topWd]}</b><span>euer teuerster Wochentag</span></div>${st.places.length?`<div><b>${new Set(st.places.map(x=>x.name)).size}</b><span>verschiedene Orte</span></div>`:""}</div>`});
@@ -1216,7 +1225,7 @@ function openOnboarding(fresh){
     () => `<p class="ob-k">Frage 2 von ${N}</p><h2 class="ob-h">Nutzt du Bargeld&#8209;Zips?</h2><p class="ob-lead">Umschläge, in die du Bargeld für einen Zweck steckst, zum Beispiel Lebensmittel oder Urlaub.</p>
       <div class="ob-list">${opt("zips",true,"zip","Ja, mit Zips","Bekommen einen eigenen Reiter")}${opt("zips",false,"sonstiges","Nein, ohne Zips","Lässt sich jederzeit einschalten")}</div>
       ${st.zips && fresh ? `<p class="ob-k" style="margin-top:22px">Gleich anlegen</p><div class="ob-chips">${ZIPS.map(([n,e])=>`<button class="chip" data-zs="${n}" aria-pressed="${st.zipSel.has(n)}"><i class="zi">${svgI(ZIP_SVG[e])}</i>${n}</button>`).join("")}</div>` : ""}`,
-    () => `<p class="ob-k">Frage 3 von ${N}</p><h2 class="ob-h">Investierst du?</h2><p class="ob-lead">Dann siehst du, wie viel du pro Monat und Jahr investierst, auch mit Round-up und Saveback.</p>
+    () => `<p class="ob-k">Frage 3 von ${N}</p><h2 class="ob-h">Investierst du?</h2><p class="ob-lead">Dann siehst du, wie viel du pro Monat und Jahr investierst, auch mit Round-up.</p>
       <div class="ob-list">${opt("inv",true,"invest","Ja, ich habe ein Depot","Sparpläne und Einzahlungen erfassen")}${opt("inv",false,"sonstiges","Nein, erstmal nicht","Kann später dazukommen")}</div>
       ${st.inv && st.acc.has("neo") ? `<p class="ob-note">Dein Depot bei ${esc(st.neo)} ist schon dabei.</p>` : st.inv && !hasDepot() ? `<input class="input ob-in" id="obDepot" placeholder="Name des Depots, z. B. Trade Republic" value="${esc(st.depot)}" autocomplete="off">` : ""}`,
     () => `<p class="ob-k">Frage 4 von ${N}</p><h2 class="ob-h">Wie soll die App aussehen?</h2><p class="ob-lead">Tipp an, um es gleich zu sehen.</p>
@@ -1296,7 +1305,7 @@ function forecastMonth(m){
 }
 function availNow(){
   const m = curPeriod(), ents = state.entries.filter(e=>inPer(e.date, m) && !isKorr(e));
-  const earned = ents.filter(e=>e.type==="in").reduce((s,e)=>s+e.amount,0), spent = ents.filter(e=>e.type==="out").reduce((s,e)=>s+e.amount,0);
+  const earned = ents.filter(e=>e.type==="in" && !isSb(e)).reduce((s,e)=>s+e.amount,0), spent = ents.filter(e=>e.type==="out").reduce((s,e)=>s+e.amount,0);
   const pend = pendingRecs(m).reduce((s,x)=>s+x.r.amount,0);
   return earned - spent - investedYear(d=>inPer(d,m)).total - pend;
 }
@@ -1382,7 +1391,7 @@ function render(){
 
   const inMonth = state.entries.filter(e => inPer(e.date, m));
   const outs = inMonth.filter(e => e.type!=="in" && e.type!=="transfer" && !isKorr(e));
-  const ins = inMonth.filter(e => e.type==="in" && !isKorr(e));
+  const ins = inMonth.filter(e => e.type==="in" && !isKorr(e) && !isSb(e));
   const spent = outs.reduce((s,e)=>s+(e.amount||0),0);
   const earned = ins.reduce((s,e)=>s+(e.amount||0),0);
   const invM = investedYear(d=>inPer(d,m)).total;
@@ -1498,7 +1507,7 @@ function entryRow(e){
   const title = e.note || e.place || e.sub || c.name;
   const cName = c.name + (e.sub && (e.note||e.place) ? " · "+e.sub : "");
   const ru = e.type==="out" ? childOf(e.id) : null;
-  const sbk = e.type==="out" ? sbOf(e.id) : null;
+  const sbk = null;
   return `<li><button class="entry" data-edit="${esc(e.id)}">
     ${catBadge(c)}
     <span class="mid"><div class="t">${esc(title)}</div>${(e.note||e.place||e.sub||multi||ru||sbk)?`<div class="s">${esc([(e.note||e.place)?cName:(e.sub?c.name:""), e.note&&e.place?e.place:"", multi?accName(accOf(e)):"", ru?"Round-up "+money(ru.amount):"", sbk?"Saveback +"+money(sbk.amount):"", e.rec?"Dauerauftrag":""].filter(Boolean).join(" · "))}</div>`:""}</span>
@@ -1534,7 +1543,7 @@ function entrySheet(entry, preset){
     <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">${entry?"Eintrag":"Neuer Eintrag"}</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="seg seg3" id="fType"><button data-type="out">Ausgabe</button><button data-type="in">Einnahme</button><button data-type="transfer">Umbuchung</button></div>
     <label class="amount"><input id="fAmount" inputmode="decimal" placeholder="0,00" value="${esc(toInput(d.amount))}" aria-label="Betrag in Euro" autocomplete="off"><span>€</span></label>
-    <p class="hint" id="ruHint" style="text-align:center;margin-top:-8px" hidden></p>
+    <div class="ruchip" id="ruHint" hidden></div>
     <div id="placeBox"><div class="label" style="margin-bottom:6px">Wo?</div>
       <button class="input placebtn" id="fPlaceBtn" aria-label="Ort wählen" aria-expanded="false"><span id="fPlaceTxt"></span><span aria-hidden="true">⌄</span></button>
       <div class="ppanel" id="pp" hidden>
@@ -1626,8 +1635,9 @@ function entrySheet(entry, preset){
     }
     const ra = d.type==="out" ? accById(d.account) : null, rv = ra ? roundupFor(parseAmount($("#fAmount").value), ra) : 0;
     const sv = ra ? savebackFor(parseAmount($("#fAmount").value), ra, d.date, entry&&entry.id) : 0;
-    $("#ruHint").hidden = !rv && !sv;
-    $("#ruHint").textContent = [rv?`Round-up: ${money(rv)} aufs ${accName(ra.roundupTo)}`:"", sv?`Saveback: +${money(sv)} aufs ${accName(ra.savebackTo)}`:""].filter(Boolean).join(" · ");
+    $("#ruHint").hidden = !rv;
+    if(rv){ const a0 = parseAmount($("#fAmount").value), diff = (100 - a0 % 100) % 100;
+      $("#ruHint").innerHTML = `<span class="ru-ic" aria-hidden="true">${svgI("invest")}</span><span class="ru-t"><b class="num">+${money(rv)}</b> Round-up <span class="ru-to">→ ${ra.roundupTo===ra.depot ? "Depot" : esc(accName(ra.roundupTo))}</span></span><span class="ru-calc num">${money(diff)} × ${ra.roundup}</span>`; }
   };
   // Eigene Orts-Auswahl: Suche, Favoriten, zuletzt genutzt, eigene Orte, Standard-Orte
   let ppEdit = false;
@@ -1768,7 +1778,7 @@ function renderKonten(){
     </div>`;
   html += `<section><h2><span>Konten</span><button class="linkbtn" id="addKonto">+ Neu</button></h2><ul class="accs">${ks.filter(a=>!(a.kind==="depot" && isPairedDepot(a.id))).map(a => {
     const b = balance(a), dp = pairOf(a);
-    const extra = `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.saveback?" · ":""}${a.saveback&&a.savebackTo?`Saveback ${String(a.saveback).replace(".",",")} %`:""}${(a.roundup||a.saveback)&&(a.roundupTo||a.savebackTo)&&(a.roundupTo||a.savebackTo)!==a.depot?` → ${esc(accName(a.roundupTo||a.savebackTo))}`:""}`;
+    const extra = `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.roundupTo&&a.roundupTo!==a.depot?` → ${esc(accName(a.roundupTo))}`:""}`;
     return `<li class="${dp?"paired":""}"><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(${a.kind==="depot"||dp?"--c4":a.kind==="bar"?"--c3":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":dp?"invest":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button>${dp?`<button class="acc dsub" data-account="${esc(dp.id)}"><span class="mid"><div class="t">Depot</div><div class="s">${esc(dp.name)}</div></span><span class="a num">${money(balance(dp))}</span></button>`:""}</li>`;
   }).join("")}</ul></section>`;
 
@@ -1784,7 +1794,6 @@ function renderKonten(){
       <div class="parts">
         <div><span>Selbst eingezahlt</span><b class="num">${money(r.manual)}</b></div>
         <div><span>Round-up</span><b class="num">${money(r.roundup)}</b></div>
-        <div><span>Saveback</span><b class="num">${money(r.saveback)}</b></div>
         ${Object.keys(r.by).length>1 || konten().filter(a=>a.kind==="depot").length>1 ? `<div style="border-top:1px solid var(--line);padding-top:6px;margin-top:2px"><span style="font-weight:600;color:var(--ink)">Nach Depot</span></div>${konten().filter(a=>a.kind==="depot").map(d=>`<div><span>${esc(d.name)}</span><b class="num">${money(r.by[d.id]||0)}</b></div>`).join("")}` : ""}
         ${r.out?`<div><span>Aus dem Depot entnommen</span><b class="num neg">−${money(r.out)}</b></div><div><span>Netto investiert</span><b class="num">${money(r.total-r.out)}</b></div>`:""}
       </div>
@@ -2010,7 +2019,7 @@ function accountSheet(acc, kind, presetName){
   const isEnv = kind==="umschlag";
   const isZiel = kind==="ziel" || isEnv;
   const word = isEnv ? "Zip" : kind==="ziel" ? "Sparziel" : "Konto";
-  const r = {tg: acc ? !!acc.tg : (zipTgOn() && /tagesgeld/i.test(presetName||"")), pair: acc && acc.depot && state.accounts.some(x=>x.id===acc.depot) ? acc.depot : null, kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&(acc.roundupTo||acc.savebackTo)||null, saveback: acc&&acc.saveback||0};
+  const r = {tg: acc ? !!acc.tg : (zipTgOn() && /tagesgeld/i.test(presetName||"")), pair: acc && acc.depot && state.accounts.some(x=>x.id===acc.depot) ? acc.depot : null, kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&(acc.roundupTo||acc.savebackTo)||null, saveback: 0};
   const targets = () => state.accounts.filter(a => (a.kind==="depot"||a.kind==="ziel") && (!acc || a.id!==acc.id));
   const cur = isEnv ? (acc ? acc.start||0 : 0) : acc ? balance(acc) : 0;
   openSheet(`
@@ -2026,13 +2035,6 @@ function accountSheet(acc, kind, presetName){
     <div id="ruBox"><div class="label" style="margin-bottom:6px">Round-up</div>
       <p class="sublabel" style="margin:0 0 8px">Jede Ausgabe von diesem Konto wird auf den nächsten Euro aufgerundet, die Differenz mal Faktor geht aufs Depot. Beispiel bei 10×: 0,85 € Kauf ergibt 1,50 €.</p>
       <div class="chips" id="aMult">${[0,1,2,3,5,10].map(m=>`<button class="chip" data-mult="${m}">${m?m+"×":"Aus"}</button>`).join("")}</div>
-      <div class="label" style="margin:14px 0 6px">Saveback</div>
-      <p class="sublabel" style="margin:0 0 8px">Ein Teil jeder Kartenzahlung kommt als Einnahme aufs Depot zurück. Bei Trade Republic z. B. 1 %, höchstens 15 € im Monat.</p>
-      <div class="chips" id="aSb"><button class="chip" data-sb="0">Aus</button><button class="chip" data-sb="1">An</button></div>
-      <div id="sbBox" class="row" style="margin-top:8px">
-        <label style="flex:1"><span class="label">Prozent</span><input class="input num" id="aSbPct" inputmode="decimal" value="${esc(String(acc&&acc.saveback||1).replace(".",","))}" autocomplete="off" style="margin-top:4px"></label>
-        <label style="flex:1"><span class="label">Max. pro Monat (€)</span><input class="input num" id="aSbCap" inputmode="decimal" value="${esc(toInput(acc&&acc.savebackCap!=null?acc.savebackCap:1500))}" placeholder="kein Limit" autocomplete="off" style="margin-top:4px"></label>
-      </div>
       <div id="ruTo" style="margin-top:10px"></div></div>`}
     <p class="warnmsg" id="aWarn" hidden></p>
     <div class="row">${acc?`<button class="danger" id="del">Löschen</button>`:""}<button class="primary" id="ok">${acc?"Speichern":"Anlegen"}</button></div>
@@ -2048,8 +2050,6 @@ function accountSheet(acc, kind, presetName){
     document.querySelectorAll("#aKind [data-kind]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.kind===r.kind)));
     $("#ruBox").hidden = r.kind!=="konto";
     document.querySelectorAll("#aMult [data-mult]").forEach(b=>b.setAttribute("aria-pressed", String(+b.dataset.mult===r.roundup)));
-    document.querySelectorAll("#aSb [data-sb]").forEach(b=>b.setAttribute("aria-pressed", String(+b.dataset.sb===(r.saveback?1:0))));
-    $("#sbBox").hidden = !r.saveback;
     const ts = targets();
     $("#ruTo").innerHTML = !(r.roundup||r.saveback) ? "" : ts.length
       ? `<div class="label" style="margin-bottom:6px">Investieren auf</div><div class="chips">${ts.map(a=>`<button class="chip" data-rto="${esc(a.id)}" aria-pressed="${a.id===r.roundupTo}">${esc(a.name)}</button>`).join("")}</div>`
@@ -2063,7 +2063,6 @@ function accountSheet(acc, kind, presetName){
   if(!isZiel){
     $("#aKind").onclick = e => { const b=e.target.closest("[data-kind]"); if(b){ r.kind=b.dataset.kind; sync(); } };
     $("#aMult").onclick = e => { const b=e.target.closest("[data-mult]"); if(b){ r.roundup=+b.dataset.mult; sync(); } };
-    $("#aSb").onclick = e => { const b=e.target.closest("[data-sb]"); if(b){ r.saveback = +b.dataset.sb ? 1 : 0; sync(); } };
     $("#ruTo").onclick = e => { const b=e.target.closest("[data-rto]"); if(b){ r.roundupTo=b.dataset.rto; sync(); } };
     if($("#aTg")) $("#aTg").onclick = () => { r.tg = !r.tg; sync(); };
     $("#aPair").onclick = () => { if(r.pair) r.pair = null; else { const free = state.accounts.filter(x=>x.kind==="depot" && !isPairedDepot(x.id)); r.pair = acc ? ((free[0]||{}).id || "__new") : "__new"; } sync(); };
@@ -2306,7 +2305,7 @@ function korrSheet(x){
 }
 
 // ---- Alles zurücksetzen (mit Sicherheitsabfrage) ----
-const RESET_KEYS = ["entries","accounts","settings","recurring","lastCheck","checkSnooze","snooze","mig.paypal","mig.union","mig.pair"];
+const RESET_KEYS = ["entries","accounts","settings","recurring","lastCheck","checkSnooze","snooze","mig.paypal","mig.union","mig.pair","mig.nosb"];
 const RESET_WORD = "LÖSCHEN";
 function resetSheet(){
   const nE = state.entries.length, nA = state.accounts.length, nR = state.recurring.length;
@@ -2449,7 +2448,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.24 (23.11.2026)";
+const APP_VERSION = "2.25 (23.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
