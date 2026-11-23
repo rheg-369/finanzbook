@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-9nMSGqJm+ds5O4xrCT3ud9s9Du98HsxFhK3Zz91KlMM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-+gwVid9AKvJzdFDmFU9rX83s95kTk9QFHpBvXGN4tHY='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -377,12 +377,19 @@ section > h2 .num{font-family:var(--f-body);font-size:.85rem;color:var(--muted);
 .theme i{width:26px;height:26px;border-radius:50%;display:block;border:1px solid rgba(0,0,0,.12)}
 .placebtn{display:flex;justify-content:space-between;align-items:center;text-align:left;cursor:pointer}
 .ppanel{margin-top:8px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);padding:8px;max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.ppanel #ppSearch{position:sticky;top:0;z-index:1;margin-bottom:4px}
+.pptop{position:sticky;top:0;z-index:1;margin-bottom:4px;display:flex;gap:8px;align-items:center;background:inherit}
+.pptop #ppSearch{flex:1;min-width:0}
+.ppedbtn{flex:none;border:var(--card-border);background:var(--chip);color:var(--ink);border-radius:999px;padding:10px 14px;font-weight:600;font-size:.85rem}
+.ppedbtn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:transparent}
+.ped{display:flex;flex-direction:column;gap:10px;padding:8px 2px 12px}
+.ped .chips{flex-wrap:wrap}
+.pedhint{font-size:.8rem;color:var(--muted);margin:0 4px}
 .pgroup{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;margin:10px 4px 2px}
 .prow{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line)}
 .prow:last-child{border-bottom:0}
 .pname{flex:1;min-width:0;text-align:left;border:0;background:none;padding:11px 6px;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pname[aria-pressed="true"]{color:var(--accent);font-weight:600}
+.pdel svg{width:19px;height:19px}.pdel{color:var(--muted);opacity:.8}
 .pbtn{width:40px;height:40px;flex:none;border:0;background:none;border-radius:10px;font-size:1.2rem;color:var(--muted);display:grid;place-items:center}
 .pstar[aria-pressed="true"]{color:#e8a400}
 .pnew{width:100%;border:0;background:var(--accent-soft);color:var(--ink);border-radius:10px;padding:11px;text-align:left;font-weight:600;margin-top:6px}
@@ -764,15 +771,19 @@ const PLACES = {
   wohnen: ["Miete","Strom","Gas / Heizung","Rundfunkbeitrag"],
   abos: ["Netflix","Spotify","Disney+","Amazon Prime","Handyvertrag","Internet","Versicherung"],
 };
-const placeCat = p => { for(const [c, list] of Object.entries(PLACES)) if(list.includes(p)) return c==="mode" ? "shopping" : c==="tanken" ? "mobilitaet" : c; return null; };
+const grpCat = c => c==="mode" ? "shopping" : c==="tanken" ? "mobilitaet" : c;
+const presetGroup = p => { for(const [c, list] of Object.entries(PLACES)) if(list.includes(p)) return c; return null; };
+const placeCat = p => { const own = placePrefs().cats[p]; if(own) return grpCat(own); for(const [c, list] of Object.entries(PLACES)) if(list.includes(p)) return c==="mode" ? "shopping" : c==="tanken" ? "mobilitaet" : c; return null; };
 const PRESET = new Set(Object.values(PLACES).flat());
 // Eigene Orte und ausgeblendete Standard-Orte (nur auf diesem Gerät, in der Sicherung enthalten)
-const placePrefs = () => { try { const o = JSON.parse(localStorage.getItem("hhb.places")||"{}"); return {hidden:o.hidden||[], custom:o.custom||[], fav:o.fav||[]}; } catch(e){ return {hidden:[], custom:[], fav:[]}; } };
+const placePrefs = () => { try { const o = JSON.parse(localStorage.getItem("hhb.places")||"{}"); return {hidden:o.hidden||[], custom:o.custom||[], fav:o.fav||[], cats:o.cats||{}}; } catch(e){ return {hidden:[], custom:[], fav:[], cats:{}}; } };
 const savePlacePrefs = o => { try { localStorage.setItem("hhb.places", JSON.stringify(o)); } catch(e){} };
-const visPlaces = id => { const h = placePrefs().hidden; return (PLACES[id]||[]).filter(x=>!h.includes(x)); };
+const visPlaces = id => { const pr = placePrefs(); return (PLACES[id]||[]).filter(x=>!pr.hidden.includes(x)).concat(pr.custom.filter(x=>pr.cats[x]===id)); };
+const PGROUPS = () => OUT_CATS.filter(c=>PLACES[c.id]).flatMap(c => [[c.id, c.name]].concat(c.id==="shopping" ? [["mode","Mode & Schuhe"]] : c.id==="mobilitaet" ? [["tanken","⛽ Tanken"]] : []));
 function recentPlaces(){
   const seen = new Map();
-  state.entries.filter(e => e.place && !PRESET.has(e.place) && !placePrefs().custom.includes(e.place)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).forEach(e => { if(!seen.has(e.place)) seen.set(e.place, true); });
+  const pp = placePrefs();
+  state.entries.filter(e => e.place && !PRESET.has(e.place) && !pp.custom.includes(e.place) && !pp.hidden.includes(e.place)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).forEach(e => { if(!seen.has(e.place)) seen.set(e.place, true); });
   return [...seen.keys()].slice(0,12);
 }
 const KORR = {id:"korrektur", i:"±", name:"Korrektur", c:"--muted"};
@@ -1115,6 +1126,7 @@ const ICO = {
   geschenk:'<rect x="4" y="8.5" width="16" height="4" rx="1"/><path d="M5.5 12.5V20h13v-7.5M12 8.5V20"/><path d="M12 8.5S10.8 4 8.6 4.5c-1.9.5-1.2 4 3.4 4zM12 8.5s1.2-4.5 3.4-4c1.9.5 1.2 4-3.4 4z"/>',
   verkauf:'<path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.4 1.4 0 0 1 0 2l-6.7 6.7a1.4 1.4 0 0 1-2 0z"/><circle cx="8" cy="8" r="1.3"/>',
   saveback:'<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/>',
+  trash:'<path d="M4.5 7h15M10 11v6M14 11v6M6.5 7l.8 11.2A2 2 0 0 0 9.3 20h5.4a2 2 0 0 0 2-1.8L17.5 7M9.5 7V5.5a1.5 1.5 0 0 1 1.5-1.5h2a1.5 1.5 0 0 1 1.5 1.5V7"/>',
   zinsen:'<path d="M3.5 17l5.5-5.5 4 4 7.5-7.5"/><path d="M15 8h5.5v5.5"/>',
   invest:'<path d="m3.5 16.5 5.5-5.5 4 4 7.5-7.5"/><path d="M15 7.5h5.5V13"/>',
   zip:'<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/>',
@@ -1547,7 +1559,7 @@ function entrySheet(entry, preset){
     <div id="placeBox"><div class="label" style="margin-bottom:6px">Wo?</div>
       <button class="input placebtn" id="fPlaceBtn" aria-label="Ort wählen" aria-expanded="false"><span id="fPlaceTxt"></span><span aria-hidden="true">⌄</span></button>
       <div class="ppanel" id="pp" hidden>
-        <input class="input" id="ppSearch" placeholder="🔍 Ort suchen oder neu eintippen" autocomplete="off" enterkeyhint="done">
+        <div class="pptop"><input class="input" id="ppSearch" placeholder="🔍 Ort suchen oder neu eintippen" autocomplete="off" enterkeyhint="done"><button class="ppedbtn" id="ppEditTop">Bearbeiten</button></div>
         <div id="ppList"></div>
         <div class="ppfoot"><button class="linkbtn" id="ppNone">Kein Ort</button><button class="linkbtn" id="ppEdit">Orte bearbeiten</button></div>
       </div></div>
@@ -1642,14 +1654,25 @@ function entrySheet(entry, preset){
   // Eigene Orts-Auswahl: Suche, Favoriten, zuletzt genutzt, eigene Orte, Standard-Orte
   let ppEdit = false;
   const ppLabel = () => { $("#fPlaceTxt").textContent = d.place || "– kein Ort –"; $("#fPlaceTxt").style.color = d.place ? "" : "var(--muted)"; };
-  const pRow = (x, pr) => `<div class="prow"><button class="pname" data-pick="${esc(x)}" aria-pressed="${x===d.place}">${esc(x)}</button>${ppEdit
-      ? `<button class="pbtn" data-hide="${esc(x)}" aria-label="${esc(x)} ${pr.custom.includes(x)?"löschen":"ausblenden"}">×</button>`
-      : `<button class="pbtn pstar" data-star="${esc(x)}" aria-pressed="${pr.fav.includes(x)}" aria-label="${esc(x)} als Favorit">${pr.fav.includes(x)?"★":"☆"}</button>`}</div>`;
+  let edItem = null;
+  const pRow = (x, pr) => `<div class="prow"><button class="pname" ${ppEdit?`data-ed="${esc(x)}"`:`data-pick="${esc(x)}"`} aria-pressed="${!ppEdit && x===d.place}">${esc(x)}${ppEdit?` <span style="color:var(--muted);font-size:.8rem">✎</span>`:""}</button>${ppEdit
+      ? `<button class="pbtn pdel" data-pdel="${esc(x)}" aria-label="${esc(x)} löschen">${svgI("trash")}</button>`
+      : `${PRESET.has(x)?"":`<button class="pbtn pdel" data-pdel="${esc(x)}" aria-label="${esc(x)} löschen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15M10 11v6M14 11v6M6.5 7l.8 11.2A2 2 0 0 0 9.3 20h5.4a2 2 0 0 0 2-1.8L17.5 7M9.5 7V5.5a1.5 1.5 0 0 1 1.5-1.5h2a1.5 1.5 0 0 1 1.5 1.5V7"/></svg></button>`}<button class="pbtn pstar" data-star="${esc(x)}" aria-pressed="${pr.fav.includes(x)}" aria-label="${esc(x)} als Favorit">${pr.fav.includes(x)?"★":"☆"}</button>`}</div>`;
   const pGroup = (title, list, pr) => list.length ? `<div class="pgroup">${esc(title)}</div>${list.map(x=>pRow(x, pr)).join("")}` : "";
   const drawPP = () => {
     const pr = {...placePrefs(), fav: (placePrefs().fav||[])};
     const q = $("#ppSearch").value.trim().toLowerCase();
-    const groups = OUT_CATS.filter(c=>PLACES[c.id]).flatMap(c => [[c.name, visPlaces(c.id)]].concat(c.id==="shopping" ? [["Mode & Schuhe", visPlaces("mode")]] : c.id==="mobilitaet" ? [["⛽ Tanken", visPlaces("tanken")]] : []));
+    const groups = PGROUPS().map(([k, n]) => [n, visPlaces(k)]);
+    $("#ppEditTop").setAttribute("aria-pressed", String(ppEdit)); $("#ppEditTop").textContent = ppEdit ? "Fertig" : "Bearbeiten";
+    if(edItem!==null){
+      const own = pr.cats[edItem] || (pr.custom.includes(edItem) ? "" : presetGroup(edItem) || "");
+      $("#ppList").innerHTML = `<div class="ped"><div class="pgroup" style="margin-top:4px">${edItem?"Ort bearbeiten":"Neuer Ort"}</div>
+        <input class="input" id="pedName" value="${esc(edItem)}" placeholder="Name des Orts" autocomplete="off">
+        <div class="pgroup">Gruppe</div><div class="chips" id="pedGrp">${[["","Meine Orte"], ...PGROUPS()].map(([k,n])=>`<button class="chip" data-pg="${k}" aria-pressed="${k===own}">${esc(n)}</button>`).join("")}</div>
+        <p class="pedhint">Die Gruppe bestimmt auch, welche Kategorie beim Auswählen vorgeschlagen wird. Alte Einträge behalten ihren Ort.</p>
+        <div class="row"><button class="danger" style="color:var(--ink);flex:1" data-pedcancel>Abbrechen</button><button class="primary" style="flex:1" data-pedsave>Speichern</button></div></div>`;
+      return;
+    }
     const recent = recentPlaces().filter(x=>!pr.fav.includes(x));
     let html = "";
     if(q){
@@ -1658,28 +1681,52 @@ function entrySheet(entry, preset){
       html = hits.map(x=>pRow(x, pr)).join("");
       if(!all.some(x=>x.toLowerCase()===q)) html += `<button class="pnew" data-new="${esc($("#ppSearch").value.trim())}">＋ „${esc($("#ppSearch").value.trim())}“ als neuen Ort verwenden</button>`;
     } else {
-      html = pGroup("★ Favoriten", pr.fav, pr) + pGroup("Zuletzt genutzt", recent.slice(0,6), pr) + pGroup("Meine Orte", pr.custom.filter(x=>!pr.fav.includes(x)), pr)
+      html = pGroup("★ Favoriten", pr.fav, pr) + pGroup("Zuletzt genutzt", recent.slice(0,6), pr) + pGroup("Meine Orte", pr.custom.filter(x=>!pr.fav.includes(x) && !pr.cats[x]), pr)
         + groups.map(([t, l]) => pGroup(t, l.filter(x=>!pr.fav.includes(x)), pr)).join("");
-      if(!pr.fav.length && !ppEdit) html = `<p class="hint" style="padding:6px 4px">Tipp: Mit ☆ markierst du Favoriten, die stehen dann ganz oben.</p>` + html;
-      if(ppEdit && pr.hidden.length) html += `<div class="pgroup">Ausgeblendet</div>` + pr.hidden.map(x=>`<div class="prow"><span class="pname" style="color:var(--muted);text-decoration:line-through">${esc(x)}</span><button class="pbtn" data-unhide="${esc(x)}" style="width:auto;padding:0 10px;font-size:.8rem">Einblenden</button></div>`).join("");
+      if(!pr.fav.length && !ppEdit) html = `<p class="hint" style="padding:6px 4px">Tipp: Mit ☆ markierst du Favoriten, die stehen dann ganz oben. Eigene Orte löschst du mit dem Papierkorb.</p>` + html;
+      if(ppEdit) html = `<p class="pedhint" style="margin:8px 4px">Tippe auf einen Ort zum Umbenennen oder Verschieben, auf den Papierkorb zum Löschen.</p><button class="pnew" data-ed="">＋ Neuen Ort anlegen</button>` + html;
+      const hid = pr.hidden.filter(x=>!pr.custom.includes(x));
+      if(ppEdit) html += `<button class="pnew" data-restore style="margin-top:14px;background:var(--chip)">Standardliste wiederherstellen</button>`;
+      if(ppEdit && hid.length) html += `<div class="pgroup">Gelöscht</div>` + hid.map(x=>`<div class="prow"><span class="pname" style="color:var(--muted);text-decoration:line-through">${esc(x)}</span><button class="pbtn" data-unhide="${esc(x)}" style="width:auto;padding:0 10px;font-size:.8rem">Einblenden</button></div>`).join("");
     }
     $("#ppList").innerHTML = html || `<p class="hint" style="padding:8px 4px">Nichts gefunden.</p>`;
     $("#ppEdit").textContent = ppEdit ? "Fertig" : "Orte bearbeiten";
   };
-  const openPP = open => { $("#pp").hidden = !open; $("#fPlaceBtn").setAttribute("aria-expanded", String(open)); if(open){ $("#ppSearch").value = ""; ppEdit = false; drawPP(); } };
+  const openPP = open => { $("#pp").hidden = !open; $("#fPlaceBtn").setAttribute("aria-expanded", String(open)); if(open){ $("#ppSearch").value = ""; ppEdit = false; edItem = null; drawPP(); } };
   const pick = v => { d.place = v; const pc = placeCat(v); if(pc && (!d.cat || !entry)){ if(d.cat!==pc) d.sub = null; d.cat = pc; drawSub(); } ppLabel(); openPP(false); sync(); };
   ppLabel();
   $("#fPlaceBtn").onclick = () => openPP($("#pp").hidden);
   $("#ppSearch").oninput = drawPP;
   $("#ppSearch").onkeydown = e => { if(e.key==="Enter"){ e.preventDefault(); const v = $("#ppSearch").value.trim(); const first = $("#ppList [data-pick]"); if(first) pick(first.dataset.pick); else if(v){ const pr = placePrefs(); if(!pr.custom.includes(v)) savePlacePrefs({...pr, custom:[...pr.custom, v]}); pick(v); } } };
   $("#ppNone").onclick = () => { d.place = ""; ppLabel(); openPP(false); };
-  $("#ppEdit").onclick = () => { ppEdit = !ppEdit; drawPP(); };
+  $("#ppEdit").onclick = () => { ppEdit = !ppEdit; edItem = null; drawPP(); };
+  $("#ppEditTop").onclick = () => { ppEdit = !ppEdit; edItem = null; drawPP(); };
   $("#ppList").onclick = e => {
     const pr = placePrefs(); pr.fav = pr.fav || [];
     const t = e.target.closest("[data-pick]"); if(t){ pick(t.dataset.pick); return; }
     const st = e.target.closest("[data-star]"); if(st){ const x = st.dataset.star; savePlacePrefs({...pr, fav: pr.fav.includes(x) ? pr.fav.filter(y=>y!==x) : [...pr.fav, x]}); drawPP(); return; }
     const nw = e.target.closest("[data-new]"); if(nw){ const v = nw.dataset.new; if(!pr.custom.includes(v)) savePlacePrefs({...pr, custom:[...pr.custom, v]}); pick(v); return; }
-    const hd = e.target.closest("[data-hide]"); if(hd){ const x = hd.dataset.hide; const np = {...pr, fav: pr.fav.filter(y=>y!==x)}; if(pr.custom.includes(x)) np.custom = pr.custom.filter(y=>y!==x); else if(PRESET.has(x)) np.hidden = [...pr.hidden, x]; savePlacePrefs(np); drawPP(); return; }
+    const ed = e.target.closest("[data-ed]"); if(ed){ edItem = ed.dataset.ed; drawPP(); setTimeout(()=>{ const i=$("#pedName"); if(i && !edItem) i.focus(); }, 50); return; }
+    const pg = e.target.closest("[data-pg]"); if(pg){ document.querySelectorAll("#pedGrp [data-pg]").forEach(b=>b.setAttribute("aria-pressed", String(b===pg))); return; }
+    if(e.target.closest("[data-pedcancel]")){ edItem = null; drawPP(); return; }
+    if(e.target.closest("[data-pedsave]")){
+      const old = edItem, nu = $("#pedName").value.trim(), grp = (document.querySelector('#pedGrp [aria-pressed="true"]')||{dataset:{pg:""}}).dataset.pg;
+      if(!nu){ $("#pedName").focus(); return; }
+      const np = {...pr, hidden:[...pr.hidden], custom:pr.custom.filter(y=>y!==old), cats:{...pr.cats}, fav:[...pr.fav]};
+      if(old){ delete np.cats[old]; if(PRESET.has(old)) np.hidden.push(old); np.fav = np.fav.map(y=>y===old?nu:y); }
+      if(PRESET.has(nu) && presetGroup(nu)===grp){ np.hidden = np.hidden.filter(y=>y!==nu); np.custom = np.custom.filter(y=>y!==nu); delete np.cats[nu]; }
+      else { if(!np.custom.includes(nu)) np.custom.push(nu); if(grp) np.cats[nu] = grp; else delete np.cats[nu]; if(PRESET.has(nu)) np.hidden.push(nu); }
+      np.hidden = [...new Set(np.hidden)]; np.fav = [...new Set(np.fav)];
+      savePlacePrefs(np); if(old && d.place===old) { d.place = nu; ppLabel(); }
+      edItem = null; drawPP(); toast(old ? (old===nu ? "Ort gespeichert" : `„${old}“ heißt jetzt „${nu}“`) : `„${nu}“ angelegt`); return; }
+    if(e.target.closest("[data-restore]")){ const before = {...pr};
+      const np = {...pr, hidden:[], custom: pr.custom.filter(y=>!PRESET.has(y)), cats: Object.fromEntries(Object.entries(pr.cats).filter(([k])=>!PRESET.has(k)))};
+      savePlacePrefs(np); drawPP(); toast("Standardliste wiederhergestellt", () => { savePlacePrefs(before); if(!$("#pp").hidden) drawPP(); }); return; }
+    const pd = e.target.closest("[data-pdel]"); if(pd){ const x = pd.dataset.pdel, before = {...pr};
+      const nc = {...pr.cats}; delete nc[x];
+      savePlacePrefs({...pr, cats:nc, fav: pr.fav.filter(y=>y!==x), custom: pr.custom.filter(y=>y!==x), hidden: pr.custom.includes(x) && !PRESET.has(x) ? pr.hidden : [...new Set([...pr.hidden, x])]}); drawPP();
+      toast(`„${x}“ gelöscht`, () => { savePlacePrefs(before); if(!$("#pp").hidden) drawPP(); }); return; }
+    const hd = e.target.closest("[data-hide]"); if(hd){ const x = hd.dataset.hide; const np = {...pr, fav: pr.fav.filter(y=>y!==x)}; if(pr.custom.includes(x)) np.custom = pr.custom.filter(y=>y!==x); else np.hidden = [...new Set([...pr.hidden, x])]; savePlacePrefs(np); drawPP(); return; }
     const uh = e.target.closest("[data-unhide]"); if(uh){ savePlacePrefs({...pr, hidden: pr.hidden.filter(y=>y!==uh.dataset.unhide)}); drawPP(); return; }
   };
   drawCats(); sync();
@@ -2448,7 +2495,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.25 (23.11.2026)";
+const APP_VERSION = "2.26 (23.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
