@@ -2,6 +2,8 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-YZ/vzY+SWeZi7xELTHB3sMsglKaI5Ijs/lZJ8xMU7h4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Haushaltsbuch</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -624,6 +626,36 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .hero.fc .abrk span{opacity:.85}
 .hero.fc .atot{border-top:1px solid rgba(255,255,255,.22);padding-top:6px;font-weight:700}
 .fc-note{margin:12px 6px 0;font-size:.8rem;color:var(--muted);line-height:1.45}
+
+/* ---- Sicherheit: Sperrbildschirm ---- */
+.lock{position:fixed;inset:0;z-index:90;background:radial-gradient(120% 60% at 50% 0%,color-mix(in srgb,var(--gold) 16%,transparent),transparent 60%),var(--bg);display:flex;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 20px) 24px calc(env(safe-area-inset-bottom,0px) + 20px);animation:obIn .22s ease;overflow-y:auto;color:var(--ink)}
+.lock.out{animation:obOut .22s ease forwards}
+html.locked body > :not(.lock){visibility:hidden}
+.lock-in{width:100%;max-width:320px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.lock-ic{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:var(--card-border);box-shadow:var(--card-shadow);color:var(--gold);margin-bottom:14px}
+.lock-ic svg{width:26px;height:26px}
+.lock-t{font-family:var(--f-serif);font-weight:600;font-size:1.55rem;margin:0;letter-spacing:-.01em}
+.lock-s{color:var(--muted);margin:6px 0 0;font-size:.92rem;min-height:1.2em}
+.lock-dots{display:flex;gap:16px;margin:26px 0 8px;height:14px}
+.lock-dots i{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--ink);opacity:.5;transition:background .15s,opacity .15s}
+.lock-dots i.on{background:var(--ink);opacity:1}
+.lock-dots.shake{animation:lkShake .38s}
+@keyframes lkShake{20%,60%{transform:translateX(-9px)}40%,80%{transform:translateX(9px)}}
+.lock-err{color:var(--danger);font-size:.86rem;min-height:1.3em;margin:6px 0 14px}
+.lock-pad{display:grid;grid-template-columns:repeat(3,76px);gap:16px 26px;justify-content:center}
+.lk{width:76px;height:76px;border-radius:50%;border:var(--card-border);background:var(--surface);box-shadow:var(--card-shadow);font-family:var(--f-serif);font-size:1.85rem;color:var(--ink);padding:0;display:grid;place-items:center;-webkit-tap-highlight-color:transparent;transition:transform .08s,background .15s}
+.lk:active{transform:scale(.94);background:var(--chip)}
+.lk-x{background:none;border:0;box-shadow:none;color:var(--ink)}
+.lk-x svg{width:28px;height:28px}
+.lock-foot{margin-top:22px;display:flex;flex-direction:column;gap:12px;align-items:center;min-height:24px}
+.lock-foot .linkbtn{align-self:center;font-weight:500}
+.lock-foot .hint{text-align:center}
+.lock-foot .wipe{color:var(--danger)}
+@media (max-height:680px){.lk{width:64px;height:64px;font-size:1.6rem}.lock-pad{grid-template-columns:repeat(3,64px);gap:12px 22px}.lock-dots{margin-top:18px}.lock-ic{width:46px;height:46px;margin-bottom:8px}}
+.hbtns{display:flex;gap:8px;align-items:center}
+.icon svg{width:20px;height:20px}
+#eye[aria-pressed="true"]{color:var(--gold)}
+.pwin{font-size:1rem}
 </style>
 </head>
 <body>
@@ -638,7 +670,7 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
       <button class="icon" id="next" aria-label="Nächster Monat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
     </div>
     <h1 class="ptitle" id="pageTitle" hidden>Konten</h1>
-    <button class="icon" id="settings" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+    <div class="hbtns"><button class="icon" id="eye" aria-label="Beträge verbergen" aria-pressed="false"></button><button class="icon" id="settings" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button></div>
     </div>
   </header>
   <main id="main"></main>
@@ -722,7 +754,8 @@ const catById = id => OUT_CATS.concat(IN_CATS, [KORR]).find(c => c.id===id) || O
 
 // ---- money & dates ----
 const eur = new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR"});
-const money = cents => eur.format((cents||0)/100);
+let HIDE = false; try { HIDE = localStorage.getItem("hhb.hide")==="1"; } catch(e){}
+const money = cents => HIDE ? "••••,•• €" : eur.format((cents||0)/100);
 function parseAmount(s){
   s = String(s||"").trim().replace(/\s|€/g,"");
   if(!s) return 0;
@@ -843,6 +876,7 @@ const newId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7
 function status(msg){ const el=$("#status"); el.textContent=msg||""; el.hidden=!msg; }
 
 function boot(){
+  showLock();
   store = localStore();
   if(!Object.keys(local.read("accounts")).length && !Object.keys(local.read("entries")).length){
     // Neue Installation: keine persönlichen Vorgaben (PayPal, Union Depot), stattdessen Ersteinrichtung
@@ -1716,7 +1750,7 @@ const ZIP_ICONS = [[/urlaub|reise|ferien/i,"✈️"],[/auto|kfz|tank|werkstatt/i
 const ZIP_PICK = ["✉️","✈️","🚗","🎁","🛒","💸","🛟","👕","🏠","🐾","📱","🎉","💊","🐷","💇","📄","🎓","👶","🍼","⚽","🎮","📚","🎄","💍","🏖️","🍽️","⛽","🧾"];
 const ZIP_SVG = {"✉️":"zip","✈️":"plane","🚗":"mobilitaet","🎁":"geschenk","🛒":"lebensmittel","💸":"atm","🛟":"lifebuoy","👕":"shirt","🏠":"wohnen","🐾":"paw","📱":"phone","🎉":"sparkle","💊":"gesundheit","🐷":"piggy","💇":"scissors","📄":"receipt","🎓":"cap","👶":"baby","🍼":"baby","⚽":"ball","🎮":"game","📚":"book","🎄":"tree","💍":"ring","🏖️":"sun","🍽️":"restaurant","⛽":"fuel","🧾":"receipt"};
 const zipSvg = a => svgI(ZIP_SVG[zipIcon(a)] || "zip");
-const zipIcon = a => { if(a && a.icon) return a.icon; for(const [r,i] of ZIP_ICONS) if(r.test(a.name||"")) return i; return "✉️"; };
+const zipIcon = a => { if(a && a.icon && ZIP_SVG[a.icon]) return a.icon; for(const [r,i] of ZIP_ICONS) if(r.test(a.name||"")) return i; return "✉️"; };
 const zipColor = a => { const i = umschlaege().findIndex(z=>z.id===a.id); return "--c"+((Math.max(0,i)%8)+1); };
 function zipMonth(id, m){
   let inn = 0, out = 0;
@@ -2272,11 +2306,13 @@ function budgetSheet(){
       <div class="label">Aussehen</div>
       <div class="theme" id="themePick">${Object.entries(THEMES).map(([k,v])=>`<button data-theme-pick="${k}" aria-pressed="${(lsGet("hhb.theme")||"auto")===k}"><i style="background:${v.sw}"></i>${v.n}</button>`).join("")}</div>
     </div>
+    ${securityHtml()}
     <div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
       <div class="label">Datensicherung</div>
       <p class="hint">Deine Einträge liegen nur auf diesem Gerät. Sichere sie ab und zu als Datei, z. B. in iCloud Drive.${lastBackupText()}</p>
       <div class="row"><button class="danger" style="color:var(--ink);flex:1" id="exp">Sicherung speichern</button><button class="danger" style="color:var(--ink);flex:1" id="imp">Sicherung laden</button></div>
       <button class="danger" style="color:var(--ink)" id="csv">Als Tabelle (CSV) exportieren</button>
+      <p class="sublabel" style="margin:0">Die Tabelle ist nicht mit Passwort geschützt. Teile sie nur, wenn du sie wirklich brauchst.</p>
       
       <button class="danger" id="resetAll" style="margin-top:8px">Alle Daten zurücksetzen</button>
       <p class="hint" style="text-align:center">Version ${APP_VERSION}</p>
@@ -2286,6 +2322,7 @@ function budgetSheet(){
   $("#exp").onclick = exportBackup;
   $("#csv").onclick = exportCsv;
   $("#resetAll").onclick = resetSheet;
+  bindSecurity();
   $("#wrBtn").onclick = () => { closeSheet(); openWrapped(); };
   $("#obBtn").onclick = () => { closeSheet(); openOnboarding(false); };
   $("#tZips").onclick = async e => { const on = !zipsOn(); e.currentTarget.setAttribute("aria-checked", String(on)); try { await save("settings","main",{...settingsData(), zips:on}); toast(on ? "Zips eingeschaltet" : "Zips ausgeblendet"); } catch(_){} };
@@ -2300,7 +2337,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.20 (22.11.2026)";
+const APP_VERSION = "2.21 (23.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -2332,11 +2369,36 @@ async function saveFile(name, text, type){
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href), 5000); return true;
 }
-async function exportBackup(){
+function exportBackup(){
+  const head = t => `<div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">${t}</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+  openSheet(`${head("Sicherung speichern")}
+    <p class="hint">Mit Passwort kann niemand die Datei öffnen, auch wenn sie in iCloud, in einer Mail oder auf einem anderen Gerät landet.</p>
+    <input class="input pwin" type="password" id="bpw" placeholder="Passwort (mindestens 6 Zeichen)" autocomplete="new-password">
+    <input class="input pwin" type="password" id="bpw2" placeholder="Passwort wiederholen" autocomplete="new-password">
+    <p class="sublabel" style="margin:0">Merk dir das Passwort gut. Ohne es lässt sich die Sicherung nicht mehr laden.</p>
+    <p class="warnmsg" id="bpwErr" hidden></p>
+    <button class="primary" id="bEnc"${hasCrypto()?"":" disabled"}>Mit Passwort speichern</button>
+    <button class="danger" style="color:var(--ink)" id="bPlain">Ohne Passwort speichern</button>`);
+  $("#cancel").onclick = closeSheet;
+  $("#bPlain").onclick = () => { closeSheet(); doExport(null); };
+  $("#bEnc").onclick = async () => {
+    const pw = $("#bpw").value, err = $("#bpwErr");
+    if(pw.length < 6){ err.textContent = "Das Passwort braucht mindestens 6 Zeichen."; err.hidden = false; return; }
+    if(pw !== $("#bpw2").value){ err.textContent = "Die beiden Passwörter sind nicht gleich."; err.hidden = false; return; }
+    $("#bEnc").disabled = true; $("#bEnc").textContent = "Wird verschlüsselt …";
+    const text = await encryptText(backupText(), pw);
+    // Zweiter Tipp, damit iOS das Teilen-Menü sicher öffnet
+    openSheet(`${head("Sicherung ist bereit")}<p class="hint">Die Datei ist jetzt mit deinem Passwort verschlüsselt. Tippe auf Speichern und leg sie z. B. in iCloud Drive ab.</p><button class="primary" id="bSave">Speichern</button>`);
+    $("#cancel").onclick = closeSheet;
+    $("#bSave").onclick = () => { closeSheet(); doExport(text); };
+  };
+}
+const backupText = () => JSON.stringify({app:"haushaltsbuch", version:1, exportedAt:new Date().toISOString(), entries: local.read("entries"), accounts: local.read("accounts"), settings: local.read("settings"), recurring: local.read("recurring"), places: placePrefs()}, null, 1);
+async function doExport(encText){
   const data = {app:"haushaltsbuch", version:1, exportedAt:new Date().toISOString(), entries: local.read("entries"), accounts: local.read("accounts"), settings: local.read("settings"), recurring: local.read("recurring"), places: placePrefs()};
-  if(await saveFile("haushaltsbuch-"+iso(new Date())+".json", JSON.stringify(data,null,1), "application/json")){
+  if(await saveFile("haushaltsbuch-"+iso(new Date())+(encText?"-geschuetzt":"")+".json", encText || JSON.stringify(data,null,1), "application/json")){
     try { localStorage.setItem("hhb.lastBackup", String(Date.now())); } catch(e){}
-    toast("Sicherung erstellt"); render();
+    toast(encText ? "Geschützte Sicherung erstellt" : "Sicherung erstellt"); render();
   }
 }
 async function exportCsv(){
@@ -2374,8 +2436,9 @@ function pickBackup(){
 }
 function importBackup(file){
   const r = new FileReader();
-  r.onload = () => {
-    let b; try { b = parseBackup(r.result); } catch(e){ toast("Diese Datei ist keine Haushaltsbuch-Sicherung."); return; }
+  r.onload = () => { let j = null; try { j = JSON.parse(r.result); } catch(e){} if(j && j.enc) askBackupPw(j, go); else go(r.result); };
+  const go = text => {
+    let b; try { b = parseBackup(text); } catch(e){ toast("Diese Datei ist keine Haushaltsbuch-Sicherung."); return; }
     const cur = local.read("entries");
     const nE = Object.keys(b.entries).length, nNew = Object.keys(b.entries).filter(k=>!cur[k]).length, nA = Object.keys(b.accounts).length;
     const when = b.at ? new Date(b.at).toLocaleDateString("de-DE") + ", " + new Date(b.at).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}) + " Uhr" : "unbekannt";
@@ -2414,6 +2477,191 @@ function importBackup(file){
     };
   };
   r.readAsText(file);
+}
+function askBackupPw(j, go){
+  openSheet(`<div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Geschützte Sicherung</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="hint">Diese Sicherung ist mit einem Passwort geschützt.</p>
+    <input class="input pwin" type="password" id="opw" placeholder="Passwort" autocomplete="current-password">
+    <p class="warnmsg" id="opwErr" hidden></p>
+    <button class="primary" id="opwOk">Öffnen</button>`);
+  $("#cancel").onclick = closeSheet;
+  const ok = async () => { const b = $("#opwOk"); b.disabled = true; b.textContent = "Wird entschlüsselt …";
+    try { go(await decryptText(j, $("#opw").value)); } catch(e){ const er = $("#opwErr"); er.textContent = hasCrypto() ? "Falsches Passwort." : "Dieser Browser kann die Datei nicht entschlüsseln."; er.hidden = false; b.disabled = false; b.textContent = "Öffnen"; } };
+  $("#opwOk").onclick = ok; $("#opw").onkeydown = e => { if(e.key==="Enter") ok(); };
+}
+
+// ---- Sicherheit: App-Sperre, Face ID, Beträge verbergen, verschlüsselte Sicherung ----
+// Alles bleibt auf dem Gerät. Der Code wird nur als PBKDF2-Hash gespeichert, nie im Klartext.
+const ICON = {
+  lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
+  face:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 9v1.5M15 9v1.5M12 9v4h-1M9.5 16a3.6 3.6 0 0 0 5 0"/></svg>',
+  del:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg>',
+  eye:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  eyeOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
+};
+function drawEye(){ const b = $("#eye"); if(!b) return; b.innerHTML = HIDE ? ICON.eyeOff : ICON.eye; b.setAttribute("aria-pressed", String(HIDE)); b.setAttribute("aria-label", HIDE ? "Beträge zeigen" : "Beträge verbergen"); }
+function setHide(v){ HIDE = !!v; try { v ? localStorage.setItem("hhb.hide","1") : localStorage.removeItem("hhb.hide"); } catch(e){} drawEye(); render(); }
+
+const b64 = buf => { const a = new Uint8Array(buf); let t = ""; for(let i=0;i<a.length;i+=0x8000) t += String.fromCharCode.apply(null, a.subarray(i, i+0x8000)); return btoa(t); };
+const unb64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+const rnd = n => crypto.getRandomValues(new Uint8Array(n));
+const hasCrypto = () => !!(window.crypto && crypto.subtle);
+const lockCfg = () => { try { const o = JSON.parse(localStorage.getItem("hhb.lock")||"null"); return o && o.hash ? o : null; } catch(e){ return null; } };
+const setLockCfg = o => { try { o ? localStorage.setItem("hhb.lock", JSON.stringify(o)) : localStorage.removeItem("hhb.lock"); } catch(e){} };
+async function pinHash(pin, salt, iter){
+  const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(pin), "PBKDF2", false, ["deriveBits"]);
+  return b64(await crypto.subtle.deriveBits({name:"PBKDF2", hash:"SHA-256", salt, iterations:iter}, k, 256));
+}
+async function aesKey(pw, salt, iter){
+  const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2", hash:"SHA-256", salt, iterations:iter}, k, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
+}
+async function encryptText(text, pw){
+  const salt = rnd(16), iv = rnd(12), iter = 310000;
+  const ct = await crypto.subtle.encrypt({name:"AES-GCM", iv}, await aesKey(pw, salt, iter), new TextEncoder().encode(text));
+  return JSON.stringify({app:"haushaltsbuch", enc:1, alg:"AES-256-GCM", kdf:"PBKDF2-SHA256", iter, salt:b64(salt), iv:b64(iv), data:b64(ct)});
+}
+async function decryptText(j, pw){
+  const pt = await crypto.subtle.decrypt({name:"AES-GCM", iv:unb64(j.iv)}, await aesKey(pw, unb64(j.salt), j.iter||310000), unb64(j.data));
+  return new TextDecoder().decode(pt);
+}
+// Face ID / Touch ID über die Geräte-Entsperrung (WebAuthn, Schlüssel bleibt im iPhone)
+const bioAvail = async () => { try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch(e){ return false; } };
+async function bioRegister(){
+  const c = await navigator.credentials.create({publicKey:{rp:{name:"Haushaltsbuch"}, user:{id:rnd(16), name:"Haushaltsbuch", displayName:"Haushaltsbuch"}, challenge:rnd(32),
+    pubKeyCredParams:[{type:"public-key", alg:-7},{type:"public-key", alg:-257}], authenticatorSelection:{authenticatorAttachment:"platform", userVerification:"required", residentKey:"discouraged"}, timeout:60000, attestation:"none"}});
+  return b64(c.rawId);
+}
+async function bioCheck(id){
+  const c = await navigator.credentials.get({publicKey:{challenge:rnd(32), allowCredentials:[{type:"public-key", id:unb64(id), transports:["internal"]}], userVerification:"required", timeout:60000}});
+  return !!c;
+}
+
+// Ziffernfeld (Sperre, Code festlegen, Code prüfen)
+function pinPad(o){
+  const el = document.createElement("div"); el.className = "lock"; el.setAttribute("role","dialog"); el.setAttribute("aria-modal","true");
+  let pin = "", len = o.len || 4, busy = false;
+  el.innerHTML = `<div class="lock-in"><div class="lock-ic">${ICON.lock}</div><h2 class="lock-t"></h2><p class="lock-s"></p>
+    <div class="lock-dots" aria-hidden="true"></div><p class="lock-err" role="alert"></p>
+    <div class="lock-pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="lk" data-k="${n}">${n}</button>`).join("")}${o.bio?`<button class="lk lk-x" data-bio aria-label="Mit Face ID entsperren">${ICON.face}</button>`:"<span></span>"}<button class="lk" data-k="0">0</button><button class="lk lk-x" data-del aria-label="Ziffer löschen">${ICON.del}</button></div>
+    <div class="lock-foot">${o.foot||""}</div></div>`;
+  const q = sel => el.querySelector(sel);
+  const draw = () => { q(".lock-dots").innerHTML = Array.from({length:len}, (_,i)=>`<i class="${i<pin.length?"on":""}"></i>`).join(""); };
+  const api = { el,
+    set(t, sub){ q(".lock-t").textContent = t; q(".lock-s").textContent = sub||""; el.setAttribute("aria-label", t); },
+    err(m){ q(".lock-err").textContent = m||""; if(m){ const d = q(".lock-dots"); d.classList.remove("shake"); void d.offsetWidth; d.classList.add("shake"); } },
+    reset(){ pin = ""; draw(); }, setLen(n){ len = n; pin = ""; draw(); },
+    close(){ document.removeEventListener("keydown", onKey); el.classList.add("out"); setTimeout(()=>el.remove(), 220); } };
+  const press = async k => {
+    if(busy) return;
+    if(k==="del"){ pin = pin.slice(0,-1); draw(); return; }
+    if(pin.length>=len) return;
+    pin += k; draw(); if(pin.length===1) api.err("");
+    if(pin.length===len){ busy = true; const p = pin; await new Promise(r=>setTimeout(r,140)); try { await o.onDone(p, api); } catch(e){ api.reset(); api.err("Das hat nicht geklappt. Versuch es nochmal."); } busy = false; }
+  };
+  el.addEventListener("click", e => { const b = e.target.closest("button"); if(!b) return;
+    if(b.dataset.k!=null) press(b.dataset.k); else if(b.hasAttribute("data-del")) press("del"); else if(b.hasAttribute("data-bio")) o.bio(api, false); else if(o.onFoot) o.onFoot(b, api); });
+  el.addEventListener("autobio", () => o.bio && o.bio(api, true), true);
+  const onKey = e => { if(el !== document.querySelector(".lock:last-of-type")) return; if(/^[0-9]$/.test(e.key)) press(e.key); else if(e.key==="Backspace") press("del"); };
+  document.addEventListener("keydown", onKey);
+  api.set(o.title, o.sub); draw(); document.body.appendChild(el);
+  return api;
+}
+const failInfo = () => { try { return JSON.parse(localStorage.getItem("hhb.lockFail")) || {n:0, until:0}; } catch(e){ return {n:0, until:0}; } };
+const setFail = o => { try { localStorage.setItem("hhb.lockFail", JSON.stringify(o)); } catch(e){} };
+// Prüft den Code. Nach 5 Fehlversuchen wächst die Wartezeit (30 s, 1 min, 2 min … bis 15 min).
+async function checkPin(pin, api){
+  const cfg = lockCfg(); if(!cfg) return true;
+  const f = failInfo();
+  if(f.until > Date.now()){ api.reset(); api.err(`Zu viele Versuche. Warte noch ${Math.ceil((f.until-Date.now())/1000)} Sekunden.`); return false; }
+  if(await pinHash(pin, unb64(cfg.salt), cfg.iter) === cfg.hash){ setFail({n:0, until:0}); return true; }
+  f.n++; if(f.n>=5) f.until = Date.now() + Math.min(900, 30*2**(f.n-5))*1000; setFail(f);
+  api.reset(); api.err(f.n>=5 ? `Falscher Code. Warte ${Math.round((f.until-Date.now())/1000)} Sekunden.` : `Falscher Code${f.n>=3?` (noch ${5-f.n} Versuche, dann Wartezeit)`:""}`);
+  return false;
+}
+let lockApi = null, hiddenAt = 0, wasOpen = false;
+function unlockNow(){ if(!lockApi) return; lockApi.close(); lockApi = null; document.documentElement.classList.remove("locked"); }
+function showLock(){
+  const cfg = lockCfg(); if(!cfg || lockApi) return;
+  document.documentElement.classList.add("locked");
+  const bio = cfg.bio ? async (api, auto) => { try { if(await bioCheck(cfg.bio)){ setFail({n:0, until:0}); unlockNow(); } } catch(e){ if(!auto) api.err("Face ID hat nicht geklappt. Gib deinen Code ein."); } } : null;
+  lockApi = pinPad({title:"Haushaltsbuch", sub:"Code eingeben", len:cfg.len||4, bio,
+    foot:`<button class="linkbtn" data-forgot>Code vergessen?</button>`,
+    onFoot:(b, api) => { if(b.hasAttribute("data-forgot")) forgotPin(api); },
+    onDone: async (pin, api) => { if(await checkPin(pin, api)) unlockNow(); } });
+  if(bio && document.visibilityState==="visible") setTimeout(()=>{ if(lockApi) bio(lockApi, true); }, 400);
+}
+function forgotPin(api){
+  const f = api.el.querySelector(".lock-foot");
+  f.innerHTML = `<p class="hint">Den Code kann niemand zurückholen. Du kannst nur alle Daten auf diesem Gerät löschen und danach deine Sicherung wieder laden.</p><button class="linkbtn wipe" data-wipe>Alles löschen und neu starten</button><button class="linkbtn" data-back>Doch nicht</button>`;
+  f.querySelector("[data-back]").onclick = () => { f.innerHTML = `<button class="linkbtn" data-forgot>Code vergessen?</button>`; };
+  f.querySelector("[data-wipe]").onclick = e => { const b = e.currentTarget; if(!b.dataset.sure){ b.dataset.sure = "1"; b.textContent = "Wirklich alles löschen? Nochmal tippen"; return; }
+    try { Object.keys(localStorage).filter(k=>k.startsWith("hhb.")).forEach(k=>localStorage.removeItem(k)); sessionStorage.setItem("hhb.importMsg", "Alles gelöscht. Lade jetzt deine Sicherung unter Einstellungen."); } catch(_){} location.reload(); };
+}
+function setupPin(done){
+  let first = null, len = 4;
+  const sub = () => `Wähle einen Code mit ${len} Ziffern`;
+  pinPad({title:"Code festlegen", sub:sub(), len,
+    foot:`<button class="linkbtn" data-len>6-stelligen Code verwenden</button><button class="linkbtn" data-cancel>Abbrechen</button>`,
+    onFoot:(b, api) => {
+      if(b.hasAttribute("data-cancel")){ api.close(); done(null); }
+      if(b.hasAttribute("data-len")){ len = len===4 ? 6 : 4; first = null; api.setLen(len); api.set("Code festlegen", sub()); api.err(""); b.textContent = `${len===4?6:4}-stelligen Code verwenden`; }
+    },
+    onDone: async (pin, api) => {
+      if(first===null){ first = pin; api.reset(); api.set("Code wiederholen", "Gib den Code zur Sicherheit noch einmal ein"); return; }
+      if(pin!==first){ first = null; api.reset(); api.set("Code festlegen", sub()); api.err("Die Codes waren nicht gleich. Nochmal von vorn."); return; }
+      const salt = rnd(16), iter = 210000, hash = await pinHash(pin, salt, iter);
+      api.close(); done({hash, salt:b64(salt), iter, len});
+    }});
+}
+function verifyPin(title, done){
+  const cfg = lockCfg(); if(!cfg){ done(true); return; }
+  pinPad({title, sub:"Gib deinen aktuellen Code ein", len:cfg.len||4, foot:`<button class="linkbtn" data-cancel>Abbrechen</button>`,
+    onFoot:(b, api) => { if(b.hasAttribute("data-cancel")){ api.close(); done(false); } },
+    onDone: async (pin, api) => { if(await checkPin(pin, api)){ api.close(); done(true); } } });
+}
+// Beim Wechsel in eine andere App sofort abdecken (auch im App-Umschalter), beim Zurückkommen je nach Einstellung entsperrt lassen
+document.addEventListener("visibilitychange", () => {
+  const cfg = lockCfg(); if(!cfg) return;
+  if(document.hidden){ wasOpen = !lockApi; hiddenAt = Date.now(); showLock(); }
+  else if(lockApi){
+    if(wasOpen && Date.now()-hiddenAt < (cfg.after ?? 60)*1000) unlockNow();
+    else if(cfg.bio) setTimeout(()=>{ const b = lockApi && lockApi.el.querySelector("[data-bio]"); if(b) b.dispatchEvent(new CustomEvent("autobio")); }, 300);
+  }
+});
+
+function securityHtml(){
+  const cfg = lockCfg(), after = cfg ? (cfg.after ?? 60) : 60;
+  return `<div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
+      <div class="label">Sicherheit & Privatsphäre</div>
+      <p class="hint">Deine Daten liegen nur auf diesem Gerät. Die App schickt nichts ins Internet: kein Konto, keine Werbung, kein Tracking.</p>
+      <div class="optrow"><div><b>App-Sperre</b><p class="hint">Beim Öffnen nach deinem Code fragen.</p></div>
+        <button class="switch" id="tLock" role="switch" aria-checked="${!!cfg}" aria-label="App-Sperre"${hasCrypto()?"":" disabled"}><i></i></button></div>
+      ${cfg ? `<div class="optrow" id="bioRow" hidden><div><b>Face ID / Touch ID</b><p class="hint">Statt Code mit dem Gesicht oder Finger entsperren.</p></div>
+        <button class="switch" id="tBio" role="switch" aria-checked="${!!cfg.bio}" aria-label="Face ID verwenden"><i></i></button></div>
+      <div><p class="sublabel" style="margin:0 0 8px">Sperren, wenn die App so lange im Hintergrund war</p><div class="chips" id="lockAfter">${[[0,"Sofort"],[60,"1 Min."],[300,"5 Min."],[900,"15 Min."]].map(([v,n])=>`<button class="chip" data-after="${v}" aria-pressed="${after===v}">${n}</button>`).join("")}</div></div>
+      <button class="danger" style="color:var(--ink)" id="pinChange">Code ändern</button>` : ""}
+      <div class="optrow"><div><b>Beträge verbergen</b><p class="hint">Zeigt •••• statt Beträgen, z. B. wenn jemand mitschaut. Geht auch über das Auge oben.</p></div>
+        <button class="switch" id="tHide" role="switch" aria-checked="${HIDE}" aria-label="Beträge verbergen"><i></i></button></div>
+    </div>`;
+}
+function bindSecurity(){
+  const reopen = () => { const sc = $("#sheet").scrollTop; budgetSheet(); $("#sheet").scrollTop = sc; };
+  $("#tLock").onclick = () => {
+    if(lockCfg()) verifyPin("Sperre ausschalten", ok => { if(ok){ setLockCfg(null); toast("App-Sperre ist aus"); reopen(); } });
+    else setupPin(c => { if(c){ setLockCfg({...c, after:60}); toast("App-Sperre ist an"); reopen(); } });
+  };
+  $("#tHide").onclick = () => { setHide(!HIDE); reopen(); };
+  if(!lockCfg()) return;
+  bioAvail().then(ok => { const r = $("#bioRow"); if(ok && r) r.hidden = false; });
+  $("#tBio").onclick = async () => {
+    const cfg = lockCfg();
+    if(cfg.bio){ setLockCfg({...cfg, bio:null}); reopen(); return; }
+    try { const id = await bioRegister(); setLockCfg({...lockCfg(), bio:id}); toast("Face ID ist an"); } catch(e){ toast("Face ID konnte nicht eingerichtet werden."); }
+    reopen();
+  };
+  $("#lockAfter").onclick = e => { const b = e.target.closest("[data-after]"); if(!b) return; setLockCfg({...lockCfg(), after:+b.dataset.after}); document.querySelectorAll("#lockAfter [data-after]").forEach(x=>x.setAttribute("aria-pressed", String(x===b))); };
+  $("#pinChange").onclick = () => verifyPin("Code ändern", ok => ok && setupPin(c => { if(c){ setLockCfg({...lockCfg(), ...c}); toast("Neuer Code gespeichert"); } }));
 }
 
 // ---- events ----
@@ -2476,6 +2724,8 @@ document.addEventListener("click", e => {
 $("#prev").onclick = () => { state.month = shiftMonth(state.month,-1); state.cat=null; render(); };
 $("#next").onclick = () => { if(state.month<shiftMonth(curMonth(),12)){ state.month = shiftMonth(state.month,1); state.cat=null; render(); } };
 $("#settings").onclick = budgetSheet;
+$("#eye").onclick = () => { setHide(!HIDE); toast(HIDE ? "Beträge verborgen" : "Beträge sichtbar"); };
+drawEye();
 $("#fab").onclick = () => entrySheet(null);
 $("#scrim").onclick = closeSheet;
 document.addEventListener("keydown", e => { if(e.key==="Escape" && !$("#sheet").hidden) closeSheet(); });
