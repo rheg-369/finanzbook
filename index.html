@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-BtO618z9j2XyZW31iuiQqDNuvDyPYkcVeLNIP9WEPT8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-voAJN37daWUVm5Qlqawdbz7RuJorkyDIkOSLKOpta/k='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -563,6 +563,8 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .fixcard{display:flex;gap:14px;align-items:center;margin:16px 0 0;padding:14px 14px 14px 16px;border-radius:20px;border:1px solid color-mix(in srgb,var(--danger) 30%,var(--line));background:color-mix(in srgb,var(--danger) 6%,var(--surface))}
 .fixcard b{font-weight:600;font-size:.92rem}
 .fixcard p{margin:4px 0 0;font-size:.8rem;color:var(--muted);line-height:1.4}
+.paycard{border-color:color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.paycard button{background:var(--accent)!important;color:#fff!important}
 .fixcard button{flex:none;border:0;border-radius:999px;padding:10px 14px;font-weight:600;font-size:.85rem;background:var(--ink);color:var(--surface)}
 .fixlist .acc{gap:12px}
 .fixlist .tick{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;color:transparent;flex:none}
@@ -771,6 +773,33 @@ const iso = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
 const dayOffset = n => { const d=new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()+n); return iso(d); };
 const curMonth = () => iso(new Date()).slice(0,7);
 function shiftMonth(m, k){ const [y,mo] = m.split("-").map(Number); const d = new Date(y, mo-1+k, 1); return d.getFullYear()+"-"+pad(d.getMonth()+1); }
+// ---- Gehaltsmonat: Monat läuft von Gehalt zu Gehalt (settings.payday = Tag, 0 = Kalendermonat) ----
+const PD = () => { const p = Number((state.settings||{}).payday)||0; return p>=2 && p<=28 ? p : 0; };
+const addDays = (d, n) => { const x = new Date(d+"T12:00"); x.setDate(x.getDate()+n); return iso(x); };
+const isPay = e => e.type==="in" && !isKorr(e) && (e.cat==="gehalt" || e.pay);
+let perCache = {e:null, p:0, t:"", map:new Map()};
+function payStart(sm){
+  // Erwarteter Gehaltstag im Monat sm; tatsächlich gebuchtes Gehalt (5 Tage vorher bis 6 Tage später) verschiebt den Start
+  const P = PD(), [y,mo] = sm.split("-").map(Number), exp = sm+"-"+pad(Math.min(P, new Date(y,mo,0).getDate()));
+  const lo = addDays(exp,-5), hi = addDays(exp,6);
+  const got = state.entries.filter(e => isPay(e) && e.date>=lo && e.date<=hi).map(e=>e.date).sort()[0];
+  if(got) return got;
+  const today = iso(new Date());
+  if(today>=exp && today<=addDays(exp,5)) return addDays(today,1); // Gehalt noch nicht da: alter Monat läuft weiter
+  return exp;
+}
+function periodRange(m){
+  const P = PD(), today = iso(new Date());
+  if(perCache.e!==state.entries || perCache.p!==P || perCache.t!==today) perCache = {e:state.entries, p:P, t:today, map:new Map()};
+  let r = perCache.map.get(m); if(r) return r;
+  if(!P){ const [y,mo] = m.split("-").map(Number); r = {from:m+"-01", to:m+"-"+pad(new Date(y,mo,0).getDate())}; }
+  else { const sm = P>=16 ? shiftMonth(m,-1) : m; r = {from:payStart(sm), to:addDays(payStart(shiftMonth(sm,1)),-1)}; }
+  perCache.map.set(m, r); return r;
+}
+const inPer = (d, m) => { if(!d) return false; if(!PD()) return d.slice(0,7)===m; const r = periodRange(m); return d>=r.from && d<=r.to; };
+function curPeriod(){ const c = curMonth(); if(!PD()) return c; const t = iso(new Date()); return [shiftMonth(c,-1), c, shiftMonth(c,1)].find(m=>inPer(t,m)) || c; }
+const perDaysLeft = m => { const r = periodRange(m), t = iso(new Date()); return Math.max(0, Math.round((new Date(r.to+"T12:00") - new Date(t+"T12:00"))/864e5) + 1); };
+const perLabel = m => { const r = periodRange(m); return fmtShort(r.from)+" – "+fmtShort(r.to); };
 function monthName(m){ const [y,mo]=m.split("-").map(Number); const d=new Date(y,mo-1,1); const n=d.toLocaleDateString("de-DE",{month:"long"}); return y===new Date().getFullYear()? n : n+" "+y; }
 function fmtDay(s){
   if(s===dayOffset(0)) return "Heute";
@@ -815,7 +844,7 @@ function investedYear(year){
   const r = {manual:0, roundup:0, saveback:0, out:0, months:Array(12).fill(0), by:{}};
   const y = String(year);
   for(const e of state.entries){
-    if(!(e.date||"").startsWith(y)) continue;
+    if(typeof year==="function" ? !year(e.date||"") : !(e.date||"").startsWith(y)) continue;
     const m = Number((e.date||"").slice(5,7))-1;
     let v = 0;
     if(e.type==="transfer"){
@@ -901,7 +930,7 @@ function boot(){
   store.sub("recurring", rows => { state.recurring=rows; render(); });
   runRecurring();
   if(localStorage.getItem("hhb.needSetup")) setTimeout(()=>openOnboarding(true), 300);
-  store.sub("settings", rows => { const m = rows.find(r=>r.id==="main"); state.settings = m ? m : {budget:0}; render(); });
+  store.sub("settings", rows => { const m = rows.find(r=>r.id==="main"); state.settings = m ? m : {budget:0}; if(!state.navMoved) state.month = curPeriod(); render(); });
   if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
   if("serviceWorker" in navigator && location.protocol.startsWith("http")){
     const hadController = !!navigator.serviceWorker.controller;
@@ -1211,14 +1240,14 @@ function openOnboarding(fresh){
 // ---- Prognose für kommende Monate ----
 function recDates(r, m){
   if(!r.amount || !r.start) return [];
-  const day = Number(r.start.slice(8,10)), end = m+"-31", out = []; let d = r.next || r.start, g = 0;
-  while(d <= end && g++ < 400){ if(d.slice(0,7)===m) out.push(d); d = addInterval(d, r.interval, day); }
+  const day = Number(r.start.slice(8,10)), end = periodRange(m).to, out = []; let d = r.next || r.start, g = 0;
+  while(d <= end && g++ < 400){ if(inPer(d, m)) out.push(d); d = addInterval(d, r.interval, day); }
   return out;
 }
 function usualSpend(){
   // Ø Alltagsausgaben (ohne Daueraufträge) der letzten 3 vollen Monate mit Einträgen
-  const cur = curMonth(), ms = [1,2,3].map(k=>shiftMonth(cur,-k));
-  const sums = ms.map(mm => state.entries.filter(e=>e.type==="out" && !e.rec && !isKorr(e) && (e.date||"").startsWith(mm)).reduce((s,e)=>s+e.amount,0)).filter(v=>v>0);
+  const cur = curPeriod(), ms = [1,2,3].map(k=>shiftMonth(cur,-k));
+  const sums = ms.map(mm => state.entries.filter(e=>e.type==="out" && !e.rec && !isKorr(e) && inPer(e.date, mm)).reduce((s,e)=>s+e.amount,0)).filter(v=>v>0);
   return sums.length ? Math.round(sums.reduce((a,b)=>a+b,0)/sums.length) : 0;
 }
 function forecastMonth(m){
@@ -1234,21 +1263,21 @@ function forecastMonth(m){
   return {items, inn, out, inv, usual, net: inn - out - inv - usual};
 }
 function availNow(){
-  const m = curMonth(), ents = state.entries.filter(e=>(e.date||"").startsWith(m) && !isKorr(e));
+  const m = curPeriod(), ents = state.entries.filter(e=>inPer(e.date, m) && !isKorr(e));
   const earned = ents.filter(e=>e.type==="in").reduce((s,e)=>s+e.amount,0), spent = ents.filter(e=>e.type==="out").reduce((s,e)=>s+e.amount,0);
   const pend = pendingRecs(m).reduce((s,x)=>s+x.r.amount,0);
-  return earned - spent - investedYear(Number(m.slice(0,4))).months[Number(m.slice(5,7))-1] - pend;
+  return earned - spent - investedYear(d=>inPer(d,m)).total - pend;
 }
 function forecastHtml(m){
   let carry = availNow(), f = null;
-  for(let k = shiftMonth(curMonth(),1); k <= m; k = shiftMonth(k,1)){ f = forecastMonth(k); if(k < m) carry += f.net; }
+  for(let k = shiftMonth(curPeriod(),1); k <= m; k = shiftMonth(k,1)){ f = forecastMonth(k); if(k < m) carry += f.net; }
   const mon = esc(monthName(m).split(" ")[0]);
   const sg = n => (n<0?"−":"")+money(Math.abs(n));
   const [w,c] = sg(f.net).replace(/\s?€/,"").split(",");
   const noIncome = !state.recurring.some(r=>r.type==="in");
   let h = `<div class="hero fc">
     <div><div class="label">Prognose · übrig im ${mon}</div><div class="abig num ${f.net<0?"neg":""}">${esc(w)}<span class="cents">,${esc(c)} €</span></div>
-      <div class="asub">Mit Übertrag aus den Vormonaten: <b class="num">${sg(carry+f.net)}</b></div></div>
+      <div class="asub">Mit Übertrag aus den Vormonaten: <b class="num">${sg(carry+f.net)}</b></div>${PD()?`<div class="asub">Gehaltsmonat ${esc(perLabel(m))}</div>`:""}</div>
     <div class="abrk">
       <div><span>Feste Einnahmen</span><b class="num pos">+${money(f.inn)}</b></div>
       <div><span>Fixkosten</span><b class="num">−${money(f.out)}</b></div>
@@ -1269,37 +1298,37 @@ function forecastHtml(m){
 // ---- Noch verfügbar ----
 function pendingRecs(m){
   // noch fällige Daueraufträge in Monat m (nach heute, noch nicht gebucht)
-  const today = iso(new Date()), end = m+"-31", out = [];
+  const today = iso(new Date()), end = periodRange(m).to, out = [];
   for(const r of state.recurring){
     const isInv = r.type==="transfer" && (accById(r.to)||{}).kind==="depot";
     if(!(r.type==="out" || isInv) || !r.amount || !r.start) continue;
     const day = Number(r.start.slice(8,10)); let d = r.next || r.start, g = 0;
     while(d <= end && g++ < 100){
-      if(d.slice(0,7)===m && d > today && !state.entries.some(e=>e.id==="rec-"+r.id+"-"+d)) out.push({r, d, inv:isInv});
+      if(inPer(d, m) && d > today && !state.entries.some(e=>e.id==="rec-"+r.id+"-"+d)) out.push({r, d, inv:isInv});
       d = addInterval(d, r.interval, day);
     }
   }
   return out.sort((a,b)=>a.d.localeCompare(b.d));
 }
 function availHtml(m, earned, spent, invM){
-  const cur = m===curMonth(), pend = cur ? pendingRecs(m) : [];
+  const cur = m===curPeriod(), pend = cur ? pendingRecs(m) : [];
   const pFix = pend.filter(x=>!x.inv).reduce((s,x)=>s+x.r.amount,0), pInv = pend.filter(x=>x.inv).reduce((s,x)=>s+x.r.amount,0);
   const v = earned - spent - invM - pFix - pInv;
   const sg = n => (n<0?"−":"")+money(Math.abs(n));
   const [w,c] = sg(v).replace(/\s?€/,"").split(",");
-  const [y,mo] = m.split("-").map(Number), daysLeft = cur ? new Date(y,mo,0).getDate() - new Date().getDate() + 1 : 0;
+  const daysLeft = cur ? perDaysLeft(m) : 0;
   const rows = [["Einnahmen", "+"+money(earned), "pos"], ["Ausgaben", "−"+money(spent)]]; if(hasDepot()||invM) rows.push(["Investiert", "−"+money(invM)]);
   if(cur){ rows.push(["Noch fällige Fixkosten", "−"+money(pFix)]); if(pInv) rows.push(["Noch fällige Sparpläne", "−"+money(pInv)]); }
   const list = pend.map(x=>`<div class="pl"><span>${esc(fmtShort(x.d))} · ${esc(x.r.name || (x.inv?"Sparplan":(catById(x.r.cat)||{}).name||"Dauerauftrag"))}</span><span class="num">−${money(x.r.amount)}</span></div>`).join("");
   return `<details class="avail"><summary>
-      <div><div class="label">${cur?"Noch verfügbar im "+esc(monthName(m).split(" ")[0]):"Übrig im "+esc(monthName(m).split(" ")[0])}</div>
+      <div><div class="label">${PD() ? (cur ? "Noch verfügbar bis "+esc(fmtShort(periodRange(m).to)) : "Übrig · "+esc(perLabel(m))) : cur?"Noch verfügbar im "+esc(monthName(m).split(" ")[0]):"Übrig im "+esc(monthName(m).split(" ")[0])}</div>
         <div class="abig num ${v<0?"neg":""}">${esc(w)}<span class="cents">,${esc(c)} €</span></div>
         ${cur && v>0 && daysLeft>0 ? `<div class="asub">≈ <b class="num">${money(Math.floor(v/daysLeft))}</b> pro Tag · noch ${daysLeft===1?"heute":daysLeft+" Tage"}</div>` : cur && v<0 ? `<div class="asub">Mehr ausgegeben als reingekommen</div>` : ""}
       </div><span class="achev" aria-hidden="true">›</span></summary>
     <div class="abrk">${rows.map(([a,b,k])=>`<div><span>${a}</span><b class="num ${k||""}">${b}</b></div>`).join("")}
       <div class="atot"><span>${cur?"Noch verfügbar":"Übrig"}</span><b class="num">${sg(v)}</b></div>
       ${list ? `<div class="label" style="margin-top:6px">Kommt diesen Monat noch</div>${list}` : ""}
-      ${cur ? `<p class="hint">Einnahmen minus Ausgaben und Investiertes, abzüglich der Daueraufträge, die diesen Monat noch abgebucht werden.</p>` : ""}
+      ${cur ? `<p class="hint">Einnahmen minus Ausgaben und Investiertes, abzüglich der Daueraufträge, die ${PD()?"bis zum nächsten Gehalt":"diesen Monat"} noch abgebucht werden.${PD()?` Gehaltsmonat ${esc(perLabel(m))}.`:""}</p>` : ""}
     </div></details>`;
 }
 
@@ -1314,17 +1343,17 @@ function render(){
   if(state.tab==="konten" && state.ready){ renderKonten(); return; }
   if(state.tab==="sips" && state.ready){ renderSips(); return; }
   $("#monthTitle").textContent = monthName(m);
-  $("#next").disabled = m >= shiftMonth(curMonth(), 12);
+  $("#next").disabled = m >= shiftMonth(curPeriod(), 12);
   const main = $("#main");
   if(!state.ready){ main.innerHTML = `<div class="empty">Daten werden geladen …</div>`; return; }
-  if(m > curMonth()){ main.innerHTML = forecastHtml(m); return; }
+  if(m > curPeriod()){ main.innerHTML = forecastHtml(m); return; }
 
-  const inMonth = state.entries.filter(e => (e.date||"").slice(0,7)===m);
+  const inMonth = state.entries.filter(e => inPer(e.date, m));
   const outs = inMonth.filter(e => e.type!=="in" && e.type!=="transfer" && !isKorr(e));
   const ins = inMonth.filter(e => e.type==="in" && !isKorr(e));
   const spent = outs.reduce((s,e)=>s+(e.amount||0),0);
   const earned = ins.reduce((s,e)=>s+(e.amount||0),0);
-  const invM = investedYear(m).total;
+  const invM = investedYear(d=>inPer(d,m)).total;
   const [whole, cents] = money(spent).replace(/\s?€/,"").split(",");
 
   // budget
@@ -1333,17 +1362,16 @@ function render(){
   if(budget){
     const pct = spent/budget;
     const rest = budget - spent;
-    const isCur = m===curMonth();
-    const [y,mo] = m.split("-").map(Number);
-    const daysLeft = isCur ? new Date(y,mo,0).getDate() - new Date().getDate() + 1 : 0;
-    const perDay = isCur && rest>0 ? ` · <span>noch <b class="num">${money(Math.floor(rest/daysLeft))}</b> pro Tag</span>` : "";
+    const isCur = m===curPeriod();
+    const daysLeft = isCur ? perDaysLeft(m) : 0;
+    const perDay = isCur && rest>0 && daysLeft>0 ? ` · <span>noch <b class="num">${money(Math.floor(rest/daysLeft))}</b> pro Tag</span>` : "";
     budgetHtml = `<div class="budget">
       <div class="bline"><span>Budget <b class="num">${money(budget)}</b></span><span>${rest>=0?`<b class="num">${money(rest)}</b> übrig`:`<b class="num neg">${money(-rest)}</b> überzogen`}</span></div>
       <div class="bar" role="img" aria-label="${Math.round(pct*100)} Prozent des Budgets verbraucht"><i class="${pct>1?"over":pct>.85?"warn":""}" style="width:${Math.min(100,pct*100).toFixed(1)}%"></i></div>
     </div>`;
   }
 
-  let html = reminderHtml() + (m===curMonth() ? wrappedBanner() : "") + `<div class="hero">
+  let html = reminderHtml() + (m===curPeriod() ? wrappedBanner() : "") + `<div class="hero">
     ${availHtml(m, earned, spent, invM)}
     ${budgetHtml}
     <div class="trio">
@@ -1465,7 +1493,7 @@ function closeSheet(){ $("#sheet").hidden=true; $("#scrim").hidden=true; }
 function openSheet(html){ const s=$("#sheet"); s.innerHTML=`<div class="sheet-inner"><div class="grab"></div>${html}</div>`; s.hidden=false; $("#scrim").hidden=false; }
 
 function entrySheet(entry, preset){
-  const defDate = state.month===curMonth() ? dayOffset(0) : state.month+"-01";
+  const defDate = state.month===curPeriod() ? dayOffset(0) : periodRange(state.month).from;
   const k0 = (konten()[0]||{}).id || "giro";
   const d = entry ? {...entry, account: entry.type==="transfer" ? undefined : accOf(entry)} : {type:"out", amount:0, cat: state.cat || null, date:defDate, note:"", account:k0, ...(preset||{})};
   if(d.type==="transfer"){ d.from ||= k0; }
@@ -1757,7 +1785,7 @@ const zipColor = a => { const i = umschlaege().findIndex(z=>z.id===a.id); return
 function zipMonth(id, m){
   let inn = 0, out = 0;
   for(const e of state.entries){
-    if((e.date||"").slice(0,7)!==m) continue;
+    if(!inPer(e.date, m)) continue;
     if(e.type==="transfer"){ if(e.to===id) inn += e.amount; if(e.from===id) out += e.amount; }
     else if(accOf(e)===id && !isKorr(e)){ if(e.type==="out") out += e.amount; else inn += e.amount; }
   }
@@ -1769,7 +1797,7 @@ function renderSips(){
   const inEnv = us.reduce((s,a)=>s+balance(a),0);
   const bar = konten().filter(a=>a.kind==="bar");
   const free = bar.reduce((s,a)=>s+balance(a),0);
-  const m = curMonth();
+  const m = curPeriod();
   const tot = us.reduce((r,a)=>{ const x = zipMonth(a.id, m); r.inn += x.inn; r.out += x.out; return r; }, {inn:0,out:0});
   const [whole, cents] = money(Math.abs(inEnv)).replace(/\s?€/,"").split(",");
   let html = reminderHtml() + `<div class="hero">
@@ -2038,7 +2066,7 @@ async function runRecurring(){
     const today = iso(new Date()); let n = 0;
     for(const r of state.recurring){
       const ok = r.type==="transfer" ? accById(r.from) && accById(r.to) : accById(r.account);
-      if(!ok || !r.amount || !r.start) continue;
+      if(!ok || !r.amount || !r.start || r.confirm) continue;
       const first = r.next || r.start, day = Number(r.start.slice(8,10)); let next = first, guard = 0;
       while(next <= today && guard++ < 500){
         const eid = "rec-"+r.id+"-"+next;
@@ -2110,6 +2138,8 @@ function recSheet(rec){
     <div id="rDayBox"><div class="label" style="margin-bottom:6px">Am Tag</div>
       <div style="display:flex;align-items:center;gap:10px"><input class="input num" id="rDay" inputmode="numeric" style="width:5.5em;text-align:center" value="${Number(d.start.slice(8,10))}" aria-label="Tag im Monat" autocomplete="off"><span class="hint" style="color:var(--ink)">. des Monats</span></div></div>
     <div id="rWdBox" hidden><div class="label" style="margin-bottom:6px">Am Wochentag</div><div class="chips" id="rWd">${[1,2,3,4,5,6,0].map(w=>`<button class="chip" data-wd="${w}">${WD[w]}</button>`).join("")}</div></div>
+    <div class="optrow" id="rConfBox"><div><b>Datum schwankt (z. B. Gehalt)</b><p class="hint">Nicht automatisch buchen. Ab 2 Tage vorher fragt die App „Ist es da?“ und du bestätigst mit echtem Betrag und Tag.</p></div>
+      <button class="switch" id="rConf" role="switch" aria-checked="false" aria-label="Eingang bestätigen statt automatisch buchen"><i></i></button></div>
     <details class="more" ${rec?"":""}><summary>Erster Termin: <b id="rStartTxt"></b><span>ändern</span></summary><input type="date" class="input date-in" id="rStart" value="${esc(d.start)}" style="margin-top:8px"></details>
     <p class="hint" id="rHint"></p>
     <div class="row">${rec?`<button class="danger" id="del">Löschen</button>`:""}<button class="primary" id="ok">Speichern</button></div>
@@ -2129,12 +2159,13 @@ function recSheet(rec){
     $("#rTo").innerHTML = accChips(d.to, "rto2", state.accounts.slice().sort((a,b)=>(KIND_ORDER[a.kind||"konto"]-KIND_ORDER[b.kind||"konto"])||(a.order||0)-(b.order||0)));
     document.querySelectorAll("#rIv [data-iv]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.iv===d.interval)));
     const wk = d.interval==="weekly"; $("#rDayBox").hidden = wk; $("#rWdBox").hidden = !wk;
+    $("#rConfBox").hidden = d.type!=="in"; $("#rConf").setAttribute("aria-checked", String(!!d.confirm));
     const sd = $("#rStart").value ? new Date($("#rStart").value+"T12:00") : null;
     document.querySelectorAll("#rWd [data-wd]").forEach(b=>b.setAttribute("aria-pressed", String(!!sd && +b.dataset.wd===sd.getDay())));
     if(sd && document.activeElement!==$("#rDay")) $("#rDay").value = sd.getDate();
     const start = $("#rStart").value, today = iso(new Date());
     $("#rStartTxt").textContent = start ? new Date(start+"T12:00").toLocaleDateString("de-DE",{weekday:"short", day:"numeric", month:"long", year:"numeric"}) : "–";
-    $("#rHint").textContent = !start ? "" : start <= today && (!rec || start!==rec.start) ? "Termine ab dem Startdatum bis heute werden gleich nachgetragen, danach bucht die App automatisch beim Öffnen." : "Die App bucht automatisch, sobald ein Termin erreicht ist (beim Öffnen).";
+    $("#rHint").textContent = !start ? "" : d.type==="in" && d.confirm ? "Wird nicht automatisch gebucht. Um den Termin herum erscheint oben „Ist es da?“." : start <= today && (!rec || start!==rec.start) ? "Termine ab dem Startdatum bis heute werden gleich nachgetragen, danach bucht die App automatisch beim Öffnen." : "Die App bucht automatisch, sobald ein Termin erreicht ist (beim Öffnen).";
     $("#ok").disabled = !(parseAmount($("#rAmount").value)>0) || !start || (tr ? !(d.from && d.to && d.from!==d.to) : !(d.cat && d.account));
   };
   sync();
@@ -2146,6 +2177,7 @@ function recSheet(rec){
     $("#rStart").value = iso(new Date(y, m, clamp(y,m))); sync(); };
   $("#sheet").onclick = e => {
     const t = e.target.closest("[data-rt]"); if(t){ d.type = t.dataset.rt; sync(); return; }
+    if(e.target.closest("#rConf")){ d.confirm = !d.confirm; sync(); return; }
     if(subClick(e, $("#rSub"), d, sync)) return;
     const c = e.target.closest("[data-rc]"); if(c){ if(d.cat!==c.dataset.rc) d.sub = null; d.cat = c.dataset.rc; sync(); return; }
     const a = e.target.closest("[data-ra]"); if(a){ d.account = a.dataset.ra; sync(); return; }
@@ -2163,6 +2195,7 @@ function recSheet(rec){
     const data = {type:d.type, amount:parseAmount($("#rAmount").value), name:$("#rName").value.trim(), interval:d.interval, start, ...(d.icon?{icon:d.icon}:{}),
       next: rec && rec.start===start && rec.interval===d.interval ? (rec.next||start) : (rec ? (start > iso(new Date()) ? start : nextAfterToday(start, d.interval)) : start)};
     if(d.type==="transfer"){ data.from = d.from; data.to = d.to; } else { data.cat = d.cat; data.account = d.account; if(d.type==="out" && d.sub) data.sub = d.sub; }
+    if(d.type==="in" && d.confirm){ data.confirm = true; if(rec && !rec.confirm) data.next = rec.next || start; }
     $("#sheet").onclick = null; closeSheet();
     await store.set("recurring", rec ? rec.id : newId(), data);
     toast(rec ? "Dauerauftrag gespeichert" : "Dauerauftrag angelegt");
@@ -2298,6 +2331,10 @@ function budgetSheet(){
       <div class="label">Funktionen</div>
       <div class="optrow"><div><b>Zips</b><p class="hint">Bargeld-Umschläge mit eigenem Reiter. Ausschalten blendet sie nur aus, nichts wird gelöscht.</p></div>
         <button class="switch" id="tZips" role="switch" aria-checked="${zipsOn()}" aria-label="Zips verwenden"><i></i></button></div>
+      <div class="optrow"><div><b>Monat beginnt am Gehaltstag</b><p class="hint">Übersicht, Noch verfügbar und Prognose rechnen von Gehalt zu Gehalt statt vom 1. bis 31.</p></div>
+        <button class="switch" id="tPay" role="switch" aria-checked="${!!PD()}" aria-label="Monat beginnt am Gehaltstag"><i></i></button></div>
+      ${PD()?`<div style="display:flex;align-items:center;gap:10px"><span class="hint" style="color:var(--ink)">Gehalt kommt um den</span><select class="input" id="payDay" style="width:5.5em" aria-label="Gehaltstag">${Array.from({length:27},(_,i)=>i+2).map(n=>`<option value="${n}" ${n===PD()?"selected":""}>${n}.</option>`).join("")}</select></div>
+      <p class="sublabel" style="margin:0">Kommt das Gehalt ein paar Tage früher oder später, verschiebt sich der Monat einfach mit.</p>`:""}
     </div>
     <div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
       <div class="label">Jahresrückblick</div>
@@ -2327,6 +2364,16 @@ function budgetSheet(){
   bindSecurity();
   $("#wrBtn").onclick = () => { closeSheet(); openWrapped(); };
   $("#obBtn").onclick = () => { closeSheet(); openOnboarding(false); };
+  $("#tPay").onclick = async () => {
+    const on = !PD(), gr = state.recurring.filter(r=>r.type==="in" && r.cat==="gehalt");
+    const day = on ? (gr[0] ? Math.min(28, Math.max(2, Number(gr[0].start.slice(8,10)))) : 25) : 0;
+    await save("settings","main",{...settingsData(), payday:day});
+    if(on) for(const r of gr.filter(r=>!r.confirm)){ const {id, ...d} = r; await store.set("recurring", id, {...d, confirm:true}); }
+    if(!state.navMoved) state.month = curPeriod();
+    const sc = $("#sheet").scrollTop; budgetSheet(); $("#sheet").scrollTop = sc;
+    toast(on ? (gr.length ? "Gehaltsmonat an. Dein Gehalt bestätigst du jetzt mit „Ist da“." : "Gehaltsmonat an") : "Wieder Kalendermonat");
+  };
+  if($("#payDay")) $("#payDay").onchange = async e => { await save("settings","main",{...settingsData(), payday:+e.target.value}); if(!state.navMoved) state.month = curPeriod(); render(); toast("Gehaltstag: "+e.target.value+"."); };
   $("#tZips").onclick = async e => { const on = !zipsOn(); e.currentTarget.setAttribute("aria-checked", String(on)); try { await save("settings","main",{...settingsData(), zips:on}); toast(on ? "Zips eingeschaltet" : "Zips ausgeblendet"); } catch(_){} };
   $("#imp").onclick = pickBackup;
   $("#themePick").onclick = e => { const b = e.target.closest("[data-theme-pick]"); if(!b) return; const t = b.dataset.themePick; try { localStorage.setItem("hhb.theme", t); } catch(_){} applyTheme(t); document.querySelectorAll("[data-theme-pick]").forEach(x=>x.setAttribute("aria-pressed", String(x===b))); };
@@ -2339,7 +2386,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.22 (23.11.2026)";
+const APP_VERSION = "2.23 (23.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -2347,7 +2394,41 @@ function checkHtml(){
   if(+(lsGet("hhb.checkSnooze")||0) > Date.now()) return "";
   return `<div class="remind" role="status"><span>Neuer Monat: Stimmen deine Kontostände und dein Bargeld noch?</span><button class="later" id="checkLater">Später</button><button class="go" id="checkNow">Jetzt prüfen</button></div>`;
 }
-function reminderHtml(){ return resetUndoHtml() + checkHtml() + backupHtml(); }
+function payDue(){ const soon = dayOffset(2); return state.recurring.filter(r => r.confirm && r.type==="in" && r.amount && accById(r.account) && (r.next||r.start) <= soon).sort((a,b)=>(a.next||a.start).localeCompare(b.next||b.start)); }
+function payHtml(){
+  return payDue().map(r => { const due = r.next||r.start, late = due < dayOffset(-5);
+    return `<div class="fixcard paycard"><div><b>${esc(r.name || (catById(r.cat)||{}).name || "Einnahme")}: ist es da?</b><p>${late?"Erwartet war es um den":"Erwartet um den"} ${esc(fmtShort(due))} · ${money(r.amount)} auf ${esc(accName(r.account))}</p></div><button data-paygot="${esc(r.id)}">Ist da</button></div>`; }).join("");
+}
+function payGotSheet(r){
+  const due = r.next||r.start, day = Number(r.start.slice(8,10));
+  let date = dayOffset(0) < due ? dayOffset(0) : dayOffset(0);
+  openSheet(`<div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">${esc(r.name || "Gehalt")} ist da</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <label class="amount"><input id="pgAmt" inputmode="decimal" value="${esc(toInput(r.amount))}" aria-label="Betrag in Euro" autocomplete="off"><span>€</span></label>
+    <div><div class="label" style="margin-bottom:6px">Wann kam es?</div><div class="chips" id="pgDay"><button class="chip" data-pgd="${dayOffset(0)}">Heute</button><button class="chip" data-pgd="${dayOffset(-1)}">Gestern</button><button class="chip" data-pgd="${dayOffset(-2)}">Vorgestern</button></div>
+      <input type="date" class="input date-in" id="pgDate" value="${date}" style="margin-top:10px"></div>
+    <div class="optrow" id="pgKeepRow" hidden><div><b>Betrag fürs nächste Mal merken</b><p class="hint">Sonst rechnet die Prognose weiter mit ${money(r.amount)}.</p></div><button class="switch" id="pgKeep" role="switch" aria-checked="true" aria-label="Betrag merken"><i></i></button></div>
+    <p class="hint">Wird auf ${esc(accName(r.account))} gebucht. ${PD()?"Ab diesem Tag beginnt dein neuer Gehaltsmonat.":""}</p>
+    <button class="primary" id="ok">Eintragen</button>
+    <button class="linkbtn" id="pgSkip" style="align-self:center;color:var(--muted)">Kam diesmal nicht, überspringen</button>`);
+  let keep = true;
+  const sync = () => { document.querySelectorAll("#pgDay [data-pgd]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.pgd===$("#pgDate").value))); const a = parseAmount($("#pgAmt").value); $("#pgKeepRow").hidden = !a || a===r.amount; $("#pgKeep").setAttribute("aria-checked", String(keep)); $("#ok").disabled = !(a>0) || !$("#pgDate").value; };
+  sync();
+  $("#pgAmt").oninput = sync; $("#pgDate").onchange = sync; $("#pgDate").oninput = sync;
+  $("#pgDay").onclick = e => { const b = e.target.closest("[data-pgd]"); if(b){ $("#pgDate").value = b.dataset.pgd; sync(); } };
+  $("#pgKeep").onclick = () => { keep = !keep; sync(); };
+  $("#cancel").onclick = closeSheet;
+  const advance = async extra => { const {id, ...d} = r; await store.set("recurring", id, {...d, ...extra, next: addInterval(due, r.interval, day)}); };
+  $("#ok").onclick = async () => {
+    const amount = parseAmount($("#pgAmt").value), d = $("#pgDate").value;
+    closeSheet();
+    await store.set("entries", "rec-"+r.id+"-"+due, {type:"in", amount, date:d, note:r.name||"", createdAt:Date.now(), rec:r.id, pay:1, cat:r.cat, account:r.account});
+    await advance(keep && amount!==r.amount ? {amount} : {});
+    if(!state.navMoved) state.month = curPeriod();
+    render(); toast(`${money(amount)} eingetragen`);
+  };
+  $("#pgSkip").onclick = async () => { closeSheet(); await advance({}); toast("Übersprungen, nächster Termin "+fmtShort(addInterval(due, r.interval, day))); };
+}
+function reminderHtml(){ return payHtml() + resetUndoHtml() + checkHtml() + backupHtml(); }
 function backupHtml(){
   if(!state.entries.length) return "";
   const now = Date.now();
@@ -2680,6 +2761,7 @@ document.addEventListener("click", e => {
   const rc = e.target.closest("[data-rec]");
   if(rc){ const r = state.recurring.find(x=>x.id===rc.dataset.rec); if(r) recSheet(r); return; }
   if(e.target.closest("#addRec")){ recSheet(null); return; }
+  const pg = e.target.closest("[data-paygot]"); if(pg){ const r = state.recurring.find(x=>x.id===pg.dataset.paygot); if(r) payGotSheet(r); return; }
   if(e.target.closest("#undoReset")){ try { const u = JSON.parse(localStorage.getItem("hhb.resetUndo")); Object.entries(u.data).forEach(([k,v]) => { if(v===null) localStorage.removeItem("hhb."+k); else localStorage.setItem("hhb."+k, v); }); localStorage.removeItem("hhb.resetUndo"); sessionStorage.setItem("hhb.importMsg", "Daten wiederhergestellt"); } catch(_){} location.reload(); return; }
   if(e.target.closest("#undoResetNo")){ try { localStorage.removeItem("hhb.resetUndo"); } catch(_){} render(); return; }
   const kr = e.target.closest("[data-korr]");
@@ -2723,15 +2805,15 @@ document.addEventListener("click", e => {
   if(e.target.closest("#withdraw")){ const bar = konten().find(a=>a.kind==="bar"); const src = konten().find(a=>a.kind==="konto"); entrySheet(null, {type:"transfer", to:bar&&bar.id, from:src&&src.id}); return; }
   if(e.target.closest("#snooze")){ try { localStorage.setItem("hhb.snooze", String(Date.now()+2*DAY)); } catch(_){} render(); return; }
 });
-$("#prev").onclick = () => { state.month = shiftMonth(state.month,-1); state.cat=null; render(); };
-$("#next").onclick = () => { if(state.month<shiftMonth(curMonth(),12)){ state.month = shiftMonth(state.month,1); state.cat=null; render(); } };
+$("#prev").onclick = () => { state.navMoved = true; state.month = shiftMonth(state.month,-1); state.cat=null; render(); };
+$("#next").onclick = () => { if(state.month<shiftMonth(curPeriod(),12)){ state.navMoved = true; state.month = shiftMonth(state.month,1); state.cat=null; render(); } };
 $("#settings").onclick = budgetSheet;
 $("#eye").onclick = () => { setHide(!HIDE); toast(HIDE ? "Beträge verborgen" : "Beträge sichtbar"); };
 drawEye();
 $("#fab").onclick = () => entrySheet(null);
 $("#scrim").onclick = closeSheet;
 document.addEventListener("keydown", e => { if(e.key==="Escape" && !$("#sheet").hidden) closeSheet(); });
-document.addEventListener("visibilitychange", () => { if(!document.hidden){ runRecurring(); render(); } });
+document.addEventListener("visibilitychange", () => { if(!document.hidden){ if(!state.navMoved) state.month = curPeriod(); runRecurring(); render(); } });
 
 boot();
 try { const m = sessionStorage.getItem("hhb.importMsg"); if(m){ sessionStorage.removeItem("hhb.importMsg"); toast(m); } } catch(e){}
