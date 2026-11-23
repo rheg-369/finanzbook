@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-NS+sWLgpnzB73VDK+01uz6VwSv6cRtS49jE3p9d0KiI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-9nX2rdqhGnBdByDyhhg1etm0sWLxwWTwFVFtJ/uiIXI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -639,8 +639,10 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .ahero .big{font-family:var(--f-serif);font-size:2.6rem;font-weight:600;line-height:1.1}.ahero .cents{font-size:.5em;color:var(--muted)}
 .ahero .asub{color:var(--muted);font-size:.92rem}
 .ahrows{display:flex;flex-direction:column;gap:6px;margin-top:12px;background:var(--track);border-radius:16px;padding:12px 14px;text-align:left;font-size:.92rem}
-.ahrows>div{display:flex;justify-content:space-between}.ahrows span{color:var(--muted)}
-.ahist .ahm{margin:14px 0 4px}.ahist .entries{margin:0}
+.ahrows>div:not(.label){display:flex;justify-content:space-between}.ahrows span{color:var(--muted)}
+.ahrows .atot{border-top:1px solid var(--line);padding-top:6px;font-weight:700}.ahrows .atot span{color:var(--ink)}
+.ahero .asub small{font-size:.8rem}
+.ahist .entry .s{white-space:normal;overflow:visible}.ahist .ahm{margin:14px 0 4px}.ahist .entries{margin:0}
 .ruchip{align-self:center;display:flex;align-items:center;gap:8px;margin-top:-6px;padding:7px 12px 7px 7px;border-radius:999px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));font-size:.84rem;max-width:100%}
 .ruchip .ru-ic{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--surface);flex:none}.ruchip .ru-ic svg{width:14px;height:14px}
 .ruchip .ru-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ruchip b{font-weight:600}
@@ -1640,7 +1642,7 @@ function render(){
   html += `</section>`;
   main.innerHTML = html;
 }
-function entryRow(e){
+function entryRow(e, ctx){
   if(isKorr(e)){
     const pl = e.type==="in";
     return `<li><button class="entry" data-korr="${esc(e.id)}">
@@ -1655,8 +1657,8 @@ function entryRow(e){
     const label = e.auto ? "Round-up" : toKind==="umschlag" ? "In Zip gesteckt" : fromKind==="umschlag" ? "Aus Zip genommen" : ({ziel:"Zurückgelegt", bar:"Abgehoben", depot:"Investiert"})[toKind] || "Umbuchung";
     return `<li><button class="entry" data-edit="${esc(e.id)}">
       <span class="badge" style="--bc:var(${label==="Investiert"||label==="Round-up"?"--c4":(accById(e.to)||{}).kind==="umschlag"||(accById(e.from)||{}).kind==="umschlag"?"--c5":"--c1"})" aria-hidden="true">${svgI(label==="Investiert"||label==="Round-up"?"invest":(accById(e.to)||{}).kind==="umschlag"||(accById(e.from)||{}).kind==="umschlag"?"zip":label==="Abgehoben"?"atm":label==="Zurückgelegt"?"ziel":"transfer")}</span>
-      <span class="mid"><div class="t">${esc(e.note || label)}</div><div class="s">${esc(accName(e.from))} → ${esc(accName(e.to))}</div></span>
-      <span class="a num" style="color:var(--muted)">${money(e.amount)}</span>
+      <span class="mid"><div class="t">${esc(e.note || label)}</div><div class="s">${esc(ctx && e.from===ctx && (accById(e.to)||{}).kind==="depot" ? "Ins Depot" : ctx && e.to===ctx ? "Von "+accName(e.from) : ctx ? "Nach "+accName(e.to) : accName(e.from)+" → "+accName(e.to))}</div></span>
+      <span class="a num ${ctx && e.to===ctx ? "pos" : ""}" ${ctx?"":`style="color:var(--muted)"`}>${ctx ? (e.to===ctx?"+":"−") : ""}${money(e.amount)}</span>
     </button></li>`;
   }
   const c = catById(e.cat);
@@ -1668,9 +1670,12 @@ function entryRow(e){
   const sbk = null;
   return `<li><button class="entry" data-edit="${esc(e.id)}">
     ${catBadge(c)}
+    ${ctx && ru ? `<span class="mid"><div class="t">${esc(title)}</div><div class="s">${money(e.amount)} + ${money(ru.amount)} Round-up</div></span>
+    <span class="a num">−${money(e.amount+ru.amount)}</span>
+  </button></li>` : ""}${ctx && ru ? "" : `
     <span class="mid"><div class="t">${esc(title)}</div>${(e.note||e.place||e.sub||multi||ru||sbk)?`<div class="s">${esc([(e.note||e.place)?cName:(e.sub?c.name:""), e.note&&e.place?e.place:"", multi?accName(accOf(e)):"", ru?"Round-up "+money(ru.amount):"", sbk?"Saveback +"+money(sbk.amount):"", e.rec?"Dauerauftrag":""].filter(Boolean).join(" · "))}</div>`:""}</span>
     <span class="a num ${isIn?"pos":""}">${isIn?"+":"−"}${money(e.amount)}</span>
-  </button></li>`;
+  </button></li>`}`;
 }
 
 // ---- toast ----
@@ -2290,16 +2295,26 @@ function accHistHtml(acc){
     .sort((a,b)=> a.date===b.date ? (b.createdAt||0)-(a.createdAt||0) : (a.date<b.date?1:-1));
   const m = curPeriod(), inM = list.filter(e=>inPer(e.date, m));
   const sum = (arr, f) => arr.filter(f).reduce((s,e)=>s+e.amount,0);
-  const rein = sum(inM, e => e.type==="in" && !isKorr(e) || e.type==="transfer" && e.to===acc.id);
-  const raus = sum(inM, e => e.type==="out" && !isKorr(e) || e.type==="transfer" && e.from===acc.id);
-  const ru = dp ? sum(inM, e => e.type==="transfer" && e.auto && e.from===acc.id) : 0;
+  const isDep = e => (accById(e.to)||{}).kind==="depot";
+  const parts = [
+    ["Einnahmen", sum(inM, e => e.type==="in" && !isKorr(e)), "+"],
+    ["Umbuchungen rein", sum(inM, e => e.type==="transfer" && e.to===acc.id), "+"],
+    ["Ausgaben", sum(inM, e => e.type==="out" && !isKorr(e)), "−"],
+    ["Round-up ins Depot", sum(inM, e => e.type==="transfer" && e.auto && e.from===acc.id), "−"],
+    ["Selbst ins Depot", sum(inM, e => e.type==="transfer" && !e.auto && e.from===acc.id && isDep(e)), "−"],
+    ["Umbuchungen raus", sum(inM, e => e.type==="transfer" && !e.auto && e.from===acc.id && !isDep(e)), "−"],
+    ["Korrekturen", sum(inM, e => isKorr(e) && e.type==="in") - sum(inM, e => isKorr(e) && e.type!=="in"), "±"]].filter(x=>x[1]);
+  const net = parts.reduce((s,[,v,g]) => s + (g==="−" ? -v : v), 0);
+  let depTxt = "";
+  if(dp){ const dIn = state.entries.filter(e=>e.type==="transfer" && e.to===dp.id), r = dIn.filter(e=>e.auto).reduce((s,e)=>s+e.amount,0), mn = dIn.filter(e=>!e.auto).reduce((s,e)=>s+e.amount,0);
+    depTxt = [mn?money(mn)+" eingezahlt":"", r?money(r)+" Round-up":"", dp.start?money(dp.start)+" Startwert":""].filter(Boolean).join(" + "); }
   const b = balance(acc), [w,c] = money(Math.abs(b)).replace(/\s?€/,"").split(",");
   let html = `<div class="ahero"><div class="label">Kontostand</div><div class="big num ${b<0?"neg":""}">${b<0?"−":""}${esc(w)}<span class="cents">,${esc(c)} €</span></div>
-    ${dp?`<div class="asub">im Depot <b class="num">${money(balance(dp))}</b></div>`:""}
-    <div class="ahrows"><div><span>${esc(monthName(m).split(" ")[0])} rein</span><b class="num pos">+${money(rein)}</b></div><div><span>${esc(monthName(m).split(" ")[0])} raus</span><b class="num">−${money(raus)}</b></div>${ru?`<div><span>davon Round-up</span><b class="num">${money(ru)}</b></div>`:""}</div></div>`;
+    ${dp?`<div class="asub">im Depot <b class="num">${money(balance(dp))}</b>${depTxt?`<br><small>${esc(depTxt)}</small>`:""}</div>`:""}
+    <div class="ahrows"><div class="label" style="margin-bottom:2px">${esc(monthName(m).split(" ")[0])} auf diesem Konto</div>${parts.length ? parts.map(([l,v,g])=>`<div><span>${l}</span><b class="num ${g==="+"?"pos":""}">${g==="±"?(v<0?"−":"+"):g}${money(Math.abs(v))}</b></div>`).join("") + `<div class="atot"><span>Zusammen</span><b class="num">${net<0?"−":"+"}${money(Math.abs(net))}</b></div>` : `<div><span>Noch nichts gebucht</span></div>`}</div></div>`;
   if(!list.length) return html + `<p class="hint">Noch keine Buchungen auf diesem Konto.</p>`;
   let last = ""; const shown = list.filter(e=>!e.auto).slice(0, 80);
-  html += `<div class="ahist">` + shown.map(e => { const mm = periodOf(e.date); const head = mm!==last ? `${last?"</ul>":""}<div class="label ahm">${esc(monthName(mm))}</div><ul class="entries">` : ""; last = mm; return head + entryRow(e); }).join("") + `</ul>${list.length>80?`<p class="hint">Die letzten 80 von ${list.length} Buchungen.</p>`:""}</div>`;
+  html += `<div class="ahist">` + shown.map(e => { const mm = periodOf(e.date); const head = mm!==last ? `${last?"</ul>":""}<div class="label ahm">${esc(monthName(mm))}</div><ul class="entries">` : ""; last = mm; return head + entryRow(e, acc.id); }).join("") + `</ul>${list.length>80?`<p class="hint">Die letzten 80 von ${list.length} Buchungen.</p>`:""}</div>`;
   return html;
 }
 function accountSheet(acc, kind, presetName, tab){
@@ -2312,7 +2327,7 @@ function accountSheet(acc, kind, presetName, tab){
   const targets = () => state.accounts.filter(a => (a.kind==="depot"||a.kind==="ziel") && (!acc || a.id!==acc.id));
   const cur = isEnv ? (acc ? acc.start||0 : 0) : acc ? balance(acc) : 0;
   openSheet(`
-    <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">${acc?word:(isEnv?"Neuer ":"Neues ")+word}</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">${acc?esc(acc.name):(isEnv?"Neuer ":"Neues ")+word}</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     ${acc && !isEnv ? `<div class="aseg" role="tablist"><button data-aseg="v" role="tab">Verlauf</button><button data-aseg="e" role="tab">Einstellungen</button></div><div id="aHist">${accHistHtml(acc)}</div><div id="aEdit" class="aedit">` : `<div>`}
     <input class="input" id="aName" placeholder="${isEnv?"Name, z. B. Auto oder Geschenke":isZiel?"Name, z. B. Urlaub":"Name, z. B. Trade Republic oder Tagesgeld"}" value="${esc(acc?acc.name:(presetName||""))}" autocomplete="off">
     ${isEnv?`<div><div class="label" style="margin-bottom:6px">Symbol</div><div class="chips" id="aIcon">${ZIP_PICK.filter((i,k,arr)=>arr.findIndex(x=>(ZIP_SVG[x]||"zip")===(ZIP_SVG[i]||"zip"))===k).map(i=>`<button class="chip zpick" data-icon="${i}" aria-label="Symbol">${svgI(ZIP_SVG[i]||"zip")}</button>`).join("")}</div></div>`:""}
@@ -2751,7 +2766,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.31 (23.11.2026)";
+const APP_VERSION = "2.32 (23.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
