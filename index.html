@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-+gwVid9AKvJzdFDmFU9rX83s95kTk9QFHpBvXGN4tHY='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-J8qNeDdyCm3Tk2f0LcZcBVtuY1ku6agcuXmfIbIfcCw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -588,6 +588,30 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .tgrows>div{display:flex;justify-content:space-between;gap:10px}.tgrows span{display:flex;align-items:center;gap:6px;color:var(--muted)}
 .tgrows .zi svg{width:14px;height:14px}
 .tgint{align-self:flex-start;display:flex;align-items:center;gap:6px;border:0;background:none;padding:2px 0;color:var(--accent);font-weight:600;font-size:.86rem}.tgint svg{width:15px;height:15px}
+.eurin{position:relative;display:block}
+.eurin input{padding-right:2.2em}
+.eurin i{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-style:normal;color:var(--muted);pointer-events:none}
+.accov{display:flex;flex-direction:column;background:var(--surface);border:var(--card-border);box-shadow:var(--card-shadow);border-radius:22px;padding:6px 14px}
+.aov{display:flex;align-items:center;gap:12px;border:0;background:none;padding:12px 0;text-align:left;color:var(--ink);border-bottom:1px solid var(--line);width:100%}
+.aov:last-child{border-bottom:0}
+.aov[aria-pressed="true"] .aov-n{color:var(--accent)}
+.aov-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.aov-n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aov-s{font-size:.78rem;color:var(--muted)}
+.aov .track{height:4px;border-radius:2px;background:var(--track);overflow:hidden;margin-top:3px;display:block}.aov .track i{display:block;height:100%;border-radius:2px}
+.aov-a{font-family:var(--f-serif);font-weight:600;font-size:1.05rem;white-space:nowrap}
+/* v2.27: Konten luftiger */
+.hrows{display:flex;flex-direction:column;gap:9px;border-top:1px solid rgba(255,255,255,.14);padding-top:14px}
+.hrows div{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.hrows span{color:rgba(255,255,255,.72);font-size:.9rem}
+.hrows b{font-weight:500;font-size:1rem;white-space:nowrap}
+.qpills{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.qpills button{display:flex;align-items:center;justify-content:center;gap:7px;border:var(--card-border);background:var(--surface);box-shadow:var(--card-shadow);border-radius:999px;padding:9px 14px 9px 11px;font-size:.86rem;font-weight:500;color:var(--ink)}
+.qpills svg{width:17px;height:17px;color:var(--accent)}
+.accs .acc .t{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25}
+.accs .acc{padding:15px 16px}
+.accs .acc .a{padding-left:6px}
+.inv.empty0 .months,.inv.empty0 .mlab,.inv.empty0 .parts{display:none}
 .ruchip{align-self:center;display:flex;align-items:center;gap:8px;margin-top:-6px;padding:7px 12px 7px 7px;border-radius:999px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));font-size:.84rem;max-width:100%}
 .ruchip .ru-ic{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--surface);flex:none}.ruchip .ru-ic svg{width:14px;height:14px}
 .ruchip .ru-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ruchip b{font-weight:600}
@@ -1385,6 +1409,28 @@ function availHtml(m, earned, spent, invM){
     </div></details>`;
 }
 
+// ---- Kontoübersicht: was lief über welches Konto ----
+const accMatch = (e, f) => { const ids = f==="__zips" ? new Set(umschlaege().map(a=>a.id)) : new Set([f]);
+  return e.type==="transfer" ? (ids.has(e.from) || ids.has(e.to)) : ids.has(accOf(e)); };
+function accOverview(inMonth, m){
+  const rows = konten().filter(a=>a.kind!=="depot").map(a=>({id:a.id, name:a.name, kind:a.kind, a}));
+  if(umschlaege().length) rows.push({id:"__zips", name:"Zips", kind:"zip"});
+  const real = inMonth.filter(e => !isKorr(e) && !isSb(e) && !e.auto);
+  for(const r of rows){ const es = real.filter(e => e.type!=="transfer" && accMatch(e, r.id));
+    r.out = es.filter(e=>e.type==="out").reduce((s,e)=>s+e.amount,0); r.inn = es.filter(e=>e.type==="in").reduce((s,e)=>s+e.amount,0); r.n = es.length; }
+  const act = rows.filter(r=>r.out||r.inn).sort((a,b)=>b.out-a.out || b.inn-a.inn);
+  if(!act.length) return "";
+  const mx = Math.max(1, ...act.map(r=>r.out));
+  const ic = r => r.kind==="zip" ? "zip" : r.kind==="bar" ? "atm" : pairOf(r.a) ? "invest" : "bank";
+  const col = r => r.kind==="zip" ? "--c5" : r.kind==="bar" ? "--c3" : "--c1";
+  return `<section><h2><span>Über welches Konto?</span></h2><div class="accov">${act.map(r=>`
+    <button class="aov" data-accf="${esc(r.id)}" aria-pressed="${state.accF===r.id}">
+      <span class="badge" style="--bc:var(${col(r)})" aria-hidden="true">${svgI(ic(r))}</span>
+      <span class="aov-mid"><span class="aov-n">${esc(r.name)}</span><span class="aov-s">${r.n} ${r.n===1?"Eintrag":"Einträge"}${r.inn?` · <b class="pos num">+${money(r.inn)}</b> rein`:""}</span>
+        <span class="track"><i style="width:${(r.out/mx*100).toFixed(1)}%;background:var(${col(r)})"></i></span></span>
+      <span class="aov-a num">${r.out?"−"+money(r.out):"–"}</span></button>`).join("")}</div></section>`;
+}
+
 // ---- render ----
 function render(){
   const m = state.month;
@@ -1393,6 +1439,7 @@ function render(){
   document.querySelectorAll("#tabs [data-tab]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.tab===state.tab)));
   $("#monthNav").hidden = state.tab!=="monat"; $("#pageTitle").hidden = state.tab==="monat";
   $("#pageTitle").textContent = state.tab==="sips" ? "Zips" : "Konten";
+  $("#fab").hidden = state.tab==="konten";
   if(state.tab==="konten" && state.ready){ renderKonten(); return; }
   if(state.tab==="sips" && state.ready){ renderSips(); return; }
   $("#monthTitle").textContent = monthName(m);
@@ -1472,14 +1519,17 @@ function render(){
         <span class="track"><i style="width:${(x.sum/max*100).toFixed(1)}%;background:var(${x.col})"></i></span></div></li>`).join("")}</ul>${segs.length>5?`<button class="morebtn" data-pieall>${state.pieAll?"Weniger anzeigen":`Alle ${segs.length} anzeigen`}</button>`:""}</div></section>`;
   }
 
+  html += accOverview(inMonth, m);
   html += recSection();
 
   // entries
   let list = inMonth.filter(e => !e.auto);
   if(state.cat) list = list.filter(e=>e.cat===state.cat);
+  if(state.accF) list = list.filter(e => accMatch(e, state.accF));
   list.sort((a,b)=> a.date===b.date ? (b.createdAt||0)-(a.createdAt||0) : (a.date<b.date?1:-1));
   html += `<section><h2><span>Einträge</span><span class="num">${list.length}</span></h2>`;
   if(state.cat) html += `<div class="filter">Nur ${esc(catById(state.cat).name)} <button id="clearCat">Alle zeigen</button></div>`;
+  if(state.accF) html += `<div class="filter">Nur ${esc(state.accF==="__zips" ? "Zips" : accName(state.accF))} <button id="clearAcc">Alle zeigen</button></div>`;
   if(!list.length){
     html += `<div class="empty"><strong>${inMonth.length? "Keine Einträge in dieser Kategorie" : "Noch keine Einträge im "+esc(monthName(m))}</strong>Tippe auf das Plus unten rechts, um eine Ausgabe einzutragen.</div>`;
   } else {
@@ -1543,7 +1593,42 @@ async function save(col,id,data){
 
 // ---- sheets ----
 function closeSheet(){ $("#sheet").hidden=true; $("#scrim").hidden=true; }
-function openSheet(html){ const s=$("#sheet"); s.innerHTML=`<div class="sheet-inner"><div class="grab"></div>${html}</div>`; s.hidden=false; $("#scrim").hidden=false; }
+function openSheet(html){ const s=$("#sheet"); s.innerHTML=`<div class="sheet-inner"><div class="grab"></div>${html}</div>`; s.hidden=false; $("#scrim").hidden=false; prepAmountInputs(s); }
+// Beträge beim Tippen mit Tausenderpunkt anzeigen (9100 → 9.100), beim Verlassen mit Cent (9.100,00)
+function fmtAmountStr(v, full){
+  v = String(v||"");
+  const neg = /^\s*[-−]/.test(v);
+  let t = v.replace(/[^\d,.]/g,"");
+  t = t.replace(/\./g,"");
+  const i = t.indexOf(","); let int = i<0 ? t : t.slice(0,i), dec = i<0 ? null : t.slice(i+1).replace(/,/g,"").slice(0,2);
+  int = int.replace(/^0+(?=\d)/,"");
+  if(!int && dec===null) return neg ? "-" : "";
+  int = (int||"0").replace(/\B(?=(\d{3})+(?!\d))/g,".");
+  if(full){ dec = (dec||"").padEnd(2,"0"); }
+  return (neg?"-":"") + int + (dec!==null ? ","+dec : "");
+}
+function prepAmountInputs(root){
+  root.querySelectorAll('input[inputmode="decimal"]').forEach(inp => {
+    if(inp.dataset.fmt) return; inp.dataset.fmt = "1";
+    if(inp.value) inp.value = fmtAmountStr(inp.value, false);
+    if(!inp.closest(".amount") && !inp.closest(".splitrow") && inp.parentElement && !inp.style.width){
+      const w = document.createElement("span"); w.className = "eurin"; inp.parentElement.insertBefore(w, inp); w.appendChild(inp); w.insertAdjacentHTML("beforeend", '<i aria-hidden="true">€</i>');
+    }
+  });
+}
+document.addEventListener("input", e => {
+  const inp = e.target; if(!(inp instanceof HTMLInputElement) || inp.getAttribute("inputmode")!=="decimal") return;
+  const old = inp.value, pos = inp.selectionStart ?? old.length;
+  const digitsBefore = old.slice(0,pos).replace(/[^\d,]/g,"").length;
+  const nv = fmtAmountStr(old, false); if(nv===old) return;
+  inp.value = nv;
+  let p = 0, n = 0; while(p < nv.length && n < digitsBefore){ if(/[\d,]/.test(nv[p])) n++; p++; }
+  try { inp.setSelectionRange(p, p); } catch(_){}
+}, true);
+document.addEventListener("focusout", e => {
+  const inp = e.target; if(!(inp instanceof HTMLInputElement) || inp.getAttribute("inputmode")!=="decimal" || !inp.value || inp.value==="-") return;
+  const nv = fmtAmountStr(inp.value, true); if(nv!==inp.value) inp.value = nv; // nur Anzeige, Wert bleibt gleich: kein Neuzeichnen, damit der nächste Tipp nicht verloren geht
+}, true);
 
 function entrySheet(entry, preset){
   const defDate = state.month===curPeriod() ? dayOffset(0) : periodRange(state.month).from;
@@ -1812,16 +1897,16 @@ function renderKonten(){
   const [whole, cents] = money(Math.abs(total)).replace(/\s?€/,"").split(",");
   let html = reminderHtml() + `<div class="hero">
     <div><div class="label">Gesamtvermögen</div><div class="big num ${total<0?"neg":""}">${total<0?"−":""}${esc(whole)}<span class="cents">,${esc(cents)} €</span></div></div>
-    <div class="trio">
-      <div><div class="label">Konten</div><div class="v num">${money(onAcc)}</div></div>
-      <div><div class="label">Zips</div><div class="v num">${money(inEnv)}</div></div>
-      <div><div class="label">Sparziele</div><div class="v num pos">${money(inGoals)}</div></div>
+    <div class="hrows">
+      <div><span>Auf Konten</span><b class="num">${money(onAcc)}</b></div>
+      ${us.length||inEnv?`<div><span>In Zips</span><b class="num">${money(inEnv)}</b></div>`:""}
+      ${zs.length||inGoals?`<div><span>In Sparzielen</span><b class="num">${money(inGoals)}</b></div>`:""}
     </div></div>
-    <div class="qacts">
-      <button id="addTransfer">${svgI("transfer")}<span>Umbuchen</span></button>
-      ${ks.some(a=>a.kind==="bar")?`<button id="withdraw">${svgI("atm")}<span>Abheben</span></button>`:""}
-      ${ks.some(a=>a.kind==="depot")?`<button id="invest">${svgI("invest")}<span>Investieren</span></button>`:""}
-      <button id="checkAcc">${svgI("check")}<span>Prüfen</span></button>
+    <div class="qpills">
+      <button id="addTransfer">${svgI("transfer")}Umbuchen</button>
+      ${ks.some(a=>a.kind==="bar")?`<button id="withdraw">${svgI("atm")}Abheben</button>`:""}
+      ${ks.some(a=>a.kind==="depot")?`<button id="invest">${svgI("invest")}Investieren</button>`:""}
+      <button id="checkAcc">${svgI("check")}Prüfen</button>
     </div>`;
   html += `<section><h2><span>Konten</span><button class="linkbtn" id="addKonto">+ Neu</button></h2><ul class="accs">${ks.filter(a=>!(a.kind==="depot" && isPairedDepot(a.id))).map(a => {
     const b = balance(a), dp = pairOf(a);
@@ -1835,7 +1920,7 @@ function renderKonten(){
     const minY = Math.min(now, ...years);
     const r = investedYear(Y), mx = Math.max(...r.months, 1);
     const ML = ["J","F","M","A","M","J","J","A","S","O","N","D"];
-    html += `<section><h2><span>Investiert</span></h2><div class="inv">
+    html += `<section><h2><span>Investiert</span></h2><div class="inv${r.total||r.out?"":" empty0"}">
       <div class="yr"><button data-invyear="${Y-1}" ${Y<=minY?"disabled":""} aria-label="Vorheriges Jahr">‹</button><b>${Y}</b><button data-invyear="${Y+1}" ${Y>=now?"disabled":""} aria-label="Nächstes Jahr">›</button></div>
       <div class="tot"><div class="label">In ${Y} investiert</div><div class="v num">${money(r.total)}</div></div>
       <div class="parts">
@@ -2495,7 +2580,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.26 (23.11.2026)";
+const APP_VERSION = "2.27 (23.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -2861,6 +2946,8 @@ document.addEventListener("click", e => {
   const c = e.target.closest(".cat[data-cat]");
   if(c){ state.cat = state.cat===c.dataset.cat ? null : c.dataset.cat; render(); return; }
   if(e.target.closest("#clearCat")){ state.cat=null; render(); return; }
+  if(e.target.closest("#clearAcc")){ state.accF=null; render(); return; }
+  const af = e.target.closest("[data-accf]"); if(af){ state.accF = state.accF===af.dataset.accf ? null : af.dataset.accf; render(); if(state.accF) setTimeout(()=>{ const f = document.querySelector("#clearAcc"); if(f) f.closest(".filter").scrollIntoView({behavior:"smooth", block:"center"}); }, 50); return; }
   const pc = e.target.closest("[data-pcat]");
   if(pc){ state.cat = state.cat===pc.dataset.pcat ? null : pc.dataset.pcat; render(); return; }
   if(e.target.closest("[data-pieall]")){ state.pieAll = !state.pieAll; render(); return; }
@@ -2916,8 +3003,8 @@ document.addEventListener("click", e => {
   if(e.target.closest("#withdraw")){ const bar = konten().find(a=>a.kind==="bar"); const src = konten().find(a=>a.kind==="konto"); entrySheet(null, {type:"transfer", to:bar&&bar.id, from:src&&src.id}); return; }
   if(e.target.closest("#snooze")){ try { localStorage.setItem("hhb.snooze", String(Date.now()+2*DAY)); } catch(_){} render(); return; }
 });
-$("#prev").onclick = () => { state.navMoved = true; state.month = shiftMonth(state.month,-1); state.cat=null; render(); };
-$("#next").onclick = () => { if(state.month<shiftMonth(curPeriod(),12)){ state.navMoved = true; state.month = shiftMonth(state.month,1); state.cat=null; render(); } };
+$("#prev").onclick = () => { state.accF = null; state.navMoved = true; state.month = shiftMonth(state.month,-1); state.cat=null; render(); };
+$("#next").onclick = () => { if(state.month<shiftMonth(curPeriod(),12)){ state.accF = null; state.navMoved = true; state.month = shiftMonth(state.month,1); state.cat=null; render(); } };
 $("#settings").onclick = budgetSheet;
 $("#eye").onclick = () => { setHide(!HIDE); toast(HIDE ? "Beträge verborgen" : "Beträge sichtbar"); };
 drawEye();
