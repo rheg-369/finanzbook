@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-eQt56qfqCnITN/0Xjt5Xkc5bd6+Tk6RAmH+7O7nsqlk='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-0OAEMG5NOGB2bJLNbSBfKQ1ZZn3lAqUkD68ALo5254w='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -625,6 +625,12 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .abrk2 .abrk{margin-top:10px}
 .abrk2 small{color:var(--muted);font-weight:400}
 .tgfree span{color:var(--muted)}
+.ob-restore{margin-top:18px;border:0;background:none;color:var(--accent);font-weight:600;font-size:.95rem;padding:6px 0}
+.ob-safe{margin-top:22px;display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px}
+.ob-safe span{color:var(--muted);font-size:.9rem}.ob-safe .ob-next{margin-top:8px}
+.snaps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.snaps li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.snaps li:last-child{border-bottom:0}.snaps small{display:block;color:var(--muted);font-size:.8rem;margin-top:2px}
 .ruchip{align-self:center;display:flex;align-items:center;gap:8px;margin-top:-6px;padding:7px 12px 7px 7px;border-radius:999px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));font-size:.84rem;max-width:100%}
 .ruchip .ru-ic{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--surface);flex:none}.ruchip .ru-ic svg{width:14px;height:14px}
 .ruchip .ru-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ruchip b{font-weight:600}
@@ -991,9 +997,44 @@ const usedBy = id => state.entries.some(e => e.type==="transfer" ? (e.from===id|
 
 // ---- storage: only on this device ----
 let store = null;
+// ---- Automatische Kopien (zweiter Speicher auf dem Gerät) ----
+const SAFE = (() => {
+  let dbp = null;
+  const db = () => dbp || (dbp = new Promise((res, rej) => { try { const r = indexedDB.open("spent-safe", 1); r.onupgradeneeded = () => r.result.createObjectStore("snap"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch(e){ rej(e); } }));
+  const tx = (mode, fn) => db().then(d => new Promise(res => { const t = d.transaction("snap", mode), st = t.objectStore("snap"); const out = fn(st); t.oncomplete = () => res(out && out.result); t.onerror = () => res(null); t.onabort = () => res(null); })).catch(() => null);
+  const SKIP = /^hhb\.(lock|resetUndo|needSetup|hide)$/;
+  const dump = () => { const o = {}; try { for(const k of Object.keys(localStorage)) if(k.startsWith("hhb.") && !SKIP.test(k)) o[k] = localStorage.getItem(k); } catch(e){} return o; };
+  const count = d => { try { return Object.keys(JSON.parse(d["hhb.entries"]||"{}")).length; } catch(e){ return 0; } };
+  const worth = d => { try { const a = JSON.parse(d["hhb.accounts"]||"{}"); return count(d)>0 || Object.values(a).some(x=>x.start); } catch(e){ return false; } };
+  const day = () => { const d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+  let tm = null;
+  const api = {
+    async save(key, force){
+      const data = dump(); if(!worth(data)) return;
+      key = key || "d-"+day();
+      if(!force){ const old = await tx("readonly", st => st.get(key)); if(old && count(old.data) >= 5 && count(data) < count(old.data)/2) return; } // nach Datenverlust die gute Kopie nicht überschreiben
+      await tx("readwrite", st => { st.put({at:Date.now(), n:count(data), data}, key); });
+      const keys = await tx("readonly", st => st.getAllKeys()) || [];
+      const days = keys.filter(k=>String(k).startsWith("d-")).sort(); if(days.length > 7) await tx("readwrite", st => { days.slice(0, days.length-7).forEach(k=>st.delete(k)); });
+    },
+    later(){ clearTimeout(tm); tm = setTimeout(() => api.save(), 1500); },
+    async list(){
+      const keys = await tx("readonly", st => st.getAllKeys()) || [], out = [];
+      for(const k of keys){ const v = await tx("readonly", st => st.get(k)); if(v && v.data) out.push({key:k, ...v}); }
+      return out.sort((a,b)=>b.at-a.at);
+    },
+    async best(){ const l = (await api.list()).filter(x=>x.n>0); if(!l.length) return null; const mx = Math.max(...l.map(x=>x.n)); return l.find(x=>x.n >= mx*0.8); },
+    restore(snap){
+      try { Object.keys(localStorage).filter(k=>k.startsWith("hhb.") && !/^hhb\.(lock)$/.test(k)).forEach(k=>localStorage.removeItem(k)); Object.entries(snap.data).forEach(([k,v]) => { if(v!=null) localStorage.setItem(k, v); }); sessionStorage.setItem("hhb.importMsg", "Daten wiederhergestellt: "+snap.n+" Einträge"); } catch(e){}
+      location.reload();
+    }
+  };
+  return api;
+})();
+const snapWhen = x => new Date(x.at).toLocaleDateString("de-DE",{day:"numeric",month:"numeric"})+", "+new Date(x.at).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})+" Uhr";
 const local = {
   read(col){ try { return JSON.parse(localStorage.getItem("hhb."+col)||"{}"); } catch(e){ return {}; } },
-  write(col,o){ try { localStorage.setItem("hhb."+col, JSON.stringify(o)); } catch(e){} },
+  write(col,o){ try { localStorage.setItem("hhb."+col, JSON.stringify(o)); } catch(e){} SAFE.later(); },
 };
 function localStore(){
   const subs = {};
@@ -1008,6 +1049,8 @@ function status(msg){ const el=$("#status"); el.textContent=msg||""; el.hidden=!
 
 function boot(){
   showLock();
+  try { const lv = localStorage.getItem("hhb.lastVer"); if(lv !== APP_VERSION){ SAFE.save("vor-update", true); localStorage.setItem("hhb.lastVer", APP_VERSION); } } catch(e){}
+  SAFE.save();
   store = localStore();
   if(!Object.keys(local.read("accounts")).length && !Object.keys(local.read("entries")).length){
     // Neue Installation: keine persönlichen Vorgaben (PayPal, Union Depot), stattdessen Ersteinrichtung
@@ -1275,12 +1318,15 @@ function openOnboarding(fresh){
     neo: "Trade Republic", bank: "", zips: fresh ? null : zipsOn(), zipSel: new Set(fresh ? ["Lebensmittel","Urlaub","Geschenke"] : []),
     inv: fresh ? null : hasDepot(), depot: "", theme: lsGet("hhb.theme") || "auto"
   };
-  const N = 4; let i = 0;
+  const N = 4; let i = 0; let safeSnap = null;
+  const safeHtml = () => `<div class="ob-safe"><b>Deine Daten sind noch da</b><span>Automatische Kopie vom ${esc(snapWhen(safeSnap))} mit ${safeSnap.n} Einträgen.</span><button class="ob-next" data-obsafe>Wiederherstellen</button></div>`;
+  if(fresh) SAFE.best().then(x => { if(x && x.n>0){ safeSnap = x; const sf = el.querySelector("#obSafe"); if(sf) sf.innerHTML = safeHtml(); } });
   const el = document.createElement("div"); el.className = "ob"; el.setAttribute("role","dialog"); el.setAttribute("aria-modal","true"); el.setAttribute("aria-label","Einrichtung");
   document.body.appendChild(el); document.body.style.overflow = "hidden";
   const opt = (key, val, icon, title, sub) => `<button class="ob-opt" data-ob="${key}" data-v="${val}" aria-pressed="${st[key]===val}"><span class="ob-ic">${svgI(icon)}</span><span class="ob-t"><b>${title}</b><span>${sub}</span></span><span class="ob-radio"></span></button>`;
   const pages = [
-    () => `<div class="ob-hero"><p class="ob-k">Spent · Ausgaben im Überblick</p><h1 class="ob-h big">Willkommen.</h1><p class="ob-lead">Vier kurze Fragen, dann ist die App so eingerichtet, wie du sie brauchst. Alles lässt sich später ändern.</p></div>`,
+    () => `<div class="ob-hero"><p class="ob-k">Spent · Ausgaben im Überblick</p><h1 class="ob-h big">Willkommen.</h1><p class="ob-lead">Vier kurze Fragen, dann ist die App so eingerichtet, wie du sie brauchst. Alles lässt sich später ändern.</p>
+      ${fresh?`<div id="obSafe"></div><button class="ob-restore" data-obimp>Ich habe schon eine Sicherung</button>`:""}</div>`,
     () => `<p class="ob-k">Frage 1 von ${N}</p><h2 class="ob-h">Welche Konten nutzt du?</h2><p class="ob-lead">Mehrere möglich.</p>
       <div class="ob-list">${ACC.map(([k,ic,n,sub])=>`<button class="ob-opt" data-acc="${k}" aria-pressed="${st.acc.has(k)}"><span class="ob-ic">${svgI(ic)}</span><span class="ob-t"><b>${n}</b><span>${sub}</span></span><span class="ob-check">${svgI("check")}</span></button>`).join("")}</div>
       ${st.acc.has("neo")?`<p class="ob-k" style="margin-top:20px">Welcher Anbieter?</p><div class="ob-chips">${NEOS.map(n=>`<button class="chip" data-neo="${n}" aria-pressed="${st.neo===n}">${n}</button>`).join("")}</div>`:""}
@@ -1300,6 +1346,7 @@ function openOnboarding(fresh){
     el.innerHTML = `<div class="ob-top">${i>0?`<button class="ob-back" data-obback aria-label="Zurück">${svgI("out")}</button>`:"<span></span>"}<div class="ob-dots">${pages.map((_,k)=>`<i class="${k===i?"on":k<i?"done":""}"></i>`).join("")}</div><button class="ob-skip" data-obskip>${fresh?"Überspringen":"Abbrechen"}</button></div>
       <div class="ob-body"><div class="ob-page">${pages[i]()}</div></div>
       <div class="ob-foot"><button class="ob-next" data-obnext ${ok&&ok1&&ok2?"":"disabled"}>${i===0?"Los geht's":last?"Fertig":"Weiter"}</button></div>`;
+    const sf = el.querySelector("#obSafe"); if(sf && safeSnap) sf.innerHTML = safeHtml();
     const b = el.querySelector("#obBank"); if(b) b.oninput = e => { st.bank = e.target.value; };
     const d = el.querySelector("#obDepot"); if(d) d.oninput = e => { st.depot = e.target.value; };
   };
@@ -1330,6 +1377,8 @@ function openOnboarding(fresh){
   el.addEventListener("click", e => {
     const t = e.target;
     if(t.closest("[data-obskip]")){ close(); return; }
+    if(t.closest("[data-obimp]")){ close(); pickBackup(); return; }
+    if(t.closest("[data-obsafe]")){ if(safeSnap) SAFE.restore(safeSnap); return; }
     if(t.closest("[data-obback]")){ i = Math.max(0,i-1); draw(); return; }
     if(t.closest("[data-obnext]")){ if(i===pages.length-1) finish(); else { i++; draw(); } return; }
     const a = t.closest("[data-acc]"); if(a){ const k = a.dataset.acc; st.acc.has(k) ? st.acc.delete(k) : st.acc.add(k); if(k==="neo" && st.acc.has(k)) st.inv = true; draw(); return; }
@@ -2614,6 +2663,7 @@ function budgetSheet(){
       <div class="label">Datensicherung</div>
       <p class="hint">Deine Einträge liegen nur auf diesem Gerät. Sichere sie ab und zu als Datei, z. B. in iCloud Drive.${lastBackupText()}</p>
       <div class="row"><button class="danger" style="color:var(--ink);flex:1" id="exp">Sicherung speichern</button><button class="danger" style="color:var(--ink);flex:1" id="imp">Sicherung laden</button></div>
+      <button class="danger" style="color:var(--ink)" id="snaps">Automatische Kopien auf diesem iPhone</button>
       <button class="danger" style="color:var(--ink)" id="csv">Als Tabelle (CSV) exportieren</button>
       <p class="sublabel" style="margin:0">Die Tabelle ist nicht mit Passwort geschützt. Teile sie nur, wenn du sie wirklich brauchst.</p>
       
@@ -2649,6 +2699,7 @@ function budgetSheet(){
   if($("#payDay")) $("#payDay").onchange = async e => { await save("settings","main",{...settingsData(), payday:+e.target.value}); if(!state.navMoved) state.month = curPeriod(); render(); toast("Gehaltstag: "+e.target.value+"."); };
   $("#tZips").onclick = async e => { const on = !zipsOn(); e.currentTarget.setAttribute("aria-checked", String(on)); try { await save("settings","main",{...settingsData(), zips:on}); toast(on ? "Zips eingeschaltet" : "Zips ausgeblendet"); } catch(_){} };
   $("#imp").onclick = pickBackup;
+  $("#snaps").onclick = snapSheet;
   $("#themePick").onclick = e => { const b = e.target.closest("[data-theme-pick]"); if(!b) return; const t = b.dataset.themePick; try { localStorage.setItem("hhb.theme", t); } catch(_){} applyTheme(t); document.querySelectorAll("[data-theme-pick]").forEach(x=>x.setAttribute("aria-pressed", String(x===b))); };
   $("#ok").onclick = async () => {
     const budget = parseAmount($("#fBudget").value);
@@ -2659,7 +2710,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.29 (23.11.2026)";
+const APP_VERSION = "2.30 (23.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -2784,6 +2835,16 @@ function fixAccounts(accs, entries){
     for(const id of ids) if(id && !accs[id]) accs[id] = id==="giro" ? DEFAULT_ACCS().giro : id==="bargeld" ? DEFAULT_ACCS().bargeld : {name:"Konto aus Sicherung", kind:"konto", start:0, order:Date.now()};
   }
   return accs;
+}
+async function snapSheet(){
+  const l = (await SAFE.list()).filter(x=>x.n>0);
+  openSheet(`
+    <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Automatische Kopien</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="sublabel" style="margin:0">Die App legt jeden Tag und vor jedem Update selbst eine Kopie an (7 Tage). Sie liegt nur auf diesem iPhone und ersetzt keine Sicherungsdatei in iCloud.</p>
+    ${l.length ? `<ul class="snaps">${l.map((x,k)=>`<li><span><b>${esc(snapWhen(x))}</b><small>${x.n} Einträge${x.key==="vor-update"?" · vor dem letzten Update":""}</small></span><button class="linkbtn" data-snap="${k}">Laden</button></li>`).join("")}</ul>` : `<p class="hint">Noch keine Kopie vorhanden.</p>`}
+  `);
+  $("#cancel").onclick = closeSheet;
+  document.querySelectorAll("[data-snap]").forEach(b => b.onclick = () => { if(!b.dataset.sure){ b.dataset.sure = "1"; b.textContent = "Ersetzt alles. Sicher?"; return; } SAFE.restore(l[+b.dataset.snap]); });
 }
 function pickBackup(){
   const i = document.createElement("input"); i.type = "file"; i.hidden = true;
@@ -2952,7 +3013,7 @@ function forgotPin(api){
   f.innerHTML = `<p class="hint">Den Code kann niemand zurückholen. Du kannst nur alle Daten auf diesem Gerät löschen und danach deine Sicherung wieder laden.</p><button class="linkbtn wipe" data-wipe>Alles löschen und neu starten</button><button class="linkbtn" data-back>Doch nicht</button>`;
   f.querySelector("[data-back]").onclick = () => { f.innerHTML = `<button class="linkbtn" data-forgot>Code vergessen?</button>`; };
   f.querySelector("[data-wipe]").onclick = e => { const b = e.currentTarget; if(!b.dataset.sure){ b.dataset.sure = "1"; b.textContent = "Wirklich alles löschen? Nochmal tippen"; return; }
-    try { Object.keys(localStorage).filter(k=>k.startsWith("hhb.")).forEach(k=>localStorage.removeItem(k)); sessionStorage.setItem("hhb.importMsg", "Alles gelöscht. Lade jetzt deine Sicherung unter Einstellungen."); } catch(_){} location.reload(); };
+    SAFE.save("vor-loeschen", true).finally(() => { try { Object.keys(localStorage).filter(k=>k.startsWith("hhb.")).forEach(k=>localStorage.removeItem(k)); sessionStorage.setItem("hhb.importMsg", "Alles gelöscht. Deine letzte Kopie findest du beim Start."); } catch(_){} location.reload(); }); };
 }
 function setupPin(done){
   let first = null, len = 4;
