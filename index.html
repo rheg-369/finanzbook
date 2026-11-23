@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-J8qNeDdyCm3Tk2f0LcZcBVtuY1ku6agcuXmfIbIfcCw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-0ypbKRZBEXARnU5XZ9ThbG7kSav8o4GiDJ2H2T32YG8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -612,6 +612,19 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .accs .acc{padding:15px 16px}
 .accs .acc .a{padding-left:6px}
 .inv.empty0 .months,.inv.empty0 .mlab,.inv.empty0 .parts{display:none}
+#monthTitle small{display:block;font-family:inherit;font-size:.7rem;font-weight:500;letter-spacing:.01em;color:var(--muted);margin-top:1px;line-height:1.2}
+.abrk2{background:var(--track);border-radius:16px;padding:12px 14px}
+.abrk2 .abrk{display:flex;flex-direction:column;gap:6px;font-size:.9rem}
+.abrk2 .abrk>div{display:flex;justify-content:space-between;gap:10px}
+.abrk2 .abrk>div span{color:var(--muted)}
+.abrk2 .atot{border-top:1px solid var(--line);padding-top:6px;font-weight:700}.abrk2 .atot span{color:var(--ink)!important}
+.abrk2 .achev{font-size:1.2rem;opacity:.55;transition:transform .2s}
+.abrk2 summary{display:flex;justify-content:space-between;align-items:center;list-style:none;cursor:pointer;font-weight:600;font-size:.92rem}
+.abrk2 summary::-webkit-details-marker{display:none}
+.abrk2[open] .achev{transform:rotate(90deg)}
+.abrk2 .abrk{margin-top:10px}
+.abrk2 small{color:var(--muted);font-weight:400}
+.tgfree span{color:var(--muted)}
 .ruchip{align-self:center;display:flex;align-items:center;gap:8px;margin-top:-6px;padding:7px 12px 7px 7px;border-radius:999px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));font-size:.84rem;max-width:100%}
 .ruchip .ru-ic{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--surface);flex:none}.ruchip .ru-ic svg{width:14px;height:14px}
 .ruchip .ru-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ruchip b{font-weight:600}
@@ -856,6 +869,7 @@ function periodRange(m){
   perCache.map.set(m, r); return r;
 }
 const inPer = (d, m) => { if(!d) return false; if(!PD()) return d.slice(0,7)===m; const r = periodRange(m); return d>=r.from && d<=r.to; };
+const periodOf = d => { if(!PD()) return d.slice(0,7); const c = d.slice(0,7); return [c, shiftMonth(c,1), shiftMonth(c,-1)].find(m=>inPer(d,m)) || c; };
 function curPeriod(){ const c = curMonth(); if(!PD()) return c; const t = iso(new Date()); return [shiftMonth(c,-1), c, shiftMonth(c,1)].find(m=>inPer(t,m)) || c; }
 const perDaysLeft = m => { const r = periodRange(m), t = iso(new Date()); return Math.max(0, Math.round((new Date(r.to+"T12:00") - new Date(t+"T12:00"))/864e5) + 1); };
 const perLabel = m => { const r = periodRange(m); return fmtShort(r.from)+" – "+fmtShort(r.to); };
@@ -897,6 +911,14 @@ function movement(id){
   return m;
 }
 const balance = a => (a.start||0) + movement(a.id);
+function accBreak(id){
+  const r = {inn:0, out:0, tin:0, tout:0, ru:0, n:0};
+  for(const e of state.entries){
+    if(e.type==="transfer"){ if(e.to===id){ r.tin += e.amount; r.n++; } if(e.from===id){ r.tout += e.amount; r.n++; if(e.auto) r.ru += e.amount; } }
+    else if(accOf(e)===id){ r.n++; if(e.type==="in") r.inn += e.amount; else r.out += e.amount; }
+  }
+  return r;
+}
 // Zips mit Tagesgeld: Teil eines Zips liegt auf einem Tagesgeldkonto (Konto mit tg:true). Anteil = Umbuchungen Zip ↔ Tagesgeld.
 const zipTgOn = () => zipsOn() && !!(state.settings||{}).zipTg;
 const tgAccs = () => state.accounts.filter(a=>a.kind==="konto" && a.tg).sort((a,b)=>(a.order||0)-(b.order||0));
@@ -1001,7 +1023,7 @@ function boot(){
     local.write("accounts", accs); localStorage.setItem("hhb.mig.pair","1"); } } catch(e){}
   try { if(!localStorage.getItem("hhb.mig.nosb")){ const accs = local.read("accounts"); for(const a of Object.values(accs)){ delete a.saveback; delete a.savebackCap; delete a.savebackTo; } local.write("accounts", accs); localStorage.setItem("hhb.mig.nosb","1"); } } catch(e){}
   store.sub("accounts", rows => { state.accounts=rows; render(); });
-  store.sub("entries", rows => { state.entries=rows; state.ready=true; render(); });
+  store.sub("entries", rows => { const was = state.ready ? curPeriod() : null; state.entries=rows; state.ready=true; if(!state.navMoved && was!==null && state.month===was) state.month = curPeriod(); render(); });
   store.sub("recurring", rows => { state.recurring=rows; render(); });
   runRecurring();
   if(localStorage.getItem("hhb.needSetup")) setTimeout(()=>openOnboarding(true), 300);
@@ -1442,7 +1464,7 @@ function render(){
   $("#fab").hidden = state.tab==="konten";
   if(state.tab==="konten" && state.ready){ renderKonten(); return; }
   if(state.tab==="sips" && state.ready){ renderSips(); return; }
-  $("#monthTitle").textContent = monthName(m);
+  $("#monthTitle").innerHTML = esc(monthName(m)) + (PD() ? `<small>${esc(perLabel(m))}</small>` : "");
   $("#next").disabled = m >= shiftMonth(curPeriod(), 12);
   const main = $("#main");
   if(!state.ready){ main.innerHTML = `<div class="empty">Daten werden geladen …</div>`; return; }
@@ -1875,7 +1897,7 @@ function entrySheet(entry, preset){
     closeSheet();
     try { await save("entries", id, data); await syncRoundup(id, data);
       for(const x of sp) await save("entries", newId(), {type:"transfer", amount:x.amount, from:data.account, to:x.to, date:data.date, note:"", split:id, createdAt:Date.now()});
-      if(!entry){ toast(sp.length ? `Einnahme eingetragen, ${money(sp.reduce((s,x)=>s+x.amount,0))} auf ${sp.length} Zip${sp.length>1?"s":""} verteilt` : ({in:"Einnahme",out:"Ausgabe",transfer:"Umbuchung"})[d.type]+" eingetragen: "+money(amount)); if(d.date.slice(0,7)!==state.month){ state.month=d.date.slice(0,7); render(); } } } catch(e){}
+      if(!entry){ toast(sp.length ? `Einnahme eingetragen, ${money(sp.reduce((s,x)=>s+x.amount,0))} auf ${sp.length} Zip${sp.length>1?"s":""} verteilt` : ({in:"Einnahme",out:"Ausgabe",transfer:"Umbuchung"})[d.type]+" eingetragen: "+money(amount)); if(periodOf(d.date)!==state.month){ state.month=periodOf(d.date); render(); } } } catch(e){}
   };
   $("#ok").onclick = submit;
   $("#fNote").onkeydown = e => { if(e.key==="Enter"){ e.preventDefault(); submit(); } };
@@ -2003,12 +2025,14 @@ function renderSips(){
   html += `</section>`;
   if(us.length && zipTgOn()){
     html += `<section><h2><span>Tagesgeld</span><button class="linkbtn" id="addTg">+ Neu</button></h2>`;
-    html += tgAccs().map(t => { const bal = balance(t), sh = us.reduce((s,a)=>s+tgShare(a.id, t.id),0), rest = bal - sh;
+    html += tgAccs().map(t => { const bal = balance(t), sh = us.reduce((s,a)=>s+tgShare(a.id, t.id),0), x = accBreak(t.id);
+      const zins = x.inn - x.out, rest = bal - sh - zins;
       const parts = us.map(a=>({a, v:tgShare(a.id, t.id)})).filter(x=>x.v);
       return `<div class="tgcard"><button class="tgtop" data-account="${esc(t.id)}"><span class="ic" aria-hidden="true">${svgI("bank")}</span><span class="tgn">${esc(t.name)}</span><b class="num">${money(bal)}</b></button>
         <div class="tgrows">${parts.map(x=>`<div><span><i class="zi" style="color:var(${zipColor(x.a)})">${zipSvg(x.a)}</i>${esc(x.a.name)}</span><b class="num">${money(x.v)}</b></div>`).join("")}
-          ${rest?`<div><span>${rest>0?"Zinsen & Sonstiges":"Noch nicht zugeordnet"}</span><b class="num ${rest>0?"pos":"neg"}">${rest>0?"+":""}${money(rest)}</b></div>`:""}
-          ${!parts.length&&!rest?`<p class="hint">Noch nichts eingezahlt. Öffne einen Zip und tippe auf „Aufs Tagesgeld“.</p>`:""}</div>
+          ${zins?`<div><span>Zinsen</span><b class="num ${zins>0?"pos":"neg"}">${zins>0?"+":""}${money(zins)}</b></div>`:""}
+          ${rest?`<div class="tgfree"><span>Keinem Zip zugeordnet</span><b class="num">${money(rest)}</b></div>${rest>0?`<p class="hint">Gehört das Geld zu euren Zips? Dann ordne es zu, sonst zählt es im Gesamtvermögen doppelt, falls es auch im Zip-Betrag steckt.</p><button class="tgint" data-tgasg="${esc(t.id)}">${svgI("zip")}Zips zuordnen</button>`:""}`:""}
+          ${!parts.length&&!rest&&!zins?`<p class="hint">Noch nichts eingezahlt. Öffne einen Zip und tippe auf „Aufs Tagesgeld“.</p>`:""}</div>
         <button class="tgint" data-tgint="${esc(t.id)}">${svgI("plus")}Zinsen eintragen</button></div>`; }).join("");
     html += `</section>`;
   }
@@ -2021,6 +2045,45 @@ function renderSips(){
     html += `</section>`;
   }
   $("#main").innerHTML = html;
+}
+
+// Tagesgeld-Geld nachträglich Zips zuordnen (Tagesgeld-Stand bleibt gleich)
+function tgAssignSheet(t){
+  const us = umschlaege(); const x = accBreak(t.id);
+  const free = balance(t) - us.reduce((s,a)=>s+tgShare(a.id, t.id),0) - (x.inn - x.out);
+  let mode = "add";
+  openSheet(`
+    <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Zips zuordnen</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="sublabel" style="margin:0">Auf ${esc(t.name)} liegen <b class="num">${money(free)}</b>, die noch keinem Zip gehören. Der Stand vom Tagesgeld bleibt gleich.</p>
+    <div><div class="label" style="margin-bottom:6px">Zählt der Zip-Betrag dieses Geld schon mit?</div><div class="chips" id="taMode">
+      <button class="chip" data-tam="add">Nein, kommt dazu</button><button class="chip" data-tam="in">Ja, ist schon drin</button></div>
+      <p class="hint" id="taHint" style="margin-top:8px"></p></div>
+    <div class="splits">${us.map(a=>`<label class="splitrow" style="--zc:var(${zipColor(a)})"><span><i class="zi" style="color:var(${zipColor(a)})">${zipSvg(a)}</i>${esc(a.name)} <small class="num" style="color:var(--muted)">(${money(zipTotal(a))})</small></span><input class="input num" inputmode="decimal" placeholder="0" data-ta="${esc(a.id)}" autocomplete="off" aria-label="Betrag für ${esc(a.name)}"></label>`).join("")}</div>
+    <p class="splitrest" id="taSum"></p>
+    <div class="row"><button class="primary" id="ok">Zuordnen</button></div>
+  `);
+  const vals = () => us.map(a=>({a, v: parseAmount(document.querySelector(`[data-ta="${a.id}"]`).value)}));
+  const sync = () => {
+    document.querySelectorAll("#taMode [data-tam]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.tam===mode)));
+    $("#taHint").textContent = mode==="add" ? "Der Zip wird um den Betrag größer (Bargeld bleibt gleich, Tagesgeld-Anteil kommt dazu). Gesamtvermögen bleibt gleich." : "Der Betrag wird im Zip vom Bargeld zum Tagesgeld verschoben. Der Zip bleibt gleich groß, die doppelte Zählung im Gesamtvermögen verschwindet.";
+    const sum = vals().reduce((s,x)=>s+x.v,0), left = free - sum;
+    $("#taSum").innerHTML = `Zugeordnet <b class="num">${money(sum)}</b> · danach frei <b class="num ${left<0?"neg":""}">${money(left)}</b>${left<0?`<br><span style="color:var(--danger)">Mehr als frei ist</span>`:""}`;
+    $("#ok").disabled = !sum || left<0;
+  };
+  sync();
+  document.querySelectorAll("[data-ta]").forEach(i=>i.oninput = sync);
+  $("#taMode").onclick = e => { const b = e.target.closest("[data-tam]"); if(b){ mode = b.dataset.tam; sync(); } };
+  $("#cancel").onclick = closeSheet;
+  $("#ok").onclick = async () => {
+    const vs = vals().filter(x=>x.v>0), sum = vs.reduce((s,x)=>s+x.v,0), today = iso(new Date()), now = Date.now();
+    closeSheet();
+    for(const {a,v} of vs){
+      if(mode==="add"){ const {id, ...d} = a; await store.set("accounts", id, {...d, start:(d.start||0)+v}); }
+      await store.set("entries", newId(), {type:"transfer", from:a.id, to:t.id, amount:v, date:today, note:"Zuordnung Tagesgeld", createdAt:now});
+    }
+    const {id, ...td} = accById(t.id); await store.set("accounts", id, {...td, start:(td.start||0)-sum});
+    toast(`${money(sum)} zugeordnet`);
+  };
 }
 
 // Zip-Detail
@@ -2160,7 +2223,14 @@ function accountSheet(acc, kind, presetName){
     ${isEnv?`<div><div class="label" style="margin-bottom:6px">Symbol</div><div class="chips" id="aIcon">${ZIP_PICK.filter((i,k,arr)=>arr.findIndex(x=>(ZIP_SVG[x]||"zip")===(ZIP_SVG[i]||"zip"))===k).map(i=>`<button class="chip zpick" data-icon="${i}" aria-label="Symbol">${svgI(ZIP_SVG[i]||"zip")}</button>`).join("")}</div></div>`:""}
     ${isZiel?`<div><div class="label" style="margin-bottom:6px">${isEnv?"Zielbetrag (optional)":"Zielbetrag"}</div><input class="input num" id="aTarget" inputmode="decimal" placeholder="z. B. 1.500" value="${esc(toInput(acc&&acc.target||0))}" autocomplete="off"></div>`:""}
     <div><div class="label" style="margin-bottom:6px">${isEnv?"Anfangsbestand":isZiel?"Schon angespart":acc?"Aktueller Kontostand":"Anfangsbestand (heutiger Kontostand)"}</div><input class="input num" id="aBal" inputmode="decimal" placeholder="0" value="${esc(toSigned(cur))}" autocomplete="off"></div>
-    <p class="sublabel">${isEnv?`Geld, das schon im Zip steckt. Zählt nicht als Ausgabe und wird nicht vom Bargeld abgezogen.${acc?` Aktuell im Zip: <b class="num">${money(balance(acc))}</b>.`:" Neues Geld kommt später mit „Befüllen“ dazu."}`:isZiel?"Weiteres Geld legst du über „Zurücklegen“ dazu.":acc?`Anfangsbestand: ${money(acc.start||0)}. Änderst du den Stand hier, wird der Anfangsbestand angepasst. Für Abweichungen im Alltag lieber „Kontostände prüfen“ nutzen, dann bleibt die Differenz sichtbar.`:"Ab jetzt rechnet die App den Stand mit deinen Einträgen weiter. Minus für Dispo, z. B. -250."}</p>
+    <p class="sublabel">${isEnv?`Geld, das schon im Zip steckt. Zählt nicht als Ausgabe und wird nicht vom Bargeld abgezogen.${acc?` Aktuell im Zip: <b class="num">${money(balance(acc))}</b>.`:" Neues Geld kommt später mit „Befüllen“ dazu."}`:isZiel?"Weiteres Geld legst du über „Zurücklegen“ dazu.":acc?`Änderst du den Stand hier, wird der Anfangsbestand angepasst. Für Abweichungen im Alltag lieber „Kontostände prüfen“ nutzen, dann bleibt die Differenz sichtbar.`:"Ab jetzt rechnet die App den Stand mit deinen Einträgen weiter. Minus für Dispo, z. B. -250."}</p>
+    ${acc && !isEnv ? (() => { const x = accBreak(acc.id); const row = (l,v,k) => `<div><span>${l}</span><b class="num ${k||""}">${v}</b></div>`;
+      return `<details class="abrk2"><summary><span>So setzt sich der Stand zusammen</span><span class="achev" aria-hidden="true">›</span></summary><div class="abrk">
+        ${row("Anfangsbestand", money(acc.start||0))}
+        ${x.inn?row("Einnahmen", "+"+money(x.inn), "pos"):""}${x.out?row("Ausgaben", "−"+money(x.out)):""}
+        ${x.tin?row("Umbuchungen rein", "+"+money(x.tin), "pos"):""}${x.tout?row(x.ru===x.tout?"Round-up aufs Depot":"Umbuchungen raus"+(x.ru?` <small>(davon Round-up ${money(x.ru)})</small>`:""), "−"+money(x.tout)):""}
+        <div class="atot"><span>Stand jetzt</span><b class="num">${money(balance(acc))}</b></div>
+        <p class="hint">${x.n} ${x.n===1?"Eintrag":"Einträge"} insgesamt, über alle Monate.</p></div></details>`; })() : ""}
     ${isZiel?"":`<div><div class="label" style="margin-bottom:6px">Art</div><div class="chips" id="aKind">${["konto","bar","depot"].map(k=>`<button class="chip" data-kind="${k}">${KINDS[k]}</button>`).join("")}</div></div>
     ${!isZiel && zipTgOn() ? `<div id="tgBox"><div class="optrow"><div><b>Tagesgeld für Zips</b><p class="hint">Hier kann ein Teil eurer Zips liegen. Einzahlen und Abheben zählt nicht als Ausgabe.</p></div><button class="switch" id="aTg" role="switch" aria-checked="false" aria-label="Tagesgeld für Zips"><i></i></button></div></div>` : ""}
     <div id="pairBox"><div class="optrow"><div><b>Mit Depot</b><p class="hint">Konto und Depot in einem, z. B. Trade Republic, Revolut, N26 oder Scalable.</p></div><button class="switch" id="aPair" role="switch" aria-checked="false" aria-label="Mit Depot"><i></i></button></div><div class="chips" id="aPairTo" style="margin-top:10px"></div></div>
@@ -2580,7 +2650,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.27 (23.11.2026)";
+const APP_VERSION = "2.28 (23.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -2957,6 +3027,7 @@ document.addEventListener("click", e => {
   const rc = e.target.closest("[data-rec]");
   if(rc){ const r = state.recurring.find(x=>x.id===rc.dataset.rec); if(r) recSheet(r); return; }
   if(e.target.closest("#addRec")){ recSheet(null); return; }
+  const ta = e.target.closest("[data-tgasg]"); if(ta){ const t = accById(ta.dataset.tgasg); if(t) tgAssignSheet(t); return; }
   const ti = e.target.closest("[data-tgint]"); if(ti){ entrySheet(null, {type:"in", cat:"zinsen", account:ti.dataset.tgint, note:"Zinsen"}); return; }
   if(e.target.closest("#addTg")){ accountSheet(null, "konto", "Tagesgeld"); return; }
   const pg = e.target.closest("[data-paygot]"); if(pg){ const r = state.recurring.find(x=>x.id===pg.dataset.paygot); if(r) payGotSheet(r); return; }
