@@ -1,7 +1,8 @@
 {
-  "name": "Haushaltsbuch",
-  "short_name": "Haushaltsbuch",
+  "name": "Spent – Ausgaben im Überblick",
+  "short_name": "Spent",
   "lang": "de",
+  "description": "Ausgaben im Überblick",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -2,12 +2,14 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-YZ/vzY+SWeZi7xELTHB3sMsglKaI5Ijs/lZJ8xMU7h4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-BtO618z9j2XyZW31iuiQqDNuvDyPYkcVeLNIP9WEPT8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Haushaltsbuch</title>
+<title>Spent – Ausgaben im Überblick</title>
+<meta name="application-name" content="Spent">
+<meta name="description" content="Spent – Ausgaben im Überblick">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Haushaltsbuch">
+<meta name="apple-mobile-web-app-title" content="Spent">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f5f3ee">
 <link rel="manifest" href="manifest.webmanifest">
@@ -944,7 +946,7 @@ const wrMoney = c => { const [w,ct] = money(c).replace(/\s?€/,"").split(","); 
 const wrCount = (c, cls="") => `<span class="wr-num ${cls}" data-count="${c}">${wrMoney(c)}</span>`;
 function wrSlides(st){
   const Y = st.Y, S = [];
-  S.push({tone:"gold", html:`<p class="wr-k">Jahresrückblick</p><h1 class="wr-year">${Y}</h1><p class="wr-lead">Ein Jahr, ${st.n} Einträge.<br>Zeit, zurückzuschauen.</p><p class="wr-tiny">Tippen zum Weiterblättern</p>`});
+  S.push({tone:"gold", html:`<p class="wr-k">Spent · Jahresrückblick</p><h1 class="wr-year">${Y}</h1><p class="wr-lead">Ein Jahr, ${st.n} Einträge.<br>Zeit, zurückzuschauen.</p><p class="wr-tiny">Tippen zum Weiterblättern</p>`});
   if(!st.spent && !st.earned){ S.push({tone:"night", html:`<p class="wr-k">Noch etwas Geduld</p><h2 class="wr-h">Für ${Y} gibt es noch zu wenige Einträge.</h2><p class="wr-lead">Tragt eure Ausgaben ein, dann füllt sich der Rückblick von selbst.</p>`}); return S; }
   const kept = st.earned ? Math.round((st.earned-st.spent-st.inv.total)/st.earned*100) : 0;
   S.push({tone:"emerald", html:`<p class="wr-k">Reingekommen</p>${wrCount(st.earned,"xl")}
@@ -1145,7 +1147,7 @@ function openOnboarding(fresh){
   document.body.appendChild(el); document.body.style.overflow = "hidden";
   const opt = (key, val, icon, title, sub) => `<button class="ob-opt" data-ob="${key}" data-v="${val}" aria-pressed="${st[key]===val}"><span class="ob-ic">${svgI(icon)}</span><span class="ob-t"><b>${title}</b><span>${sub}</span></span><span class="ob-radio"></span></button>`;
   const pages = [
-    () => `<div class="ob-hero"><p class="ob-k">Haushaltsbuch</p><h1 class="ob-h big">Willkommen.</h1><p class="ob-lead">Vier kurze Fragen, dann ist die App so eingerichtet, wie du sie brauchst. Alles lässt sich später ändern.</p></div>`,
+    () => `<div class="ob-hero"><p class="ob-k">Spent · Ausgaben im Überblick</p><h1 class="ob-h big">Willkommen.</h1><p class="ob-lead">Vier kurze Fragen, dann ist die App so eingerichtet, wie du sie brauchst. Alles lässt sich später ändern.</p></div>`,
     () => `<p class="ob-k">Frage 1 von ${N}</p><h2 class="ob-h">Welche Konten nutzt du?</h2><p class="ob-lead">Mehrere möglich.</p>
       <div class="ob-list">${ACC.map(([k,ic,n,sub])=>`<button class="ob-opt" data-acc="${k}" aria-pressed="${st.acc.has(k)}"><span class="ob-ic">${svgI(ic)}</span><span class="ob-t"><b>${n}</b><span>${sub}</span></span><span class="ob-check">${svgI("check")}</span></button>`).join("")}</div>
       ${st.acc.has("neo")?`<p class="ob-k" style="margin-top:20px">Welcher Anbieter?</p><div class="ob-chips">${NEOS.map(n=>`<button class="chip" data-neo="${n}" aria-pressed="${st.neo===n}">${n}</button>`).join("")}</div>`:""}
@@ -2315,7 +2317,7 @@ function budgetSheet(){
       <p class="sublabel" style="margin:0">Die Tabelle ist nicht mit Passwort geschützt. Teile sie nur, wenn du sie wirklich brauchst.</p>
       
       <button class="danger" id="resetAll" style="margin-top:8px">Alle Daten zurücksetzen</button>
-      <p class="hint" style="text-align:center">Version ${APP_VERSION}</p>
+      <p class="hint" style="text-align:center">Spent · Ausgaben im Überblick<br>Version ${APP_VERSION}</p>
     </div>
   `);
   $("#cancel").onclick = closeSheet;
@@ -2337,7 +2339,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.21 (23.11.2026)";
+const APP_VERSION = "2.22 (23.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -2396,7 +2398,7 @@ function exportBackup(){
 const backupText = () => JSON.stringify({app:"haushaltsbuch", version:1, exportedAt:new Date().toISOString(), entries: local.read("entries"), accounts: local.read("accounts"), settings: local.read("settings"), recurring: local.read("recurring"), places: placePrefs()}, null, 1);
 async function doExport(encText){
   const data = {app:"haushaltsbuch", version:1, exportedAt:new Date().toISOString(), entries: local.read("entries"), accounts: local.read("accounts"), settings: local.read("settings"), recurring: local.read("recurring"), places: placePrefs()};
-  if(await saveFile("haushaltsbuch-"+iso(new Date())+(encText?"-geschuetzt":"")+".json", encText || JSON.stringify(data,null,1), "application/json")){
+  if(await saveFile("spent-sicherung-"+iso(new Date())+(encText?"-geschuetzt":"")+".json", encText || JSON.stringify(data,null,1), "application/json")){
     try { localStorage.setItem("hhb.lastBackup", String(Date.now())); } catch(e){}
     toast(encText ? "Geschützte Sicherung erstellt" : "Sicherung erstellt"); render();
   }
@@ -2408,7 +2410,7 @@ async function exportCsv(){
       ? [e.date, "Umbuchung", "", "", accName(e.from), accName(e.to), eurStr(e.amount), e.note||""]
       : [e.date, e.type==="in"?"Einnahme":"Ausgabe", catById(e.cat).name+(e.sub?" / "+e.sub:""), e.place||"", accName(accOf(e)), "", eurStr((e.type==="in"?1:-1)*e.amount), e.note||""]));
   const csv = "\ufeff"+rows.map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(";")).join("\r\n");
-  if(await saveFile("haushaltsbuch-"+iso(new Date())+".csv", csv, "text/csv")) toast("Tabelle exportiert");
+  if(await saveFile("spent-ausgaben-"+iso(new Date())+".csv", csv, "text/csv")) toast("Tabelle exportiert");
 }
 const DEFAULT_ACCS = () => ({giro:{name:"Girokonto", kind:"konto", start:0, order:0}, bargeld:{name:"Bargeld", kind:"bar", start:0, order:1}});
 const asMap = x => Array.isArray(x) ? Object.fromEntries(x.filter(e=>e&&e.id).map(({id,...r})=>[id,r])) : (x && typeof x==="object" ? x : {});
@@ -2438,7 +2440,7 @@ function importBackup(file){
   const r = new FileReader();
   r.onload = () => { let j = null; try { j = JSON.parse(r.result); } catch(e){} if(j && j.enc) askBackupPw(j, go); else go(r.result); };
   const go = text => {
-    let b; try { b = parseBackup(text); } catch(e){ toast("Diese Datei ist keine Haushaltsbuch-Sicherung."); return; }
+    let b; try { b = parseBackup(text); } catch(e){ toast("Diese Datei ist keine Spent-Sicherung."); return; }
     const cur = local.read("entries");
     const nE = Object.keys(b.entries).length, nNew = Object.keys(b.entries).filter(k=>!cur[k]).length, nA = Object.keys(b.accounts).length;
     const when = b.at ? new Date(b.at).toLocaleDateString("de-DE") + ", " + new Date(b.at).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}) + " Uhr" : "unbekannt";
@@ -2528,7 +2530,7 @@ async function decryptText(j, pw){
 // Face ID / Touch ID über die Geräte-Entsperrung (WebAuthn, Schlüssel bleibt im iPhone)
 const bioAvail = async () => { try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch(e){ return false; } };
 async function bioRegister(){
-  const c = await navigator.credentials.create({publicKey:{rp:{name:"Haushaltsbuch"}, user:{id:rnd(16), name:"Haushaltsbuch", displayName:"Haushaltsbuch"}, challenge:rnd(32),
+  const c = await navigator.credentials.create({publicKey:{rp:{name:"Spent"}, user:{id:rnd(16), name:"Spent", displayName:"Spent"}, challenge:rnd(32),
     pubKeyCredParams:[{type:"public-key", alg:-7},{type:"public-key", alg:-257}], authenticatorSelection:{authenticatorAttachment:"platform", userVerification:"required", residentKey:"discouraged"}, timeout:60000, attestation:"none"}});
   return b64(c.rawId);
 }
@@ -2585,7 +2587,7 @@ function showLock(){
   const cfg = lockCfg(); if(!cfg || lockApi) return;
   document.documentElement.classList.add("locked");
   const bio = cfg.bio ? async (api, auto) => { try { if(await bioCheck(cfg.bio)){ setFail({n:0, until:0}); unlockNow(); } } catch(e){ if(!auto) api.err("Face ID hat nicht geklappt. Gib deinen Code ein."); } } : null;
-  lockApi = pinPad({title:"Haushaltsbuch", sub:"Code eingeben", len:cfg.len||4, bio,
+  lockApi = pinPad({title:"Spent", sub:"Code eingeben", len:cfg.len||4, bio,
     foot:`<button class="linkbtn" data-forgot>Code vergessen?</button>`,
     onFoot:(b, api) => { if(b.hasAttribute("data-forgot")) forgotPin(api); },
     onDone: async (pin, api) => { if(await checkPin(pin, api)) unlockNow(); } });
