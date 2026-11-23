@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-9nX2rdqhGnBdByDyhhg1etm0sWLxwWTwFVFtJ/uiIXI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-qf+LZEg+O1qKkyaF+r0sUbI5reNCT6DiUjXXitQuAvM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -1091,6 +1091,19 @@ function boot(){
         ents[id+"-ru"] = {type:"transfer", auto:true, parent:id, from:aid, to:a.roundupTo, amount:100*a.roundup, date:e.date, note:"", createdAt:e.createdAt||Date.now()}; ch = true; } }
     if(ch) local.write("entries", ents); localStorage.setItem("hhb.mig.ru0","1"); } } catch(e){}
   try { const accs = local.read("accounts"); let ch = false; for(const a of Object.values(accs)){ const d = a.kind==="konto" && a.depot && accs[a.depot]; if(d && d.kind!=="depot" && /depot/i.test(d.name||"")){ d.kind = "depot"; ch = true; } } if(ch) local.write("accounts", accs); } catch(e){}
+  // Doppeltes Depot zusammenführen: lose Depot-Konten mit gleichem Namen wie das Depot eines Kontos gehen darin auf
+  try { const accs = local.read("accounts"); let ch = false;
+    for(const [kid, k] of Object.entries(accs)){ const did = k.kind==="konto" && k.depot; const D = did && accs[did]; if(!D) continue;
+      const norm = n => String(n||"").toLowerCase().replace(/\s+/g," ").trim();
+      for(const [xid, x] of Object.entries(accs)){ if(xid===did || x.kind!=="depot" || Object.values(accs).some(o=>o.kind==="konto" && o.depot===xid)) continue;
+        if(norm(x.name)!==norm(D.name) && norm(x.name)!==norm(depName(k.name))) continue;
+        const ents = local.read("entries"), recs = local.read("recurring"); let n = 0;
+        const fix = o => { for(const f of ["from","to","account"]) if(o[f]===xid){ o[f] = did; n++; } };
+        Object.values(ents).forEach(fix); Object.values(recs).forEach(fix);
+        Object.values(accs).forEach(o => { if(o.roundupTo===xid) o.roundupTo = did; });
+        D.start = (D.start||0) + (x.start||0); delete accs[xid]; ch = true;
+        local.write("entries", ents); local.write("recurring", recs); } }
+    if(ch) local.write("accounts", accs); } catch(e){}
   try { if(!localStorage.getItem("hhb.mig.nosb")){ const accs = local.read("accounts"); for(const a of Object.values(accs)){ delete a.saveback; delete a.savebackCap; delete a.savebackTo; } local.write("accounts", accs); localStorage.setItem("hhb.mig.nosb","1"); } } catch(e){}
   store.sub("accounts", rows => { state.accounts=rows; render(); });
   store.sub("entries", rows => { const was = state.ready ? curPeriod() : null; state.entries=rows; state.ready=true; if(!state.navMoved && was!==null && state.month===was) state.month = curPeriod(); render(); });
@@ -2766,7 +2779,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.32 (23.11.2026)";
+const APP_VERSION = "2.33 (23.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
