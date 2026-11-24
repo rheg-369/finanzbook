@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-EWOnTLFYEwuRmZX22eg5UQ0W9zyxg8s4qg63zzieZDA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-IskpK1vpUebW6FHwwgAIHpS1MRr5aSKcv84of6JPSOs='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -701,6 +701,17 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .ob-next{width:100%;border:0;border-radius:999px;padding:17px;font-size:1.02rem;font-weight:600;letter-spacing:.01em;background:linear-gradient(160deg,var(--hero1),var(--hero2));color:#fbf8f1;box-shadow:0 14px 30px -12px color-mix(in srgb,var(--hero2) 80%,transparent)}
 .ob-next:disabled{opacity:.4;box-shadow:none}
 .accs li.paired{position:relative}
+.h2acts{display:flex;gap:16px;align-items:center}
+.sorthint{margin:-2px 2px 8px}
+.accs.sorting{overflow:visible}
+.accs.sorting li{position:relative;background:var(--surface);border-radius:20px;transition:box-shadow .15s}
+.accs.sorting li:not(:last-child) .acc{border-bottom:1px solid var(--line)}
+.accs.sorting .acc{cursor:default;padding-right:6px!important}
+.grip{flex:none;width:44px;height:44px;margin:-8px -4px -8px 2px;border:0;border-radius:12px;background:none;color:var(--muted);display:grid;place-items:center;padding:0;touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none}
+.grip svg{width:22px;height:22px}
+.accs li.dragging{z-index:3;box-shadow:0 12px 30px rgba(0,0,0,.28);transition:none}
+.accs li.dragging .acc{border-bottom-color:transparent}
+.accs li.dragging .grip{cursor:grabbing;color:var(--accent)}
 .acc .a small.dep{display:block;font-family:var(--f-body);font-size:.76rem;font-weight:500;color:var(--muted);text-align:right;margin-top:3px}
 .depinfo{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--track);border-radius:16px;padding:12px 14px;font-size:.92rem}
 .depinfo span{color:var(--muted)}.depinfo small{display:block;font-size:.78rem;color:var(--muted);margin-top:2px}
@@ -2023,11 +2034,14 @@ function renderKonten(){
       ${ks.some(a=>a.kind==="depot")?`<button id="invest">${svgI("invest")}Investieren</button>`:""}
       <button id="checkAcc">${svgI("check")}Prüfen</button>
     </div>`;
-  html += `<section><h2><span>Konten</span><button class="linkbtn" id="addKonto">+ Neu</button></h2><ul class="accs">${ks.filter(a=>!(a.kind==="depot" && isPairedDepot(a.id))).map(a => {
+  const SO = !!state.sortAcc, kl = ks.filter(a=>!(a.kind==="depot" && isPairedDepot(a.id)));
+  const T = SO ? "div" : "button", DA = id => SO ? "" : ` data-account="${esc(id)}"`;
+  const GR = a => SO ? `<button class="grip" data-grip="${esc(a.id)}" aria-label="${esc(a.name)} verschieben" title="Ziehen oder Pfeiltasten"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 8h14M5 12h14M5 16h14"/></svg></button>` : "";
+  html += `<section><h2><span>Konten</span><span class="h2acts">${kl.length>1?`<button class="linkbtn" id="sortKonto">${SO?"Fertig":"Sortieren"}</button>`:""}${SO?"":`<button class="linkbtn" id="addKonto">+ Neu</button>`}</span></h2>${SO?`<p class="hint sorthint">Halte den Griff rechts gedrückt und schieb das Konto an die gewünschte Stelle.</p>`:""}<ul class="accs${SO?" sorting":""}" id="accList">${kl.map(a => {
     const b = balance(a), dp = pairOf(a);
     const extra = a.cc && a.cc.from ? `${b<0?`offen ${money(-b)} · `:""}Abbuchung ${fmtShort(ccNext(a))} von ${esc(accName(a.cc.from))}` : `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.roundupTo&&a.roundupTo!==a.depot?` → ${esc(accName(a.roundupTo))}`:""}`;
-    if(dp) return `<li><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(--c4)" aria-hidden="true">${svgI("invest")}</span><span class="mid"><div class="t">${esc(a.name)}</div><div class="s">Konto &amp; Depot${extra?" · "+extra:""}</div></span><span class="a num ${b<0?"neg":""}">${money(b)}<small class="dep">im Depot ${money(balance(dp))}</small></span></button></li>`;
-    return `<li class="${dp?"paired":""}"><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(${a.kind==="depot"||dp?"--c4":a.kind==="bar"?"--c3":a.cc?"--c6":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":dp?"invest":a.cc?"card":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button>${dp?`<button class="acc dsub" data-account="${esc(dp.id)}"><span class="mid"><div class="t">Depot</div><div class="s">${esc(dp.name)}</div></span><span class="a num">${money(balance(dp))}</span></button>`:""}</li>`;
+    if(dp) return `<li data-sid="${esc(a.id)}"><${T} class="acc"${DA(a.id)}><span class="badge" style="--bc:var(--c4)" aria-hidden="true">${svgI("invest")}</span><span class="mid"><div class="t">${esc(a.name)}</div><div class="s">Konto &amp; Depot${extra?" · "+extra:""}</div></span><span class="a num ${b<0?"neg":""}">${money(b)}<small class="dep">im Depot ${money(balance(dp))}</small></span>${GR(a)}</${T}></li>`;
+    return `<li class="${dp?"paired":""}" data-sid="${esc(a.id)}"><${T} class="acc"${DA(a.id)}><span class="badge" style="--bc:var(${a.kind==="depot"||dp?"--c4":a.kind==="bar"?"--c3":a.cc?"--c6":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":dp?"invest":a.cc?"card":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span>${GR(a)}</${T}>${dp?`<button class="acc dsub" data-account="${esc(dp.id)}"><span class="mid"><div class="t">Depot</div><div class="s">${esc(dp.name)}</div></span><span class="a num">${money(balance(dp))}</span></button>`:""}</li>`;
   }).join("")}</ul></section>`;
 
   if(ks.some(a=>a.kind==="depot")){
@@ -2813,7 +2827,65 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.34 (24.11.2026)";
+// ---- Konten sortieren: Griff gedrückt halten und schieben, oder Pfeiltasten ----
+async function saveAccOrder(){
+  const ul = $("#accList"); if(!ul) return;
+  const ids = [...ul.children].map(li=>li.dataset.sid);
+  const jobs = [];
+  ids.forEach((id,i) => {
+    const a = accById(id); if(!a) return;
+    if(a.order!==i){ const {id:_, ...d} = a; jobs.push(save("accounts", id, {...d, order:i})); }
+    const dp = pairOf(a);
+    if(dp && dp.order!==i+0.5){ const {id:_, ...d} = dp; jobs.push(save("accounts", dp.id, {...d, order:i+0.5})); }
+  });
+  try { await Promise.all(jobs); } catch(e){}
+  render();
+}
+let accDrag = null;
+document.addEventListener("pointerdown", e => {
+  const g = e.target.closest(".grip"); if(!g) return;
+  const li = g.closest("li"); if(!li) return;
+  e.preventDefault();
+  try { g.setPointerCapture(e.pointerId); } catch(_){}
+  accDrag = {li, g, y:e.clientY, pid:e.pointerId, moved:false};
+  li.classList.add("dragging");
+  try { navigator.vibrate && navigator.vibrate(10); } catch(_){}
+});
+document.addEventListener("pointermove", e => {
+  const d = accDrag; if(!d || e.pointerId!==d.pid) return;
+  e.preventDefault();
+  const ul = d.li.parentElement;
+  let dy = e.clientY - d.y, guard = 20;
+  while(guard--){
+    const nx = d.li.nextElementSibling, pv = d.li.previousElementSibling;
+    if(nx && dy > nx.offsetHeight/2){ ul.insertBefore(nx, d.li); d.y += nx.offsetHeight; d.moved = true; }
+    else if(pv && dy < -pv.offsetHeight/2){ ul.insertBefore(d.li, pv); d.y -= pv.offsetHeight; d.moved = true; }
+    else break;
+    dy = e.clientY - d.y;
+  }
+  d.li.style.transform = `translateY(${dy}px)`;
+  const vh = window.innerHeight;
+  if(e.clientY < 90) window.scrollBy(0,-8); else if(e.clientY > vh-110) window.scrollBy(0,8);
+}, {passive:false});
+const endAccDrag = e => {
+  const d = accDrag; if(!d || (e && e.pointerId!==d.pid)) return;
+  accDrag = null;
+  d.li.classList.remove("dragging"); d.li.style.transform = "";
+  if(d.moved) saveAccOrder();
+};
+document.addEventListener("pointerup", endAccDrag);
+document.addEventListener("pointercancel", endAccDrag);
+document.addEventListener("keydown", e => {
+  const g = e.target.closest && e.target.closest(".grip"); if(!g || (e.key!=="ArrowUp" && e.key!=="ArrowDown")) return;
+  e.preventDefault();
+  const li = g.closest("li"), ul = li.parentElement;
+  if(e.key==="ArrowUp" && li.previousElementSibling) ul.insertBefore(li, li.previousElementSibling);
+  else if(e.key==="ArrowDown" && li.nextElementSibling) ul.insertBefore(li.nextElementSibling, li);
+  else return;
+  const id = g.dataset.grip;
+  saveAccOrder().then(()=>{ const ng = document.querySelector(`.grip[data-grip="${CSS.escape(id)}"]`); if(ng) ng.focus(); });
+});
+const APP_VERSION = "2.35 (24.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -3216,12 +3288,13 @@ document.addEventListener("click", e => {
   if(e.target.closest("#backupNow")){ exportBackup(); return; }
   if(e.target.closest("#impBtn")){ pickBackup(); return; }
   const tb = e.target.closest("#tabs [data-tab]");
-  if(tb){ state.tab = tb.dataset.tab; try{ localStorage.setItem("hhb.tab", state.tab); }catch(_){} render(); window.scrollTo({top:0}); try { if(!matchMedia("(prefers-reduced-motion: reduce)").matches) $("#main").animate([{opacity:0, transform:"translateY(8px)"},{opacity:1, transform:"none"}], {duration:220, easing:"ease-out"}); } catch(_){} return; }
+  if(tb){ state.tab = tb.dataset.tab; state.sortAcc = false; try{ localStorage.setItem("hhb.tab", state.tab); }catch(_){} render(); window.scrollTo({top:0}); try { if(!matchMedia("(prefers-reduced-motion: reduce)").matches) $("#main").animate([{opacity:0, transform:"translateY(8px)"},{opacity:1, transform:"none"}], {duration:220, easing:"ease-out"}); } catch(_){} return; }
   const ac = e.target.closest("[data-account]");
   if(ac){ const a = accById(ac.dataset.account); if(a) accountSheet(a); return; }
   const pt = e.target.closest("[data-put]");
   if(pt){ const k = konten().find(a=>a.id!==pt.dataset.put); entrySheet(null, {type:"transfer", to:pt.dataset.put, from:k?k.id:null, note:""}); return; }
   if(e.target.closest("#addKonto")){ accountSheet(null,"konto"); return; }
+  if(e.target.closest("#sortKonto")){ state.sortAcc = !state.sortAcc; render(); return; }
   if(e.target.closest("#addZiel")){ accountSheet(null,"ziel"); return; }
   if(e.target.closest("#addEnv2")){ accountSheet(null,"umschlag"); return; }
   if(e.target.closest("#addEnv")){ accountSheet(null,"umschlag"); return; }
