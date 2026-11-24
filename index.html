@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-qf+LZEg+O1qKkyaF+r0sUbI5reNCT6DiUjXXitQuAvM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-EWOnTLFYEwuRmZX22eg5UQ0W9zyxg8s4qg63zzieZDA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -1106,7 +1106,7 @@ function boot(){
     if(ch) local.write("accounts", accs); } catch(e){}
   try { if(!localStorage.getItem("hhb.mig.nosb")){ const accs = local.read("accounts"); for(const a of Object.values(accs)){ delete a.saveback; delete a.savebackCap; delete a.savebackTo; } local.write("accounts", accs); localStorage.setItem("hhb.mig.nosb","1"); } } catch(e){}
   store.sub("accounts", rows => { state.accounts=rows; render(); });
-  store.sub("entries", rows => { const was = state.ready ? curPeriod() : null; state.entries=rows; state.ready=true; if(!state.navMoved && was!==null && state.month===was) state.month = curPeriod(); render(); });
+  store.sub("entries", rows => { setTimeout(runCards, 0); const was = state.ready ? curPeriod() : null; state.entries=rows; state.ready=true; if(!state.navMoved && was!==null && state.month===was) state.month = curPeriod(); render(); });
   store.sub("recurring", rows => { state.recurring=rows; render(); });
   runRecurring();
   if(localStorage.getItem("hhb.needSetup")) setTimeout(()=>openOnboarding(true), 300);
@@ -1282,6 +1282,7 @@ const ICO = {
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
   fuel:'<path d="M4.5 20.5v-15a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v15M3.5 20.5h12M4.5 10.5h10"/><path d="M14.5 8.5h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/>',
   check:'<path d="M4.5 12.5 9.5 17.5 19.5 7"/>',
+  card:'<rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M3 10h18M7 14.5h4"/>',
   bank:'<path d="M3.5 9.5 12 4.5l8.5 5"/><path d="M5.5 10.5v6.5M10 10.5v6.5M14 10.5v6.5M18.5 10.5v6.5M3.5 19.5h17"/>',
   pay:'<rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19M6 15h4"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
@@ -2024,9 +2025,9 @@ function renderKonten(){
     </div>`;
   html += `<section><h2><span>Konten</span><button class="linkbtn" id="addKonto">+ Neu</button></h2><ul class="accs">${ks.filter(a=>!(a.kind==="depot" && isPairedDepot(a.id))).map(a => {
     const b = balance(a), dp = pairOf(a);
-    const extra = `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.roundupTo&&a.roundupTo!==a.depot?` → ${esc(accName(a.roundupTo))}`:""}`;
+    const extra = a.cc && a.cc.from ? `${b<0?`offen ${money(-b)} · `:""}Abbuchung ${fmtShort(ccNext(a))} von ${esc(accName(a.cc.from))}` : `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.roundupTo&&a.roundupTo!==a.depot?` → ${esc(accName(a.roundupTo))}`:""}`;
     if(dp) return `<li><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(--c4)" aria-hidden="true">${svgI("invest")}</span><span class="mid"><div class="t">${esc(a.name)}</div><div class="s">Konto &amp; Depot${extra?" · "+extra:""}</div></span><span class="a num ${b<0?"neg":""}">${money(b)}<small class="dep">im Depot ${money(balance(dp))}</small></span></button></li>`;
-    return `<li class="${dp?"paired":""}"><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(${a.kind==="depot"||dp?"--c4":a.kind==="bar"?"--c3":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":dp?"invest":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button>${dp?`<button class="acc dsub" data-account="${esc(dp.id)}"><span class="mid"><div class="t">Depot</div><div class="s">${esc(dp.name)}</div></span><span class="a num">${money(balance(dp))}</span></button>`:""}</li>`;
+    return `<li class="${dp?"paired":""}"><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(${a.kind==="depot"||dp?"--c4":a.kind==="bar"?"--c3":a.cc?"--c6":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":dp?"invest":a.cc?"card":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button>${dp?`<button class="acc dsub" data-account="${esc(dp.id)}"><span class="mid"><div class="t">Depot</div><div class="s">${esc(dp.name)}</div></span><span class="a num">${money(balance(dp))}</span></button>`:""}</li>`;
   }).join("")}</ul></section>`;
 
   if(ks.some(a=>a.kind==="depot")){
@@ -2323,6 +2324,7 @@ function accHistHtml(acc){
     depTxt = [mn?money(mn)+" eingezahlt":"", r?money(r)+" Round-up":"", dp.start?money(dp.start)+" Startwert":""].filter(Boolean).join(" + "); }
   const b = balance(acc), [w,c] = money(Math.abs(b)).replace(/\s?€/,"").split(",");
   let html = `<div class="ahero"><div class="label">Kontostand</div><div class="big num ${b<0?"neg":""}">${b<0?"−":""}${esc(w)}<span class="cents">,${esc(c)} €</span></div>
+    ${acc.cc && acc.cc.from ? `<div class="asub">${b<0?`Offen <b class="num">${money(-b)}</b> · wird am <b>${esc(fmtShort(ccNext(acc)))}</b> von ${esc(accName(acc.cc.from))} abgebucht`:`Nichts offen · nächste Abrechnung am ${esc(fmtShort(ccNext(acc)))}`}</div>` : ""}
     ${dp?`<div class="asub">im Depot <b class="num">${money(balance(dp))}</b>${depTxt?`<br><small>${esc(depTxt)}</small>`:""}</div>`:""}
     <div class="ahrows"><div class="label" style="margin-bottom:2px">${esc(monthName(m).split(" ")[0])} auf diesem Konto</div>${parts.length ? parts.map(([l,v,g])=>`<div><span>${l}</span><b class="num ${g==="+"?"pos":""}">${g==="±"?(v<0?"−":"+"):g}${money(Math.abs(v))}</b></div>`).join("") + `<div class="atot"><span>Zusammen</span><b class="num">${net<0?"−":"+"}${money(Math.abs(net))}</b></div>` : `<div><span>Noch nichts gebucht</span></div>`}</div></div>`;
   if(!list.length) return html + `<p class="hint">Noch keine Buchungen auf diesem Konto.</p>`;
@@ -2336,7 +2338,7 @@ function accountSheet(acc, kind, presetName, tab){
   const isEnv = kind==="umschlag";
   const isZiel = kind==="ziel" || isEnv;
   const word = isEnv ? "Zip" : kind==="ziel" ? "Sparziel" : "Konto";
-  const r = {tg: acc ? !!acc.tg : (zipTgOn() && /tagesgeld/i.test(presetName||"")), pair: acc && acc.depot && state.accounts.some(x=>x.id===acc.depot) ? acc.depot : null, kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&(acc.roundupTo||acc.savebackTo)||null, saveback: 0};
+  const r = {cc: !!(acc && acc.cc), ccDay: acc && acc.cc ? acc.cc.day||0 : 0, ccFrom: acc && acc.cc ? acc.cc.from : null, tg: acc ? !!acc.tg : (zipTgOn() && /tagesgeld/i.test(presetName||"")), pair: acc && acc.depot && state.accounts.some(x=>x.id===acc.depot) ? acc.depot : null, kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&(acc.roundupTo||acc.savebackTo)||null, saveback: 0};
   const targets = () => state.accounts.filter(a => (a.kind==="depot"||a.kind==="ziel") && (!acc || a.id!==acc.id));
   const cur = isEnv ? (acc ? acc.start||0 : 0) : acc ? balance(acc) : 0;
   openSheet(`
@@ -2357,6 +2359,9 @@ function accountSheet(acc, kind, presetName, tab){
         <p class="hint">${x.n} ${x.n===1?"Eintrag":"Einträge"} insgesamt, über alle Monate.</p></div></details>`; })() : ""}
     ${isZiel?"":`<div><div class="label" style="margin-bottom:6px">Art</div><div class="chips" id="aKind">${["konto","bar","depot"].map(k=>`<button class="chip" data-kind="${k}">${KINDS[k]}</button>`).join("")}</div></div>
     ${!isZiel && zipTgOn() ? `<div id="tgBox"><div class="optrow"><div><b>Tagesgeld für Zips</b><p class="hint">Hier kann ein Teil eurer Zips liegen. Einzahlen und Abheben zählt nicht als Ausgabe.</p></div><button class="switch" id="aTg" role="switch" aria-checked="false" aria-label="Tagesgeld für Zips"><i></i></button></div></div>` : ""}
+    <div id="ccBox"><div class="optrow"><div><b>Kreditkarte</b><p class="hint">Käufe laufen auf die Karte. Am Abrechnungstag wird der offene Betrag vom Girokonto abgebucht. Als Ausgabe zählt der Kauf, nicht die Abbuchung.</p></div><button class="switch" id="aCc" role="switch" aria-checked="false" aria-label="Kreditkarte"><i></i></button></div>
+      <div id="ccOpts" style="margin-top:12px;display:flex;flex-direction:column;gap:10px"><div><div class="label" style="margin-bottom:6px">Abbuchung am</div><div class="chips" id="ccDay">${[[0,"Monatsende"],[1,"1."],[15,"15."],[20,"20."],[25,"25."]].map(([d,l])=>`<button class="chip" data-ccd="${d}">${l}</button>`).join("")}</div></div>
+        <div><div class="label" style="margin-bottom:6px">Abgebucht von</div><div class="chips" id="ccFrom"></div></div></div></div>
     <div id="pairBox"><div class="optrow"><div><b>Mit Depot</b><p class="hint">Konto und Depot in einem, z. B. Trade Republic, Revolut, N26 oder Scalable.</p></div><button class="switch" id="aPair" role="switch" aria-checked="false" aria-label="Mit Depot"><i></i></button></div><div class="chips" id="aPairTo" style="margin-top:10px"></div></div>
     <div id="ruBox"><div class="label" style="margin-bottom:6px">Round-up</div>
       <p class="sublabel" style="margin:0 0 8px">Jede Ausgabe wird auf den nächsten vollen Euro aufgerundet, die Differenz mal Faktor geht aufs Depot. Beispiel bei 10×: 0,85 € ergibt 1,50 €, 15,00 € ergibt 10,00 €.</p>
@@ -2370,6 +2375,10 @@ function accountSheet(acc, kind, presetName, tab){
   const sync = () => {
     if(!isZiel && (r.roundup||r.saveback) && !r.roundupTo){ if(r.pair && r.pair!=="__new") r.roundupTo = r.pair; else { const ts0 = targets(); if(ts0.length===1) r.roundupTo = ts0[0].id; } }
     $("#ok").disabled = !$("#aName").value.trim() || isNaN(parseSigned($("#aBal").value)) || (!isZiel && r.kind==="konto" && (r.roundup>0 || r.saveback) && !r.roundupTo && r.pair!=="__new");
+    if($("#ccBox")){ $("#ccBox").hidden = r.kind!=="konto" || !!r.pair; $("#aCc").setAttribute("aria-checked", String(!!r.cc)); $("#ccOpts").hidden = !r.cc;
+      if(r.cc){ document.querySelectorAll("#ccDay [data-ccd]").forEach(b=>b.setAttribute("aria-pressed", String(+b.dataset.ccd===r.ccDay)));
+        $("#ccFrom").innerHTML = state.accounts.filter(x=>x.kind==="konto" && !x.cc && (!acc || x.id!==acc.id)).map(x=>`<button class="chip" data-ccf="${esc(x.id)}" aria-pressed="${x.id===r.ccFrom}">${esc(x.name)}</button>`).join(""); }
+      if(r.cc && !r.ccFrom) $("#ok").disabled = true; }
     if($("#tgBox")){ $("#tgBox").hidden = r.kind!=="konto"; $("#aTg").setAttribute("aria-checked", String(!!r.tg)); }
     if(!isZiel){ $("#pairBox").hidden = r.kind!=="konto"; $("#aPair").setAttribute("aria-checked", String(!!r.pair));
       const free = state.accounts.filter(x=>x.kind==="depot" && (!isPairedDepot(x.id) || (acc && acc.depot===x.id)));
@@ -2393,6 +2402,9 @@ function accountSheet(acc, kind, presetName, tab){
     $("#aMult").onclick = e => { const b=e.target.closest("[data-mult]"); if(b){ r.roundup=+b.dataset.mult; sync(); } };
     $("#ruTo").onclick = e => { const b=e.target.closest("[data-rto]"); if(b){ r.roundupTo=b.dataset.rto; sync(); } };
     if($("#aTg")) $("#aTg").onclick = () => { r.tg = !r.tg; sync(); };
+    if($("#aCc")){ $("#aCc").onclick = () => { r.cc = !r.cc; if(r.cc && !r.ccFrom){ const g = state.accounts.find(x=>x.kind==="konto" && !x.cc && !x.depot && !x.tg && (!acc || x.id!==acc.id)); r.ccFrom = g && g.id; } sync(); };
+      $("#ccDay").onclick = e => { const b = e.target.closest("[data-ccd]"); if(b){ r.ccDay = +b.dataset.ccd; sync(); } };
+      $("#ccFrom").onclick = e => { const b = e.target.closest("[data-ccf]"); if(b){ r.ccFrom = b.dataset.ccf; sync(); } }; }
     $("#aPair").onclick = () => { if(r.pair) r.pair = null; else { const free = state.accounts.filter(x=>x.kind==="depot" && !isPairedDepot(x.id)); r.pair = acc ? ((free[0]||{}).id || "__new") : "__new"; } sync(); };
     $("#aPairTo").onclick = e => { const b=e.target.closest("[data-pairto]"); if(b){ r.pair = b.dataset.pairto; if(r.roundupTo && r.roundupTo!==r.pair && (r.roundup||r.saveback)) {} sync(); } };
   }
@@ -2413,6 +2425,7 @@ function accountSheet(acc, kind, presetName, tab){
       data.saveback = isFinite(pct) && pct>0 ? pct : 1; data.savebackCap = parseAmount($("#aSbCap").value); data.savebackTo = r.roundupTo;
     }
     if(isZiel) data.target = parseAmount($("#aTarget").value);
+    if(r.kind==="konto" && r.cc && r.ccFrom && !r.pair){ const old = acc && acc.cc || {}; data.cc = {day:r.ccDay, from:r.ccFrom, since: old.since || iso(new Date()), ...(old.last?{last:old.last}:{})}; }
     if(r.kind==="konto" && (r.tg || (acc && acc.tg && !$("#aTg")))) data.tg = true;
     if(acc && acc.lastFill) data.lastFill = acc.lastFill;
     if(isEnv && zIcon) data.icon = zIcon;
@@ -2440,6 +2453,27 @@ function addInterval(date, iv, day){
   return t.getFullYear()+"-"+pad(t.getMonth()+1)+"-"+pad(Math.min(day||d, last));
 }
 let recRunning = false;
+// ---- Kreditkarte: Käufe laufen auf die Karte, am Abrechnungstag zieht das Referenzkonto den offenen Betrag ein ----
+const ccDate = (m, day) => { const [y,mo] = m.split("-").map(Number), last = new Date(y,mo,0).getDate(); return m+"-"+pad(!day || day>last ? last : day); };
+const ccNext = a => { const t = iso(new Date()); let m = t.slice(0,7); for(let i=0;i<3;i++){ const d = ccDate(m, a.cc.day); if(d >= t && (!a.cc.last || d > a.cc.last)) return d; m = shiftMonth(m,1); } return ccDate(m, a.cc.day); };
+const balAt = (a, d) => (a.start||0) + state.entries.reduce((s,e)=> (e.date||"") > d ? s : e.type==="transfer" ? s + (e.to===a.id?e.amount:0) - (e.from===a.id?e.amount:0) : accOf(e)===a.id ? s + (e.type==="in"?e.amount:-e.amount) : s, 0);
+let ccRunning = false;
+async function runCards(){
+  if(ccRunning || !state.ready) return; ccRunning = true;
+  try {
+    const t = iso(new Date());
+    for(const a of state.accounts.filter(x=>x.kind==="konto" && x.cc && x.cc.from)){
+      if(!accById(a.cc.from)) continue;
+      let m = (a.cc.last || a.cc.since || t).slice(0,7), last = a.cc.last, g = 0;
+      while(g++ < 24){ const d = ccDate(m, a.cc.day); if(d > t) break;
+        if(d > (a.cc.last || a.cc.since || "")){ const open = -balAt(a, d), eid = "cc-"+a.id+"-"+d;
+          if(open > 0 && !state.entries.some(e=>e.id===eid)){ await store.set("entries", eid, {type:"transfer", from:a.cc.from, to:a.id, amount:open, date:d, note:"Kreditkartenabrechnung", ccBill:true, createdAt:Date.now()}); toast(`${a.name} abgerechnet: ${money(open)} von ${accName(a.cc.from)}`); }
+          last = d; }
+        m = shiftMonth(m,1); }
+      if(last !== a.cc.last){ const {id, ...d} = accById(a.id); await store.set("accounts", id, {...d, cc:{...d.cc, last}}); }
+    }
+  } finally { ccRunning = false; }
+}
 async function runRecurring(){
   if(recRunning) return; recRunning = true;
   try {
@@ -2779,7 +2813,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.33 (23.11.2026)";
+const APP_VERSION = "2.34 (24.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -3221,7 +3255,7 @@ drawEye();
 $("#fab").onclick = () => entrySheet(null);
 $("#scrim").onclick = closeSheet;
 document.addEventListener("keydown", e => { if(e.key==="Escape" && !$("#sheet").hidden) closeSheet(); });
-document.addEventListener("visibilitychange", () => { if(!document.hidden){ if(!state.navMoved) state.month = curPeriod(); runRecurring(); render(); } });
+document.addEventListener("visibilitychange", () => { if(!document.hidden){ runCards(); if(!state.navMoved) state.month = curPeriod(); runRecurring(); render(); } });
 
 boot();
 try { const m = sessionStorage.getItem("hhb.importMsg"); if(m){ sessionStorage.removeItem("hhb.importMsg"); toast(m); } } catch(e){}
