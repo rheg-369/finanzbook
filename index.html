@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-IskpK1vpUebW6FHwwgAIHpS1MRr5aSKcv84of6JPSOs='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-LlUaFoyUmj2rvuszCqAclb0yw5W/HkllusXQDFChjtI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -944,6 +944,11 @@ function movement(id){
   return m;
 }
 const balance = a => (a.start||0) + movement(a.id);
+// Noch verfügbar aus Kontoständen: welche Konten zählen mit (Standard: Girokonten, Kreditkarten, Bargeld)
+const balMode = () => !!(state.settings||{}).availBal;
+const availCand = () => konten().filter(a=>a.kind!=="depot");
+const availAccs = () => { const sel = (state.settings||{}).availAccs; return availCand().filter(a => Array.isArray(sel) ? sel.includes(a.id) : (a.kind==="bar" || (a.kind==="konto" && !a.tg && !a.depot))); };
+const availBal = () => availAccs().reduce((s,a)=>s+balance(a),0);
 function accBreak(id){
   const r = {inn:0, out:0, tin:0, tout:0, ru:0, n:0};
   for(const e of state.entries){
@@ -1466,6 +1471,7 @@ function availNow(){
   const m = curPeriod(), ents = state.entries.filter(e=>inPer(e.date, m) && !isKorr(e));
   const earned = ents.filter(e=>e.type==="in" && !isSb(e)).reduce((s,e)=>s+e.amount,0), spent = ents.filter(e=>e.type==="out").reduce((s,e)=>s+e.amount,0);
   const pend = pendingRecs(m).reduce((s,x)=>s+x.r.amount,0);
+  if(balMode()) return availBal() - pend;
   return earned - spent - investedYear(d=>inPer(d,m)).total - pend;
 }
 function forecastHtml(m){
@@ -1513,11 +1519,13 @@ function pendingRecs(m){
 function availHtml(m, earned, spent, invM){
   const cur = m===curPeriod(), pend = cur ? pendingRecs(m) : [];
   const pFix = pend.filter(x=>!x.inv).reduce((s,x)=>s+x.r.amount,0), pInv = pend.filter(x=>x.inv).reduce((s,x)=>s+x.r.amount,0);
-  const v = earned - spent - invM - pFix - pInv;
+  const bm = cur && balMode(), accs = bm ? availAccs() : [];
+  const v = bm ? availBal() - pFix - pInv : earned - spent - invM - pFix - pInv;
   const sg = n => (n<0?"−":"")+money(Math.abs(n));
   const [w,c] = sg(v).replace(/\s?€/,"").split(",");
   const daysLeft = cur ? perDaysLeft(m) : 0;
   const rows = [["Einnahmen", "+"+money(earned), "pos"], ["Ausgaben", "−"+money(spent)]]; if(hasDepot()||invM) rows.push(["Investiert", "−"+money(invM)]);
+  if(bm){ rows.length = 0; accs.forEach(a => { const b = balance(a); rows.push([esc(a.name), (b<0?"−":"")+money(Math.abs(b)), b<0?"":"pos"]); }); if(!accs.length) rows.push(["Kein Konto ausgewählt", money(0)]); }
   if(cur){ rows.push(["Noch fällige Fixkosten", "−"+money(pFix)]); if(pInv) rows.push(["Noch fällige Sparpläne", "−"+money(pInv)]); }
   const list = pend.map(x=>`<div class="pl"><span>${esc(fmtShort(x.d))} · ${esc(x.r.name || (x.inv?"Sparplan":(catById(x.r.cat)||{}).name||"Dauerauftrag"))}</span><span class="num">−${money(x.r.amount)}</span></div>`).join("");
   return `<details class="avail"><summary>
@@ -1528,7 +1536,7 @@ function availHtml(m, earned, spent, invM){
     <div class="abrk">${rows.map(([a,b,k])=>`<div><span>${a}</span><b class="num ${k||""}">${b}</b></div>`).join("")}
       <div class="atot"><span>${cur?"Noch verfügbar":"Übrig"}</span><b class="num">${sg(v)}</b></div>
       ${list ? `<div class="label" style="margin-top:6px">Kommt diesen Monat noch</div>${list}` : ""}
-      ${cur ? `<p class="hint">Einnahmen minus Ausgaben und Investiertes, abzüglich der Daueraufträge, die ${PD()?"bis zum nächsten Gehalt":"diesen Monat"} noch abgebucht werden.${PD()?` Gehaltsmonat ${esc(perLabel(m))}.`:""}</p>` : ""}
+      ${bm ? `<p class="hint">Aktueller Stand der ausgewählten Konten, abzüglich der Daueraufträge, die ${PD()?"bis zum nächsten Gehalt":"diesen Monat"} noch abgebucht werden. Welche Konten zählen, stellst du in den Einstellungen ein.</p>` : cur ? `<p class="hint">Einnahmen minus Ausgaben und Investiertes, abzüglich der Daueraufträge, die ${PD()?"bis zum nächsten Gehalt":"diesen Monat"} noch abgebucht werden.${PD()?` Gehaltsmonat ${esc(perLabel(m))}.`:""}</p>` : ""}
     </div></details>`;
 }
 
@@ -2765,6 +2773,9 @@ function budgetSheet(){
         <button class="switch" id="tPay" role="switch" aria-checked="${!!PD()}" aria-label="Monat beginnt am Gehaltstag"><i></i></button></div>
       ${PD()?`<div style="display:flex;align-items:center;gap:10px"><span class="hint" style="color:var(--ink)">Gehalt kommt um den</span><select class="input" id="payDay" style="width:5.5em" aria-label="Gehaltstag">${Array.from({length:27},(_,i)=>i+2).map(n=>`<option value="${n}" ${n===PD()?"selected":""}>${n}.</option>`).join("")}</select></div>
       <p class="sublabel" style="margin:0">Kommt das Gehalt ein paar Tage früher oder später, verschiebt sich der Monat einfach mit.</p>`:""}
+      <div class="optrow"><div><b>Kontostände bei „Noch verfügbar“</b><p class="hint">An: rechnet mit dem Geld, das auf den gewählten Konten liegt, minus noch fällige Fixkosten. Aus: nur Einnahmen minus Ausgaben dieses Monats.</p></div>
+        <button class="switch" id="tBal" role="switch" aria-checked="${balMode()}" aria-label="Kontostände bei Noch verfügbar mitzählen"><i></i></button></div>
+      ${balMode()?`<div><div class="sublabel" style="margin:0 0 6px">Diese Konten zählen mit:</div><div class="chips" id="avAccs">${availCand().map(a=>`<button class="chip" data-avacc="${esc(a.id)}" aria-pressed="${availAccs().some(x=>x.id===a.id)}">${esc(a.name)}</button>`).join("")}</div></div>`:""}
     </div>
     <div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
       <div class="label">Jahresrückblick</div>
@@ -2803,6 +2814,18 @@ function budgetSheet(){
       if(ex){ const {id, ...d} = ex; await save("accounts", id, {...d, tg:true}); toast(`„${ex.name}“ ist jetzt euer Tagesgeld für Zips`); }
       else { await save("accounts", newId(), {name:"Tagesgeld", kind:"konto", tg:true, start:0, order:Date.now()}); toast("Konto „Tagesgeld“ angelegt. Kontostand trägst du unter Konten ein."); }
     } else toast(on ? "Zips mit Tagesgeld an" : "Tagesgeld bei Zips ausgeblendet");
+  };
+  $("#tBal").onclick = async () => {
+    const on = !balMode();
+    try { await save("settings","main",{...settingsData(), availBal:on}); } catch(_){ return; }
+    const sc = $("#sheet").scrollTop; budgetSheet(); $("#sheet").scrollTop = sc;
+    toast(on ? "Noch verfügbar rechnet jetzt mit Kontoständen" : "Noch verfügbar rechnet wieder mit Einnahmen und Ausgaben");
+  };
+  if($("#avAccs")) $("#avAccs").onclick = async e => {
+    const b = e.target.closest("[data-avacc]"); if(!b) return;
+    const ids = new Set(availAccs().map(a=>a.id)); ids.has(b.dataset.avacc) ? ids.delete(b.dataset.avacc) : ids.add(b.dataset.avacc);
+    b.setAttribute("aria-pressed", String(ids.has(b.dataset.avacc)));
+    try { await save("settings","main",{...settingsData(), availAccs:[...ids]}); } catch(_){}
   };
   $("#tPay").onclick = async () => {
     const on = !PD(), gr = state.recurring.filter(r=>r.type==="in" && r.cat==="gehalt");
@@ -2885,7 +2908,7 @@ document.addEventListener("keydown", e => {
   const id = g.dataset.grip;
   saveAccOrder().then(()=>{ const ng = document.querySelector(`.grip[data-grip="${CSS.escape(id)}"]`); if(ng) ng.focus(); });
 });
-const APP_VERSION = "2.35 (24.11.2026)";
+const APP_VERSION = "2.36 (24.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
