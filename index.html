@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-qiNvFCiojzVBgNd8HZGKCXiVThULUf7vkZuJoLrzakk='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-P4RsNrZdLaKluvGu5z1sQoE+Bo2W00K3ePqnxyGtFrA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -792,6 +792,20 @@ h2.pieh .mini button{flex:1;padding:7px 4px}
 .sbud input:focus{outline:none}
 .shint{font-size:.78rem;color:var(--muted);margin:-6px 8px 0;line-height:1.4}
 .sheet{animation:up .34s cubic-bezier(.2,.8,.2,1)}
+/* v2.43 ruhiger: Rein/Raus/Investiert erst nach Antippen der Hauptzahl */
+.hero:has(details.avail:not([open])) .trio{display:none}
+.wr-teaser.slim{display:flex;align-items:baseline;gap:10px;padding:14px 44px 14px 20px;border-radius:18px}
+.wr-teaser.slim .wr-ty{font-size:1.5rem}
+.zm:empty{display:none}
+.invd{border-radius:22px;background:var(--surface);border:var(--card-border);box-shadow:var(--card-shadow);overflow:hidden}
+.invd .inv{border:0;box-shadow:none;border-radius:0;padding-top:0;background:none}
+.invsum{list-style:none;display:flex;align-items:center;gap:12px;padding:16px 18px;cursor:pointer}
+.invsum::-webkit-details-marker{display:none}
+.invsum span{flex:1;font-weight:500}.invsum b{font-weight:600}
+.invsum svg{width:16px;height:16px;color:var(--muted);transition:transform .2s ease}
+.invd[open] .invsum svg{transform:rotate(90deg)}
+.quietlink{text-align:center;margin:28px 0 0}.quietlink .linkbtn{align-self:center}
+main section{margin-top:34px}
 .scrim{animation:obIn .25s ease}
 @media (prefers-reduced-motion:reduce){.sheet,.scrim{animation:none}.qacts button,.entry,.acc,.aov,.zcard,.srow{transition:none}}
 </style>
@@ -1290,7 +1304,7 @@ function openWrapped(Y){
 function wrappedBanner(){
   const d = new Date(), Y = wrYear();
   if(!(d.getMonth()===11 || d.getMonth()===0) || !state.entries.some(e=>(e.date||"").startsWith(String(Y)))) return "";
-  return `<button class="wr-teaser" id="openWrapped"><span class="wr-tk">Jahresrückblick</span><span class="wr-ty">${Y}</span><span class="wr-tl">Euer Jahr in Zahlen ansehen</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>`;
+  return `<button class="wr-teaser slim" id="openWrapped"><span class="wr-ty">${Y}</span><span class="wr-tl">Euer Jahresrückblick</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>`;
 }
 
 // ---- Linien-Symbole (statt Emoji) ----
@@ -1685,14 +1699,14 @@ function render(){
       <text x="21" y="20.2" text-anchor="middle" font-size="2.6" fill="var(--muted)">${esc(sel ? sel.name.split(" ")[0] : "Ausgaben")}</text>
       <text class="ctr" x="21" y="25" text-anchor="middle" font-size="4.6" fill="var(--ink)">${esc(money(sel?sel.sum:spent).replace(/,\d\d\s?€/," €"))}</text></svg>
     <ul class="cats">${segs.map((x,ix) => mode==="cat" ? `
-      <li${ix>=5 && !state.pieAll && !(state.cat===x.k) ?' hidden':''}><button class="cat" data-cat="${x.k}" aria-pressed="${state.cat===x.k}" title="${esc(x.name)}: ${money(x.sum)}, ${x.n} Einträge">
+      <li${ix>=3 && !state.pieAll && !(state.cat===x.k) ?' hidden':''}><button class="cat" data-cat="${x.k}" aria-pressed="${state.cat===x.k}" title="${esc(x.name)}: ${money(x.sum)}, ${x.n} Einträge">
         <span class="name"><span class="dot" style="background:var(${x.col})"></span>${esc(x.name)}</span>
         <span class="amt num">${money(x.sum)}<small>${Math.round(x.sum/spent*100)} %</small></span>
         <span class="track"><i style="width:${(x.sum/max*100).toFixed(1)}%;background:var(${x.col})"></i></span>
       </button>${state.cat===x.k ? subBreak(outs.filter(e=>e.cat===x.k)) : ""}</li>` : `
-      <li${ix>=5 && !state.pieAll ?' hidden':''}><div class="cat"><span class="name"><span class="dot" style="background:var(${x.col})"></span>${esc(x.name)}${x.n>1?` <small style="color:var(--muted)">${x.n}×</small>`:""}</span>
+      <li${ix>=3 && !state.pieAll ?' hidden':''}><div class="cat"><span class="name"><span class="dot" style="background:var(${x.col})"></span>${esc(x.name)}${x.n>1?` <small style="color:var(--muted)">${x.n}×</small>`:""}</span>
         <span class="amt num">${money(x.sum)}<small>${Math.round(x.sum/spent*100)} %</small></span>
-        <span class="track"><i style="width:${(x.sum/max*100).toFixed(1)}%;background:var(${x.col})"></i></span></div></li>`).join("")}</ul>${segs.length>5?`<button class="morebtn" data-pieall>${state.pieAll?"Weniger anzeigen":`Alle ${segs.length} anzeigen`}</button>`:""}</div>`}</section>`;
+        <span class="track"><i style="width:${(x.sum/max*100).toFixed(1)}%;background:var(${x.col})"></i></span></div></li>`).join("")}</ul>${segs.length>3?`<button class="morebtn" data-pieall>${state.pieAll?"Weniger anzeigen":`Alle ${segs.length} anzeigen`}</button>`:""}</div>`}</section>`;
   } else html += accOverview(inMonth, m);
   html += recSection();
 
@@ -1807,6 +1821,7 @@ document.addEventListener("input", e => {
   let p = 0, n = 0; while(p < nv.length && n < digitsBefore){ if(/[\d,]/.test(nv[p])) n++; p++; }
   try { inp.setSelectionRange(p, p); } catch(_){}
 }, true);
+document.addEventListener("toggle", e => { if(e.target && e.target.classList && e.target.classList.contains("invd")) state.invOpen = e.target.open; }, true);
 document.addEventListener("focusin", e => { const inp = e.target; if(isAmt(inp) && centMode()) setTimeout(()=>{ try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch(_){} }, 0); }, true);
 document.addEventListener("focusout", e => {
   const inp = e.target; if(!isAmt(inp) || centMode() || !inp.value || inp.value==="-") return;
@@ -2108,7 +2123,7 @@ function renderKonten(){
     const minY = Math.min(now, ...years);
     const r = investedYear(Y), mx = Math.max(...r.months, 1);
     const ML = ["J","F","M","A","M","J","J","A","S","O","N","D"];
-    html += `<section><h2><span>Investiert</span></h2><div class="inv${r.total||r.out?"":" empty0"}">
+    html += `<section><details class="invd"${state.invOpen?" open":""}><summary class="invsum"><span>Investiert ${Y}</span><b class="num">${money(r.total-r.out)}</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary><div class="inv${r.total||r.out?"":" empty0"}">
       <div class="yr"><button data-invyear="${Y-1}" ${Y<=minY?"disabled":""} aria-label="Vorheriges Jahr">‹</button><b>${Y}</b><button data-invyear="${Y+1}" ${Y>=now?"disabled":""} aria-label="Nächstes Jahr">›</button></div>
       <div class="tot"><div class="label">In ${Y} investiert</div><div class="v num">${money(r.total)}</div></div>
       <div class="parts">
@@ -2119,11 +2134,11 @@ function renderKonten(){
       </div>
       <div class="months" role="img" aria-label="Einzahlungen pro Monat">${r.months.map(v=>`<i class="${v?"":"z"}" style="height:${v?Math.max(4,v/mx*100):3}%"></i>`).join("")}</div>
       <div class="mlab">${ML.map(l=>`<span>${l}</span>`).join("")}</div>
-    </div></section>`;
+    </div></details></section>`;
   }
 
+  if(!zs.length){ html += `<p class="quietlink"><button class="linkbtn" id="addZiel">+ Sparziel anlegen</button></p>`; $("#main").innerHTML = html; return; }
   html += `<section><h2><span>Sparziele</span><button class="linkbtn" id="addZiel">+ Neu</button></h2>`;
-  if(!zs.length) html += `<p class="hint" style="margin:-4px 6px 0">Noch keins. Zum Beispiel „Urlaub“ mit 1.500 €, Stück für Stück zurückgelegt.</p>`;
   html += `<div class="goals">${zs.map(a => {
     const b = balance(a), t = a.target||0, pct = t ? Math.max(0,Math.min(1,b/t)) : 0;
     return `<div class="goal">
@@ -2163,14 +2178,10 @@ function renderSips(){
   const [whole, cents] = money(Math.abs(inEnv)).replace(/\s?€/,"").split(",");
   let html = reminderHtml() + `<div class="hero">
     <div><div class="label">In allen Zips</div><div class="big num">${inEnv<0?"−":""}${esc(whole)}<span class="cents">,${esc(cents)} €</span></div>${inTg?`<div class="asub">davon bar <b class="num">${money(inEnv-inTg)}</b> · Tagesgeld <b class="num">${money(inTg)}</b></div>`:""}</div>
-    <div class="trio">
-      <div><div class="label">${MON[Number(m.slice(5))-1]} rein</div><div class="v num pos">${money(tot.inn)}</div></div>
-      <div><div class="label">${MON[Number(m.slice(5))-1]} raus</div><div class="v num">${money(tot.out)}</div></div>
-    </div>
     ${us.length?`<div class="acts"><button class="main" id="fillAll">Zips befüllen</button><button id="payZip">Aus Zip bezahlen</button></div>`:""}
   </div>`;
   if(free<0 && us.length) html += `<div class="fixcard"><div><b>Bargeld ohne Zip: ${money(free)}</b><p>Meist wurden Zips aus Bargeld befüllt, obwohl das Geld schon drin steckte.</p></div><button id="fixFills">Korrigieren</button></div>`;
-  html += `<section><h2><span>Deine Zips</span><button class="linkbtn" id="addEnv2">+ Neu</button></h2>`;
+  html += `<section><h2><span>Deine Zips</span></h2>`;
   if(!us.length) html += `<div class="empty" style="padding:20px 16px"><strong>Noch keine Zips</strong>Für dein Bargeld im Budgetplaner. Leg los mit einem Tipp:</div>
     <div class="chips" style="justify-content:center">${["Urlaub","Auto","Rückzahlung","Geschenke","Lebensmittel","Notgroschen"].map(n=>`<button class="chip" data-newenv="${n}">+ ${n}</button>`).join("")}</div>
     <div class="addrow" style="margin-top:14px"><button class="addbtn" id="addEnv">+ Eigenen Zip anlegen</button></div>`;
@@ -2181,11 +2192,10 @@ function renderSips(){
         <span class="ztop"><span class="ic" aria-hidden="true">${zipSvg(a)}</span><span class="zn">${esc(a.name)}</span></span>
         <span class="zb num ${b<0?"neg":""}">${money(b)}</span>${tg?`<span class="ztg"><i aria-hidden="true">${svgI("bank")}</i>${money(tg)} auf Tagesgeld</span>`:""}
         ${t?`<span class="zbar" role="img" aria-label="${Math.round(pct*100)} Prozent von ${money(t)}"><i style="width:${(pct*100).toFixed(1)}%"></i></span><span class="zt">${b>=t?"Ziel erreicht":`${Math.round(pct*100)} % von ${money(t)}`}</span>`:""}
-        <span class="zm">${x.out ? `${MON[Number(m.slice(5))-1]} ausgegeben ${money(x.out)}` : x.inn ? `${MON[Number(m.slice(5))-1]} befüllt ${money(x.inn)}` : "Diesen Monat ruhig"}</span>
+        <span class="zm">${x.out ? `${MON[Number(m.slice(5))-1]} ausgegeben ${money(x.out)}` : x.inn ? `${MON[Number(m.slice(5))-1]} befüllt ${money(x.inn)}` : ""}</span>
       </button>
     </div>`;
-  }).join("")}<button class="zcard addz" id="addEnv">+ Neuer Zip</button></div>
-    <p class="foot-note"><button class="linkbtn" id="zipStarts">Anfangsbestände eintragen</button></p>`;
+  }).join("")}<button class="zcard addz" id="addEnv">+ Neuer Zip</button></div>`;
   html += `</section>`;
   if(us.length && zipTgOn()){
     html += `<section><h2><span>Tagesgeld</span><button class="linkbtn" id="addTg">+ Neu</button></h2>`;
@@ -2195,7 +2205,7 @@ function renderSips(){
       return `<div class="tgcard"><button class="tgtop" data-account="${esc(t.id)}"><span class="ic" aria-hidden="true">${svgI("bank")}</span><span class="tgn">${esc(t.name)}</span><b class="num">${money(bal)}</b></button>
         <div class="tgrows">${parts.map(x=>`<div><span><i class="zi" style="color:var(${zipColor(x.a)})">${zipSvg(x.a)}</i>${esc(x.a.name)}</span><b class="num">${money(x.v)}</b></div>`).join("")}
           ${zins?`<div><span>Zinsen</span><b class="num ${zins>0?"pos":"neg"}">${zins>0?"+":""}${money(zins)}</b></div>`:""}
-          ${rest?`<div class="tgfree"><span>Keinem Zip zugeordnet</span><b class="num">${money(rest)}</b></div>${rest>0?`<p class="hint">Gehört das Geld zu euren Zips? Dann ordne es zu, sonst zählt es im Gesamtvermögen doppelt, falls es auch im Zip-Betrag steckt.</p><button class="tgint" data-tgasg="${esc(t.id)}">${svgI("zip")}Zips zuordnen</button>`:""}`:""}
+          ${rest?`<div class="tgfree"><span>Keinem Zip zugeordnet</span><b class="num">${money(rest)}</b></div>${rest>0?`<p class="hint">Gehört es zu euren Zips? Dann zuordnen.</p><button class="tgint" data-tgasg="${esc(t.id)}">${svgI("zip")}Zips zuordnen</button>`:""}`:""}
           ${!parts.length&&!rest&&!zins?`<p class="hint">Noch nichts eingezahlt. Öffne einen Zip und tippe auf „Aufs Tagesgeld“.</p>`:""}</div>
         <button class="tgint" data-tgint="${esc(t.id)}">${svgI("plus")}Zinsen eintragen</button></div>`; }).join("");
     html += `</section>`;
@@ -2204,9 +2214,7 @@ function renderSips(){
     const ids = new Set(us.map(a=>a.id));
     const moves = state.entries.filter(e => e.type==="transfer" ? (ids.has(e.from)||ids.has(e.to)) : ids.has(accOf(e)))
       .sort((a,b)=> a.date===b.date ? (b.createdAt||0)-(a.createdAt||0) : (a.date<b.date?1:-1)).slice(0,15);
-    html += `<section><h2><span>Letzte Bewegungen</span></h2>`;
-    html += moves.length ? `<ul class="entries">${moves.map(entryRow).join("")}</ul>` : `<p class="hint">Noch keine Bewegungen. Tipp auf „Zips befüllen“.</p>`;
-    html += `</section>`;
+    if(moves.length) html += `<section><h2><span>Letzte Bewegungen</span></h2><ul class="entries">${moves.map(entryRow).join("")}</ul></section>`;
   }
   $("#main").innerHTML = html;
 }
@@ -2842,6 +2850,7 @@ function budgetSheet(){
     <div class="sgl label">Anpassen</div>
     <div class="sgroup">
       <button class="srow" id="catsBtn"><span>Kategorien bearbeiten</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+      ${zipsOn() && umschlaege().length ? `<button class="srow" id="zipStarts"><span>Anfangsbestände der Zips</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>` : ""}
       <button class="srow" id="wrBtn"><span>Jahresrückblick ${wrYear()}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
       <button class="srow" id="obBtn"><span>Einrichtung erneut durchgehen</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
     </div>
@@ -2898,7 +2907,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.42 (25.11.2026)";
+const APP_VERSION = "2.43 (25.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
