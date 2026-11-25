@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-s3kzgi0z+vywFbVz4W5fbEXbUJZfYcN6v//PbuLlOrs='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-yN/5eEC6NhezXQ9ebyh6sPwzux4i/gGfU6tFYzEvUEw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -885,7 +885,8 @@ function parseAmount(s){
   const n = Number(s);
   return isFinite(n) && n>0 ? Math.round(n*100) : 0;
 }
-const toInput = cents => cents ? (cents/100).toFixed(2).replace(".",",").replace(/,00$/,"") : "";
+const centMode = () => !(typeof state!=="undefined" && state.settings && state.settings.centInput===false);
+const toInput = cents => cents ? (cents/100).toFixed(2).replace(".",",").replace(centMode() ? /^$/ : /,00$/,"") : "";
 const pad = n => String(n).padStart(2,"0");
 const iso = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
 const dayOffset = n => { const d=new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()+n); return iso(d); };
@@ -937,7 +938,7 @@ function parseSigned(s){
   const n = Number(s); if(!isFinite(n)) return NaN;
   return Math.round(n*100) * (neg?-1:1);
 }
-const toSigned = c => c ? (c<0?"-":"") + (Math.abs(c)/100).toFixed(2).replace(".",",").replace(/,00$/,"") : "";
+const toSigned = c => c ? (c<0?"-":"") + (Math.abs(c)/100).toFixed(2).replace(".",",").replace(centMode() ? /^$/ : /,00$/,"") : "";
 const accOf = e => e.account || "giro";
 const zipsOn = () => state.settings.zips !== false;
 const hasDepot = () => state.accounts.some(a=>a.kind==="depot");
@@ -1752,17 +1753,22 @@ function fmtAmountStr(v, full){
   if(full){ dec = (dec||"").padEnd(2,"0"); }
   return (neg?"-":"") + int + (dec!==null ? ","+dec : "");
 }
+const centFmt = v => { v = String(v||""); const neg = /^\s*[-−]/.test(v); const dg = v.replace(/\D/g,"").replace(/^0+/,"").slice(0,11); if(!dg) return neg ? "-" : "";
+  const c = dg.padStart(3,"0"); return (neg?"-":"") + c.slice(0,-2).replace(/\B(?=(\d{3})+(?!\d))/g,".") + "," + c.slice(-2); };
+const isAmt = inp => inp instanceof HTMLInputElement && (inp.getAttribute("inputmode")==="decimal" || inp.dataset.amt==="1");
 function prepAmountInputs(root){
   root.querySelectorAll('input[inputmode="decimal"]').forEach(inp => {
-    if(inp.dataset.fmt) return; inp.dataset.fmt = "1";
-    if(inp.value) inp.value = fmtAmountStr(inp.value, false);
+    if(inp.dataset.fmt) return; inp.dataset.fmt = "1"; inp.dataset.amt = "1";
+    if(inp.value) inp.value = fmtAmountStr(inp.value, centMode());
+    if(centMode()){ inp.setAttribute("inputmode","numeric"); if(/^0(,00)?$/.test(inp.placeholder||"")) inp.placeholder = "0,00"; }
     if(!inp.closest(".amount") && !inp.closest(".splitrow") && inp.parentElement && !inp.style.width){
       const w = document.createElement("span"); w.className = "eurin"; inp.parentElement.insertBefore(w, inp); w.appendChild(inp); w.insertAdjacentHTML("beforeend", '<i aria-hidden="true">€</i>');
     }
   });
 }
 document.addEventListener("input", e => {
-  const inp = e.target; if(!(inp instanceof HTMLInputElement) || inp.getAttribute("inputmode")!=="decimal") return;
+  const inp = e.target; if(!isAmt(inp)) return;
+  if(centMode()){ const nv = centFmt(inp.value); if(nv!==inp.value) inp.value = nv; try { inp.setSelectionRange(nv.length, nv.length); } catch(_){} return; }
   const old = inp.value, pos = inp.selectionStart ?? old.length;
   const digitsBefore = old.slice(0,pos).replace(/[^\d,]/g,"").length;
   const nv = fmtAmountStr(old, false); if(nv===old) return;
@@ -1770,8 +1776,9 @@ document.addEventListener("input", e => {
   let p = 0, n = 0; while(p < nv.length && n < digitsBefore){ if(/[\d,]/.test(nv[p])) n++; p++; }
   try { inp.setSelectionRange(p, p); } catch(_){}
 }, true);
+document.addEventListener("focusin", e => { const inp = e.target; if(isAmt(inp) && centMode()) setTimeout(()=>{ try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch(_){} }, 0); }, true);
 document.addEventListener("focusout", e => {
-  const inp = e.target; if(!(inp instanceof HTMLInputElement) || inp.getAttribute("inputmode")!=="decimal" || !inp.value || inp.value==="-") return;
+  const inp = e.target; if(!isAmt(inp) || centMode() || !inp.value || inp.value==="-") return;
   const nv = fmtAmountStr(inp.value, true); if(nv!==inp.value) inp.value = nv; // nur Anzeige, Wert bleibt gleich: kein Neuzeichnen, damit der nächste Tipp nicht verloren geht
 }, true);
 
@@ -2785,6 +2792,8 @@ function budgetSheet(){
     <div class="row"><button class="primary" id="ok">Speichern</button></div>
     <div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
       <div class="label">Funktionen</div>
+      <div class="optrow"><div><b>Beträge in Cent tippen</b><p class="hint">1800 ergibt 18,00 €, das Komma setzt die App selbst. Aus: 1800 ergibt 1.800 €.</p></div>
+        <button class="switch" id="tCent" role="switch" aria-checked="${centMode()}" aria-label="Beträge in Cent tippen"><i></i></button></div>
       <div class="optrow"><div><b>Zips</b><p class="hint">Bargeld-Umschläge mit eigenem Reiter. Ausschalten blendet sie nur aus, nichts wird gelöscht.</p></div>
         <button class="switch" id="tZips" role="switch" aria-checked="${zipsOn()}" aria-label="Zips verwenden"><i></i></button></div>
       ${zipsOn()?`<div class="optrow"><div><b>Zips mit Tagesgeld</b><p class="hint">Ein Teil eines Zips kann auf einem Tagesgeldkonto liegen, damit es Zinsen bringt. Der Zip zeigt dann Bar und Tagesgeld zusammen.</p></div>
@@ -2843,6 +2852,7 @@ function budgetSheet(){
     toast(on ? (gr.length ? "Gehaltsmonat an. Dein Gehalt bestätigst du jetzt mit „Ist da“." : "Gehaltsmonat an") : "Wieder Kalendermonat");
   };
   if($("#payDay")) $("#payDay").onchange = async e => { await save("settings","main",{...settingsData(), payday:+e.target.value}); if(!state.navMoved) state.month = curPeriod(); render(); toast("Gehaltstag: "+e.target.value+"."); };
+  $("#tCent").onclick = async e => { const on = !centMode(); e.currentTarget.setAttribute("aria-checked", String(on)); try { await save("settings","main",{...settingsData(), centInput:on}); toast(on ? "1800 ergibt jetzt 18,00 €" : "1800 ergibt jetzt 1.800 €"); } catch(_){} };
   $("#tZips").onclick = async e => { const on = !zipsOn(); e.currentTarget.setAttribute("aria-checked", String(on)); try { await save("settings","main",{...settingsData(), zips:on}); toast(on ? "Zips eingeschaltet" : "Zips ausgeblendet"); } catch(_){} };
   $("#imp").onclick = pickBackup;
   $("#snaps").onclick = snapSheet;
@@ -2857,7 +2867,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.38 (25.11.2026)";
+const APP_VERSION = "2.39 (25.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
