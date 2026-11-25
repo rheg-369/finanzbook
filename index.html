@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-TiLAz6j2w/7b0jQ+PVgaE3UV2Huf32pSDlG5YfH8Hrk='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-wm9RyhoFMRCd7bS9EebvDRQ79g1Ca78b8gS9EJj6yxA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -728,7 +728,8 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .accs li.paired{position:relative}
 .acc .a small.dep{display:block;font-family:var(--f-body);font-size:.76rem;font-weight:500;color:var(--muted);text-align:right;margin-top:3px}
 .depinfo{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--track);border-radius:16px;padding:12px 14px;font-size:.92rem}
-.depinfo span{color:var(--muted)}.depinfo small{display:block;font-size:.78rem;color:var(--muted);margin-top:2px}
+.depinfo span{color:var(--muted)}
+button.depinfo{width:100%;border:0;text-align:left;color:var(--ink)}.depv{display:flex;align-items:center;gap:6px}.depv svg{width:16px;height:16px;color:var(--muted)}.depv b{color:var(--ink)}.depinfo small{display:block;font-size:.78rem;color:var(--muted);margin-top:2px}
 .acc.dsub{padding-top:2px!important;padding-left:66px!important;border-top:0!important}
 .acc.dsub .t{font-size:.82rem;color:var(--muted);font-weight:500}
 .acc.dsub .s{font-size:.74rem}
@@ -2530,7 +2531,7 @@ function accountSheet(acc, kind, presetName, tab){
     ${isZiel?`<div><div class="label" style="margin-bottom:6px">${isEnv?"Zielbetrag (optional)":"Zielbetrag"}</div><input class="input num" id="aTarget" inputmode="decimal" placeholder="z. B. 1.500" value="${esc(toInput(acc&&acc.target||0))}" autocomplete="off"></div>`:""}
     <div><div class="label" style="margin-bottom:6px">${isEnv?"Anfangsbestand":isZiel?"Schon angespart":acc?"Aktueller Kontostand":"Anfangsbestand (heutiger Kontostand)"}</div><input class="input num" id="aBal" inputmode="decimal" placeholder="0" value="${esc(toSigned(cur))}" autocomplete="off"></div>
     <p class="sublabel">${isEnv?`Geld, das schon im Zip steckt. Zählt nicht als Ausgabe und wird nicht vom Bargeld abgezogen.${acc?` Aktuell im Zip: <b class="num">${money(balance(acc))}</b>.`:" Neues Geld kommt später mit „Befüllen“ dazu."}`:isZiel?"Weiteres Geld legst du über „Zurücklegen“ dazu.":acc?`Änderst du den Stand hier, wird der Anfangsbestand angepasst. Für Abweichungen im Alltag lieber „Kontostände prüfen“ nutzen, dann bleibt die Differenz sichtbar.`:"Ab jetzt rechnet die App den Stand mit deinen Einträgen weiter. Minus für Dispo, z. B. -250."}</p>
-    ${acc && pairOf(acc) ? (() => { const dp = pairOf(acc); return `<div class="depinfo"><div><b>Im Depot</b><small>Round-up und Sparpläne, rechnet die App selbst</small></div><b class="num">${money(balance(dp))}</b></div>`; })() : ""}
+    ${acc && (pairOf(acc) || acc.kind==="depot") ? (() => { const dp = pairOf(acc) || acc, lv = depLast(dp); return `<button class="depinfo" data-depval="${esc(dp.id)}"><div><b>${pairOf(acc)?"Im Depot":"Depotwert"}</b><small>${lv ? `Wert vom ${esc(fmtShort(lv.d))} · antippen zum Ändern` : "Antippen, um den Wert jetzt einzutragen"}</small></div><span class="depv"><b class="num">${money(depNow(dp))}</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span></button>`; })() : ""}
     ${acc && !isEnv ? (() => { const x = accBreak(acc.id); const row = (l,v,k) => `<div><span>${l}</span><b class="num ${k||""}">${v}</b></div>`;
       return `<details class="abrk2"><summary><span>So setzt sich der Stand zusammen</span><span class="achev" aria-hidden="true">›</span></summary><div class="abrk">
         ${row("Anfangsbestand", money(acc.start||0))}
@@ -2552,6 +2553,7 @@ function accountSheet(acc, kind, presetName, tab){
     <p class="warnmsg" id="aWarn" hidden></p>
     <div class="row">${acc?`<button class="danger" id="del">Löschen</button>`:""}<button class="primary" id="ok">${acc?"Speichern":"Anlegen"}</button></div></div>
   `);
+  { const dv = document.querySelector("[data-depval]"); if(dv) dv.onclick = () => depValSheet(accById(dv.dataset.depval), () => accountSheet(accById(acc.id), acc.kind, null, "e")); }
   if($("#aHist")){ let t = tab || "v"; const seg = () => { document.querySelectorAll("[data-aseg]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.aseg===t))); $("#aHist").hidden = t!=="v"; $("#aEdit").hidden = t!=="e"; };
     document.querySelector(".aseg").onclick = e => { const b = e.target.closest("[data-aseg]"); if(b){ t = b.dataset.aseg; seg(); } }; seg(); }
   const sync = () => {
@@ -3041,7 +3043,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.46 (25.11.2026)";
+const APP_VERSION = "2.47 (25.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
