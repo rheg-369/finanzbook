@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-EDMF4SWTCkm7T3nEojd4QmO4pL70w5niPzrTL06lwC4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-SLu4MOWBpZPtE1Pwjx81/yKWIgKCC1e75/yzjHGprEc='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -707,6 +707,15 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 [aria-pressed="true"] .ob-check{background:var(--accent);border-color:var(--accent);color:var(--surface)}
 [aria-pressed="true"] .ob-radio{border:7px solid var(--accent)}
 .ob-in{margin-top:14px}
+.ob-extra{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.ob-xrow{display:flex;flex-direction:column;gap:10px;border:var(--card-border);background:var(--surface);border-radius:20px;padding:12px}
+.ob-xtop{display:flex;gap:8px;align-items:center}.ob-xtop .input{flex:1;min-width:0}
+.ob-add{margin-top:14px;width:100%;border:1.5px dashed var(--line);background:none;border-radius:20px;padding:14px;font-weight:600;color:var(--ink)}
+.ob-bals{display:flex;flex-direction:column;gap:0;margin-top:22px;border:var(--card-border);background:var(--surface);border-radius:20px;overflow:hidden}
+.ob-bal{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px 10px 18px}
+.ob-bal+.ob-bal{border-top:1px solid var(--line)}
+.ob-bal span{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ob-bal input{text-align:right}.ob-eur{flex:none;display:flex;align-items:center;gap:6px;color:var(--muted)}
 .ob-note{margin:14px 2px 0;font-size:.82rem;color:var(--muted)}
 .ob-chips{display:flex;flex-wrap:wrap;gap:8px}
 .ob-themes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px}
@@ -1422,55 +1431,74 @@ function openOnboarding(fresh){
   const st = {
     acc: new Set(fresh ? ["giro","bargeld"] : ACC.filter(([k,,n])=> k==="neo" ? state.accounts.some(a=>a.kind==="konto" && a.depot) : k==="giro" ? state.accounts.some(a=>a.kind==="konto") : k==="bargeld" ? state.accounts.some(a=>a.kind==="bar") : has(new RegExp(n,"i"))).map(x=>x[0])),
     neo: "Trade Republic", bank: "", zips: fresh ? null : zipsOn(), zipSel: new Set(fresh ? ["Lebensmittel","Urlaub","Geschenke"] : []),
-    inv: fresh ? null : hasDepot(), depot: "", theme: lsGet("hhb.theme") || "auto"
+    inv: fresh ? null : hasDepot(), depot: "", theme: lsGet("hhb.theme") || "auto", extra: [], bal: {}
   };
-  const N = 4; let i = 0; let safeSnap = null;
+  const XK = [["konto","Konto"],["bar","Bargeld"],["depot","Depot"]];
+  // Geplante Konten (für Kontostände-Seite und Anlegen)
+  const plan = () => { const L = []; let o = 0;
+    ACC.forEach(([k,,n])=>{ if(!st.acc.has(k) || k==="neo") return; L.push({k, name: k==="giro" && st.bank.trim() ? st.bank.trim() : n, kind: k==="bargeld"?"bar":"konto", o:o++}); });
+    if(st.acc.has("neo")){ L.push({k:"neo", name:st.neo, kind:"konto", o:o++, depot:"neodepot"}); L.push({k:"neodepot", name:depName(st.neo), kind:"depot", o:o++}); }
+    st.extra.forEach(x=>{ if(x.name.trim()) L.push({k:x.id, name:x.name.trim().slice(0,30), kind:x.kind, o:o++}); });
+    return L; };
+  const PG = fresh ? ["w","acc","bal","zips","inv","theme"] : ["w","acc","zips","inv","theme"];
+  const N = PG.length-1, q = id => `Frage ${PG.indexOf(id)} von ${N}`;
+  let i = 0; let safeSnap = null;
   const safeHtml = () => `<div class="ob-safe"><b>Deine Daten sind noch da</b><span>Automatische Kopie vom ${esc(snapWhen(safeSnap))} mit ${safeSnap.n} Einträgen.</span><button class="ob-next" data-obsafe>Wiederherstellen</button></div>`;
   if(fresh) SAFE.best().then(x => { if(x && x.n>0){ safeSnap = x; const sf = el.querySelector("#obSafe"); if(sf) sf.innerHTML = safeHtml(); } });
   const el = document.createElement("div"); el.className = "ob"; el.setAttribute("role","dialog"); el.setAttribute("aria-modal","true"); el.setAttribute("aria-label","Einrichtung");
   document.body.appendChild(el); document.body.style.overflow = "hidden";
   const opt = (key, val, icon, title, sub) => `<button class="ob-opt" data-ob="${key}" data-v="${val}" aria-pressed="${st[key]===val}"><span class="ob-ic">${svgI(icon)}</span><span class="ob-t"><b>${title}</b><span>${sub}</span></span><span class="ob-radio"></span></button>`;
   const pages = [
-    () => `<div class="ob-hero"><p class="ob-k">Spent · Ausgaben im Überblick</p><h1 class="ob-h big">Willkommen.</h1><p class="ob-lead">Vier kurze Fragen, dann ist die App so eingerichtet, wie du sie brauchst. Alles lässt sich später ändern.</p>
+    () => `<div class="ob-hero"><p class="ob-k">Spent · Ausgaben im Überblick</p><h1 class="ob-h big">Willkommen.</h1><p class="ob-lead">Ein paar kurze Fragen, dann ist die App so eingerichtet, wie du sie brauchst. Alles lässt sich später ändern.</p>
       ${fresh?`<div id="obSafe"></div><button class="ob-restore" data-obimp>Ich habe schon eine Sicherung</button>`:""}</div>`,
-    () => `<p class="ob-k">Frage 1 von ${N}</p><h2 class="ob-h">Welche Konten nutzt du?</h2><p class="ob-lead">Mehrere möglich.</p>
+    () => `<p class="ob-k">${q("acc")}</p><h2 class="ob-h">Welche Konten nutzt du?</h2><p class="ob-lead">Mehrere möglich.</p>
       <div class="ob-list">${ACC.map(([k,ic,n,sub])=>`<button class="ob-opt" data-acc="${k}" aria-pressed="${st.acc.has(k)}"><span class="ob-ic">${svgI(ic)}</span><span class="ob-t"><b>${n}</b><span>${sub}</span></span><span class="ob-check">${svgI("check")}</span></button>`).join("")}</div>
       ${st.acc.has("neo")?`<p class="ob-k" style="margin-top:20px">Welcher Anbieter?</p><div class="ob-chips">${NEOS.map(n=>`<button class="chip" data-neo="${n}" aria-pressed="${st.neo===n}">${n}</button>`).join("")}</div>`:""}
-      ${fresh?`<input class="input ob-in" id="obBank" placeholder="Name deiner Bank (optional), z. B. Sparkasse" value="${esc(st.bank)}" autocomplete="off" ${st.acc.has("giro")?"":"hidden"}>`:`<p class="ob-note">Bestehende Konten bleiben erhalten.</p>`}`,
-    () => `<p class="ob-k">Frage 2 von ${N}</p><h2 class="ob-h">Nutzt du Bargeld&#8209;Zips?</h2><p class="ob-lead">Umschläge, in die du Bargeld für einen Zweck steckst, zum Beispiel Lebensmittel oder Urlaub.</p>
+      ${fresh?`<input class="input ob-in" id="obBank" placeholder="Name deiner Bank (optional), z. B. Sparkasse" value="${esc(st.bank)}" autocomplete="off" ${st.acc.has("giro")?"":"hidden"}>`:""}
+      ${st.extra.length?`<p class="ob-k" style="margin-top:22px">Weitere Konten</p>`:""}
+      <div class="ob-extra">${st.extra.map((x,j)=>`<div class="ob-xrow"><div class="ob-xtop"><input class="input" data-xn="${j}" value="${esc(x.name)}" placeholder="Name, z. B. Sparkonto oder Kreditkarte" autocomplete="off" aria-label="Name des Kontos"><button class="xbtn" data-xd="${j}" aria-label="Entfernen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="ob-chips">${XK.map(([k,l])=>`<button class="chip" data-xk="${j}:${k}" aria-pressed="${x.kind===k}">${l}</button>`).join("")}</div></div>`).join("")}</div>
+      <button class="ob-add" data-xadd>+ Weiteres Konto</button>
+      ${fresh?"":`<p class="ob-note">Bestehende Konten bleiben erhalten.</p>`}`,
+    ...(fresh ? [() => { const L = plan(); return `<p class="ob-k">${q("bal")}</p><h2 class="ob-h">Was ist gerade drauf?</h2><p class="ob-lead">Trag ein, was jetzt auf den Konten liegt. Leer lassen geht auch, das kannst du später unter Konten nachtragen.</p>
+      <div class="ob-bals">${L.map(p=>`<label class="ob-bal"><span>${esc(p.name)}</span><span class="ob-eur"><input class="input num" style="width:8.5em" inputmode="decimal" data-bal="${esc(p.k)}" value="${esc(toInput(st.bal[p.k]||0))}" placeholder="0,00" autocomplete="off" aria-label="Kontostand ${esc(p.name)}"> €</span></label>`).join("")}</div>`; }] : []),
+    () => `<p class="ob-k">${q("zips")}</p><h2 class="ob-h">Nutzt du Bargeld&#8209;Zips?</h2><p class="ob-lead">Umschläge, in die du Bargeld für einen Zweck steckst, zum Beispiel Lebensmittel oder Urlaub.</p>
       <div class="ob-list">${opt("zips",true,"zip","Ja, mit Zips","Bekommen einen eigenen Reiter")}${opt("zips",false,"sonstiges","Nein, ohne Zips","Lässt sich jederzeit einschalten")}</div>
       ${st.zips && fresh ? `<p class="ob-k" style="margin-top:22px">Gleich anlegen</p><div class="ob-chips">${ZIPS.map(([n,e])=>`<button class="chip" data-zs="${n}" aria-pressed="${st.zipSel.has(n)}"><i class="zi">${svgI(ZIP_SVG[e])}</i>${n}</button>`).join("")}</div>` : ""}`,
-    () => `<p class="ob-k">Frage 3 von ${N}</p><h2 class="ob-h">Investierst du?</h2><p class="ob-lead">Dann siehst du, wie viel du pro Monat und Jahr investierst, auch mit Round-up.</p>
+    () => `<p class="ob-k">${q("inv")}</p><h2 class="ob-h">Investierst du?</h2><p class="ob-lead">Dann siehst du, wie viel du pro Monat und Jahr investierst, auch mit Round-up.</p>
       <div class="ob-list">${opt("inv",true,"invest","Ja, ich habe ein Depot","Sparpläne und Einzahlungen erfassen")}${opt("inv",false,"sonstiges","Nein, erstmal nicht","Kann später dazukommen")}</div>
-      ${st.inv && st.acc.has("neo") ? `<p class="ob-note">Dein Depot bei ${esc(st.neo)} ist schon dabei.</p>` : st.inv && !hasDepot() ? `<input class="input ob-in" id="obDepot" placeholder="Name des Depots, z. B. Trade Republic" value="${esc(st.depot)}" autocomplete="off">` : ""}`,
-    () => `<p class="ob-k">Frage 4 von ${N}</p><h2 class="ob-h">Wie soll die App aussehen?</h2><p class="ob-lead">Tipp an, um es gleich zu sehen.</p>
+      ${st.inv && st.acc.has("neo") ? `<p class="ob-note">Dein Depot bei ${esc(st.neo)} ist schon dabei.</p>` : st.inv && st.extra.some(x=>x.kind==="depot" && x.name.trim()) ? `<p class="ob-note">Dein Depot ist schon dabei.</p>` : st.inv && !hasDepot() ? `<input class="input ob-in" id="obDepot" placeholder="Name des Depots, z. B. Trade Republic" value="${esc(st.depot)}" autocomplete="off">` : ""}`,
+    () => `<p class="ob-k">${q("theme")}</p><h2 class="ob-h">Wie soll die App aussehen?</h2><p class="ob-lead">Tipp an, um es gleich zu sehen.</p>
       <div class="ob-themes">${Object.entries(THEMES).map(([k,v])=>`<button data-obtheme="${k}" aria-pressed="${st.theme===k}"><i style="background:${v.sw}"></i><span>${v.n}</span></button>`).join("")}</div>`,
   ];
   const draw = () => {
     const last = i===pages.length-1;
-    const ok = i!==2 || st.zips!==null, ok2 = i!==3 || st.inv!==null, ok1 = i!==1 || st.acc.size>0 || !fresh;
+    const pid = PG[i], ok = pid!=="zips" || st.zips!==null, ok2 = pid!=="inv" || st.inv!==null, ok1 = pid!=="acc" || st.acc.size>0 || st.extra.some(x=>x.name.trim()) || !fresh;
     el.innerHTML = `<div class="ob-top">${i>0?`<button class="ob-back" data-obback aria-label="Zurück">${svgI("out")}</button>`:"<span></span>"}<div class="ob-dots">${pages.map((_,k)=>`<i class="${k===i?"on":k<i?"done":""}"></i>`).join("")}</div><button class="ob-skip" data-obskip>${fresh?"Überspringen":"Abbrechen"}</button></div>
       <div class="ob-body"><div class="ob-page">${pages[i]()}</div></div>
       <div class="ob-foot"><button class="ob-next" data-obnext ${ok&&ok1&&ok2?"":"disabled"}>${i===0?"Los geht's":last?"Fertig":"Weiter"}</button></div>`;
     const sf = el.querySelector("#obSafe"); if(sf && safeSnap) sf.innerHTML = safeHtml();
     const b = el.querySelector("#obBank"); if(b) b.oninput = e => { st.bank = e.target.value; };
     const d = el.querySelector("#obDepot"); if(d) d.oninput = e => { st.depot = e.target.value; };
+    el.querySelectorAll("[data-xn]").forEach(x => x.oninput = e => { st.extra[+e.target.dataset.xn].name = e.target.value; const nx = el.querySelector("[data-obnext]"); if(nx && fresh) nx.disabled = !(st.acc.size>0 || st.extra.some(y=>y.name.trim())); });
+    prepAmountInputs(el);
+    el.querySelectorAll("[data-bal]").forEach(x => x.oninput = e => { const v = parseAmount(e.target.value); st.bal[e.target.dataset.bal] = isNaN(v) ? 0 : v; });
   };
   const close = () => { el.classList.add("out"); document.body.style.overflow = ""; setTimeout(()=>el.remove(), 260); };
   const finish = async () => {
     const accs = local.read("accounts"); const ents = Object.keys(local.read("entries")).length;
     const make = (k,n,kind,o) => ({name:n, kind, start:0, order:o});
     if(fresh && !ents){
-      const nw = {}; let o = 0;
-      ACC.forEach(([k,,n])=>{ if(!st.acc.has(k) || k==="neo") return; nw[k] = make(k, k==="giro" && st.bank.trim() ? st.bank.trim() : n, k==="bargeld"?"bar":"konto", o++); });
-      if(st.acc.has("neo")){ nw.neo = {...make("neo", st.neo, "konto", o++), depot:"neodepot"}; nw.neodepot = make("neodepot", depName(st.neo), "depot", o++); }
+      const nw = {}; const L = plan();
+      L.forEach(p => { nw[p.k] = {...make(p.k, p.name, p.kind, p.o), start: st.bal[p.k]||0, ...(p.depot?{depot:p.depot}:{})}; });
       if(!Object.keys(nw).length) nw.giro = make("giro","Girokonto","konto",0);
-      if(st.inv && !st.acc.has("neo")) nw.depot = make("depot", st.depot.trim() || "Depot", "depot", 10);
+      if(st.inv && !L.some(p=>p.kind==="depot")) nw.depot = make("depot", st.depot.trim() || "Depot", "depot", 10);
       if(st.zips) [...st.zipSel].forEach((n,k)=>{ const e = (ZIPS.find(z=>z[0]===n)||[])[1]; nw["z"+k+newId()] = {name:n, kind:"umschlag", start:0, order:20+k, ...(e?{icon:e}:{})}; });
       local.write("accounts", nw);
     } else {
       if(st.acc.has("neo") && !Object.values(accs).some(a=>a.kind==="konto" && (a.name||"").toLowerCase()===st.neo.toLowerCase())){ const did = "depot"+newId(); accs[did] = make("", depName(st.neo), "depot", 9.5); accs["neo"+newId()] = {...make("", st.neo, "konto", 9), depot:did}; }
       ACC.forEach(([k,,n],o)=>{ if(!st.acc.has(k) || k==="neo") return; const exists = k==="giro" ? Object.values(accs).some(a=>a.kind==="konto") : k==="bargeld" ? Object.values(accs).some(a=>a.kind==="bar") : Object.values(accs).some(a=>new RegExp(n,"i").test(a.name||"")); if(!exists) accs[k+newId()] = make(k,n,k==="bargeld"?"bar":"konto",o); });
+      st.extra.forEach((x,j)=>{ if(x.name.trim()) accs[x.id] = make("", x.name.trim().slice(0,30), x.kind, 30+j); });
       if(st.inv && !st.acc.has("neo") && !Object.values(accs).some(a=>a.kind==="depot")) accs["depot"+newId()] = make("depot", st.depot.trim() || "Depot", "depot", 10);
       local.write("accounts", accs);
     }
@@ -1478,7 +1506,7 @@ function openOnboarding(fresh){
     await save("settings","main",{...settingsData(), zips: !!st.zips});
     { const all = local.read("accounts"), k0 = Object.keys(all)[0]; if(k0) await store.set("accounts", k0, all[k0]); }
     state.tab = st.zips ? "sips" : "monat"; close(); render();
-    toast(fresh ? "Fertig eingerichtet. Startbestände trägst du unter Konten ein." : "Einstellungen übernommen");
+    toast(fresh ? (Object.values(st.bal).some(Boolean) ? "Fertig eingerichtet" : "Fertig eingerichtet. Kontostände trägst du unter Konten ein.") : "Einstellungen übernommen");
   };
   el.addEventListener("click", e => {
     const t = e.target;
@@ -1487,6 +1515,9 @@ function openOnboarding(fresh){
     if(t.closest("[data-obsafe]")){ if(safeSnap) SAFE.restore(safeSnap); return; }
     if(t.closest("[data-obback]")){ i = Math.max(0,i-1); draw(); return; }
     if(t.closest("[data-obnext]")){ if(i===pages.length-1) finish(); else { i++; draw(); } return; }
+    if(t.closest("[data-xadd]")){ st.extra.push({id:"a"+newId(), name:"", kind:"konto"}); draw(); const ins = el.querySelectorAll("[data-xn]"); if(ins.length) ins[ins.length-1].focus(); return; }
+    const xd = t.closest("[data-xd]"); if(xd){ st.extra.splice(+xd.dataset.xd,1); draw(); return; }
+    const xk = t.closest("[data-xk]"); if(xk){ const [j,k] = xk.dataset.xk.split(":"); st.extra[+j].kind = k; if(k==="depot") st.inv = true; draw(); return; }
     const a = t.closest("[data-acc]"); if(a){ const k = a.dataset.acc; st.acc.has(k) ? st.acc.delete(k) : st.acc.add(k); if(k==="neo" && st.acc.has(k)) st.inv = true; draw(); return; }
     const o = t.closest("[data-ob]"); if(o){ st[o.dataset.ob] = o.dataset.v==="true"; draw(); return; }
     const nb = t.closest("[data-neo]"); if(nb){ st.neo = nb.dataset.neo; st.inv = true; draw(); return; }
@@ -2929,7 +2960,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.44 (25.11.2026)";
+const APP_VERSION = "2.45 (25.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
