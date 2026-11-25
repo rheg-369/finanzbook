@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-dI2L7VmwGB2wVAs86cII9872FFei8tF9APQ2U+igFCY='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-qiNvFCiojzVBgNd8HZGKCXiVThULUf7vkZuJoLrzakk='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -2164,7 +2164,6 @@ function renderSips(){
   let html = reminderHtml() + `<div class="hero">
     <div><div class="label">In allen Zips</div><div class="big num">${inEnv<0?"−":""}${esc(whole)}<span class="cents">,${esc(cents)} €</span></div>${inTg?`<div class="asub">davon bar <b class="num">${money(inEnv-inTg)}</b> · Tagesgeld <b class="num">${money(inTg)}</b></div>`:""}</div>
     <div class="trio">
-      <div><div class="label">Ohne Zip</div><div class="v num ${free<0?"neg":""}">${money(free)}</div></div>
       <div><div class="label">${MON[Number(m.slice(5))-1]} rein</div><div class="v num pos">${money(tot.inn)}</div></div>
       <div><div class="label">${MON[Number(m.slice(5))-1]} raus</div><div class="v num">${money(tot.out)}</div></div>
     </div>
@@ -2899,7 +2898,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.41 (25.11.2026)";
+const APP_VERSION = "2.42 (25.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
