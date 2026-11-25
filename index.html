@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-LlUaFoyUmj2rvuszCqAclb0yw5W/HkllusXQDFChjtI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-7nggH5jzq6s5gHQEvDNNTkNIHZ746hCujpitr5uRCv4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -701,17 +701,6 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .ob-next{width:100%;border:0;border-radius:999px;padding:17px;font-size:1.02rem;font-weight:600;letter-spacing:.01em;background:linear-gradient(160deg,var(--hero1),var(--hero2));color:#fbf8f1;box-shadow:0 14px 30px -12px color-mix(in srgb,var(--hero2) 80%,transparent)}
 .ob-next:disabled{opacity:.4;box-shadow:none}
 .accs li.paired{position:relative}
-.h2acts{display:flex;gap:16px;align-items:center}
-.sorthint{margin:-2px 2px 8px}
-.accs.sorting{overflow:visible}
-.accs.sorting li{position:relative;background:var(--surface);border-radius:20px;transition:box-shadow .15s}
-.accs.sorting li:not(:last-child) .acc{border-bottom:1px solid var(--line)}
-.accs.sorting .acc{cursor:default;padding-right:6px!important}
-.grip{flex:none;width:44px;height:44px;margin:-8px -4px -8px 2px;border:0;border-radius:12px;background:none;color:var(--muted);display:grid;place-items:center;padding:0;touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none}
-.grip svg{width:22px;height:22px}
-.accs li.dragging{z-index:3;box-shadow:0 12px 30px rgba(0,0,0,.28);transition:none}
-.accs li.dragging .acc{border-bottom-color:transparent}
-.accs li.dragging .grip{cursor:grabbing;color:var(--accent)}
 .acc .a small.dep{display:block;font-family:var(--f-body);font-size:.76rem;font-weight:500;color:var(--muted);text-align:right;margin-top:3px}
 .depinfo{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--track);border-radius:16px;padding:12px 14px;font-size:.92rem}
 .depinfo span{color:var(--muted)}.depinfo small{display:block;font-size:.78rem;color:var(--muted);margin-top:2px}
@@ -944,11 +933,6 @@ function movement(id){
   return m;
 }
 const balance = a => (a.start||0) + movement(a.id);
-// Noch verfügbar aus Kontoständen: welche Konten zählen mit (Standard: Girokonten, Kreditkarten, Bargeld)
-const balMode = () => !!(state.settings||{}).availBal;
-const availCand = () => konten().filter(a=>a.kind!=="depot");
-const availAccs = () => { const sel = (state.settings||{}).availAccs; return availCand().filter(a => Array.isArray(sel) ? sel.includes(a.id) : (a.kind==="bar" || (a.kind==="konto" && !a.tg && !a.depot))); };
-const availBal = () => availAccs().reduce((s,a)=>s+balance(a),0);
 function accBreak(id){
   const r = {inn:0, out:0, tin:0, tout:0, ru:0, n:0};
   for(const e of state.entries){
@@ -1471,7 +1455,6 @@ function availNow(){
   const m = curPeriod(), ents = state.entries.filter(e=>inPer(e.date, m) && !isKorr(e));
   const earned = ents.filter(e=>e.type==="in" && !isSb(e)).reduce((s,e)=>s+e.amount,0), spent = ents.filter(e=>e.type==="out").reduce((s,e)=>s+e.amount,0);
   const pend = pendingRecs(m).reduce((s,x)=>s+x.r.amount,0);
-  if(balMode()) return availBal() - pend;
   return earned - spent - investedYear(d=>inPer(d,m)).total - pend;
 }
 function forecastHtml(m){
@@ -1519,24 +1502,24 @@ function pendingRecs(m){
 function availHtml(m, earned, spent, invM){
   const cur = m===curPeriod(), pend = cur ? pendingRecs(m) : [];
   const pFix = pend.filter(x=>!x.inv).reduce((s,x)=>s+x.r.amount,0), pInv = pend.filter(x=>x.inv).reduce((s,x)=>s+x.r.amount,0);
-  const bm = cur && balMode(), accs = bm ? availAccs() : [];
-  const v = bm ? availBal() - pFix - pInv : earned - spent - invM - pFix - pInv;
+  const v = earned - spent - invM - pFix - pInv;
   const sg = n => (n<0?"−":"")+money(Math.abs(n));
   const [w,c] = sg(v).replace(/\s?€/,"").split(",");
   const daysLeft = cur ? perDaysLeft(m) : 0;
   const rows = [["Einnahmen", "+"+money(earned), "pos"], ["Ausgaben", "−"+money(spent)]]; if(hasDepot()||invM) rows.push(["Investiert", "−"+money(invM)]);
-  if(bm){ rows.length = 0; accs.forEach(a => { const b = balance(a); rows.push([esc(a.name), (b<0?"−":"")+money(Math.abs(b)), b<0?"":"pos"]); }); if(!accs.length) rows.push(["Kein Konto ausgewählt", money(0)]); }
   if(cur){ rows.push(["Noch fällige Fixkosten", "−"+money(pFix)]); if(pInv) rows.push(["Noch fällige Sparpläne", "−"+money(pInv)]); }
   const list = pend.map(x=>`<div class="pl"><span>${esc(fmtShort(x.d))} · ${esc(x.r.name || (x.inv?"Sparplan":(catById(x.r.cat)||{}).name||"Dauerauftrag"))}</span><span class="num">−${money(x.r.amount)}</span></div>`).join("");
   return `<details class="avail"><summary>
       <div><div class="label">${PD() ? (cur ? "Noch verfügbar bis "+esc(fmtShort(periodRange(m).to)) : "Übrig · "+esc(perLabel(m))) : cur?"Noch verfügbar im "+esc(monthName(m).split(" ")[0]):"Übrig im "+esc(monthName(m).split(" ")[0])}</div>
         <div class="abig num ${v<0?"neg":""}">${esc(w)}<span class="cents">,${esc(c)} €</span></div>
         ${cur && v>0 && daysLeft>0 ? `<div class="asub">≈ <b class="num">${money(Math.floor(v/daysLeft))}</b> pro Tag · noch ${daysLeft===1?"heute":daysLeft+" Tage"}</div>` : cur && v<0 ? `<div class="asub">Mehr ausgegeben als reingekommen</div>` : ""}
+        ${cur && ccOpen().length ? `<div class="asub">Kreditkarte: <b class="num">${money(ccOpen().reduce((s,x)=>s+x.open,0))}</b> gehen am ${esc(fmtShort(ccOpen()[0].d))} vom ${esc(accName(ccOpen()[0].a.cc.from))} ab</div>` : ""}
       </div><span class="achev" aria-hidden="true">›</span></summary>
     <div class="abrk">${rows.map(([a,b,k])=>`<div><span>${a}</span><b class="num ${k||""}">${b}</b></div>`).join("")}
       <div class="atot"><span>${cur?"Noch verfügbar":"Übrig"}</span><b class="num">${sg(v)}</b></div>
       ${list ? `<div class="label" style="margin-top:6px">Kommt diesen Monat noch</div>${list}` : ""}
-      ${bm ? `<p class="hint">Aktueller Stand der ausgewählten Konten, abzüglich der Daueraufträge, die ${PD()?"bis zum nächsten Gehalt":"diesen Monat"} noch abgebucht werden. Welche Konten zählen, stellst du in den Einstellungen ein.</p>` : cur ? `<p class="hint">Einnahmen minus Ausgaben und Investiertes, abzüglich der Daueraufträge, die ${PD()?"bis zum nächsten Gehalt":"diesen Monat"} noch abgebucht werden.${PD()?` Gehaltsmonat ${esc(perLabel(m))}.`:""}</p>` : ""}
+      ${cur && ccOpen().length ? `<div class="label" style="margin-top:6px">Kreditkarte</div>${ccOpen().map(x=>`<div class="pl"><span>${esc(fmtShort(x.d))} · ${esc(x.a.name)} → ${esc(accName(x.a.cc.from))}</span><span class="num">${money(x.open)}</span></div>`).join("")}<p class="hint" style="margin:2px 0 0">Schon bei den Ausgaben mitgezählt. Wird nur noch vom Konto abgebucht.</p>` : ""}
+      ${cur ? `<p class="hint">Einnahmen minus Ausgaben und Investiertes, abzüglich der Daueraufträge, die ${PD()?"bis zum nächsten Gehalt":"diesen Monat"} noch abgebucht werden.${PD()?` Gehaltsmonat ${esc(perLabel(m))}.`:""}</p>` : ""}
     </div></details>`;
 }
 
@@ -2042,14 +2025,12 @@ function renderKonten(){
       ${ks.some(a=>a.kind==="depot")?`<button id="invest">${svgI("invest")}Investieren</button>`:""}
       <button id="checkAcc">${svgI("check")}Prüfen</button>
     </div>`;
-  const SO = !!state.sortAcc, kl = ks.filter(a=>!(a.kind==="depot" && isPairedDepot(a.id)));
-  const T = SO ? "div" : "button", DA = id => SO ? "" : ` data-account="${esc(id)}"`;
-  const GR = a => SO ? `<button class="grip" data-grip="${esc(a.id)}" aria-label="${esc(a.name)} verschieben" title="Ziehen oder Pfeiltasten"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 8h14M5 12h14M5 16h14"/></svg></button>` : "";
-  html += `<section><h2><span>Konten</span><span class="h2acts">${kl.length>1?`<button class="linkbtn" id="sortKonto">${SO?"Fertig":"Sortieren"}</button>`:""}${SO?"":`<button class="linkbtn" id="addKonto">+ Neu</button>`}</span></h2>${SO?`<p class="hint sorthint">Halte den Griff rechts gedrückt und schieb das Konto an die gewünschte Stelle.</p>`:""}<ul class="accs${SO?" sorting":""}" id="accList">${kl.map(a => {
+  html += `<section><h2><span>Konten</span><button class="linkbtn" id="addKonto">+ Neu</button></h2><ul class="accs">${ks.filter(a=>!(a.kind==="depot" && isPairedDepot(a.id))).map(a => {
     const b = balance(a), dp = pairOf(a);
-    const extra = a.cc && a.cc.from ? `${b<0?`offen ${money(-b)} · `:""}Abbuchung ${fmtShort(ccNext(a))} von ${esc(accName(a.cc.from))}` : `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.roundupTo&&a.roundupTo!==a.depot?` → ${esc(accName(a.roundupTo))}`:""}`;
-    if(dp) return `<li data-sid="${esc(a.id)}"><${T} class="acc"${DA(a.id)}><span class="badge" style="--bc:var(--c4)" aria-hidden="true">${svgI("invest")}</span><span class="mid"><div class="t">${esc(a.name)}</div><div class="s">Konto &amp; Depot${extra?" · "+extra:""}</div></span><span class="a num ${b<0?"neg":""}">${money(b)}<small class="dep">im Depot ${money(balance(dp))}</small></span>${GR(a)}</${T}></li>`;
-    return `<li class="${dp?"paired":""}" data-sid="${esc(a.id)}"><${T} class="acc"${DA(a.id)}><span class="badge" style="--bc:var(${a.kind==="depot"||dp?"--c4":a.kind==="bar"?"--c3":a.cc?"--c6":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":dp?"invest":a.cc?"card":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span>${GR(a)}</${T}>${dp?`<button class="acc dsub" data-account="${esc(dp.id)}"><span class="mid"><div class="t">Depot</div><div class="s">${esc(dp.name)}</div></span><span class="a num">${money(balance(dp))}</span></button>`:""}</li>`;
+    const cco = ccOpen(a.id), ccSum = cco.reduce((s,x)=>s+x.open,0);
+    const extra = ccSum ? `nach Kreditkarte <b class="num">${money(b - ccSum)}</b> (am ${fmtShort(cco[0].d)})` : a.cc && a.cc.from ? `${b<0?`offen ${money(-b)} · `:""}Abbuchung ${fmtShort(ccNext(a))} von ${esc(accName(a.cc.from))}` : `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.roundupTo&&a.roundupTo!==a.depot?` → ${esc(accName(a.roundupTo))}`:""}`;
+    if(dp) return `<li><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(--c4)" aria-hidden="true">${svgI("invest")}</span><span class="mid"><div class="t">${esc(a.name)}</div><div class="s">Konto &amp; Depot${extra?" · "+extra:""}</div></span><span class="a num ${b<0?"neg":""}">${money(b)}<small class="dep">im Depot ${money(balance(dp))}</small></span></button></li>`;
+    return `<li class="${dp?"paired":""}"><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(${a.kind==="depot"||dp?"--c4":a.kind==="bar"?"--c3":a.cc?"--c6":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":dp?"invest":a.cc?"card":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button>${dp?`<button class="acc dsub" data-account="${esc(dp.id)}"><span class="mid"><div class="t">Depot</div><div class="s">${esc(dp.name)}</div></span><span class="a num">${money(balance(dp))}</span></button>`:""}</li>`;
   }).join("")}</ul></section>`;
 
   if(ks.some(a=>a.kind==="depot")){
@@ -2346,6 +2327,7 @@ function accHistHtml(acc){
     depTxt = [mn?money(mn)+" eingezahlt":"", r?money(r)+" Round-up":"", dp.start?money(dp.start)+" Startwert":""].filter(Boolean).join(" + "); }
   const b = balance(acc), [w,c] = money(Math.abs(b)).replace(/\s?€/,"").split(",");
   let html = `<div class="ahero"><div class="label">Kontostand</div><div class="big num ${b<0?"neg":""}">${b<0?"−":""}${esc(w)}<span class="cents">,${esc(c)} €</span></div>
+    ${(()=>{ const o = ccOpen(acc.id), sm = o.reduce((s,x)=>s+x.open,0); return sm ? `<div class="asub">Nach Kreditkarten-Abbuchung am <b>${esc(fmtShort(o[0].d))}</b>: <b class="num">${money(b - sm)}</b><br><small>${o.map(x=>`${esc(x.a.name)} offen ${money(x.open)}`).join(" · ")}</small></div>` : ""; })()}
     ${acc.cc && acc.cc.from ? `<div class="asub">${b<0?`Offen <b class="num">${money(-b)}</b> · wird am <b>${esc(fmtShort(ccNext(acc)))}</b> von ${esc(accName(acc.cc.from))} abgebucht`:`Nichts offen · nächste Abrechnung am ${esc(fmtShort(ccNext(acc)))}`}</div>` : ""}
     ${dp?`<div class="asub">im Depot <b class="num">${money(balance(dp))}</b>${depTxt?`<br><small>${esc(depTxt)}</small>`:""}</div>`:""}
     <div class="ahrows"><div class="label" style="margin-bottom:2px">${esc(monthName(m).split(" ")[0])} auf diesem Konto</div>${parts.length ? parts.map(([l,v,g])=>`<div><span>${l}</span><b class="num ${g==="+"?"pos":""}">${g==="±"?(v<0?"−":"+"):g}${money(Math.abs(v))}</b></div>`).join("") + `<div class="atot"><span>Zusammen</span><b class="num">${net<0?"−":"+"}${money(Math.abs(net))}</b></div>` : `<div><span>Noch nichts gebucht</span></div>`}</div></div>`;
@@ -2479,6 +2461,8 @@ let recRunning = false;
 const ccDate = (m, day) => { const [y,mo] = m.split("-").map(Number), last = new Date(y,mo,0).getDate(); return m+"-"+pad(!day || day>last ? last : day); };
 const ccNext = a => { const t = iso(new Date()); let m = t.slice(0,7); for(let i=0;i<3;i++){ const d = ccDate(m, a.cc.day); if(d >= t && (!a.cc.last || d > a.cc.last)) return d; m = shiftMonth(m,1); } return ccDate(m, a.cc.day); };
 const balAt = (a, d) => (a.start||0) + state.entries.reduce((s,e)=> (e.date||"") > d ? s : e.type==="transfer" ? s + (e.to===a.id?e.amount:0) - (e.from===a.id?e.amount:0) : accOf(e)===a.id ? s + (e.type==="in"?e.amount:-e.amount) : s, 0);
+// Offene Kreditkartenbeträge, die noch von einem Konto abgebucht werden
+const ccOpen = fromId => state.accounts.filter(a=>a.kind==="konto" && a.cc && a.cc.from && (!fromId || a.cc.from===fromId)).map(a=>({a, open: Math.max(0, -balance(a)), d: ccNext(a)})).filter(x=>x.open>0);
 let ccRunning = false;
 async function runCards(){
   if(ccRunning || !state.ready) return; ccRunning = true;
@@ -2773,9 +2757,6 @@ function budgetSheet(){
         <button class="switch" id="tPay" role="switch" aria-checked="${!!PD()}" aria-label="Monat beginnt am Gehaltstag"><i></i></button></div>
       ${PD()?`<div style="display:flex;align-items:center;gap:10px"><span class="hint" style="color:var(--ink)">Gehalt kommt um den</span><select class="input" id="payDay" style="width:5.5em" aria-label="Gehaltstag">${Array.from({length:27},(_,i)=>i+2).map(n=>`<option value="${n}" ${n===PD()?"selected":""}>${n}.</option>`).join("")}</select></div>
       <p class="sublabel" style="margin:0">Kommt das Gehalt ein paar Tage früher oder später, verschiebt sich der Monat einfach mit.</p>`:""}
-      <div class="optrow"><div><b>Kontostände bei „Noch verfügbar“</b><p class="hint">An: rechnet mit dem Geld, das auf den gewählten Konten liegt, minus noch fällige Fixkosten. Aus: nur Einnahmen minus Ausgaben dieses Monats.</p></div>
-        <button class="switch" id="tBal" role="switch" aria-checked="${balMode()}" aria-label="Kontostände bei Noch verfügbar mitzählen"><i></i></button></div>
-      ${balMode()?`<div><div class="sublabel" style="margin:0 0 6px">Diese Konten zählen mit:</div><div class="chips" id="avAccs">${availCand().map(a=>`<button class="chip" data-avacc="${esc(a.id)}" aria-pressed="${availAccs().some(x=>x.id===a.id)}">${esc(a.name)}</button>`).join("")}</div></div>`:""}
     </div>
     <div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
       <div class="label">Jahresrückblick</div>
@@ -2815,18 +2796,6 @@ function budgetSheet(){
       else { await save("accounts", newId(), {name:"Tagesgeld", kind:"konto", tg:true, start:0, order:Date.now()}); toast("Konto „Tagesgeld“ angelegt. Kontostand trägst du unter Konten ein."); }
     } else toast(on ? "Zips mit Tagesgeld an" : "Tagesgeld bei Zips ausgeblendet");
   };
-  $("#tBal").onclick = async () => {
-    const on = !balMode();
-    try { await save("settings","main",{...settingsData(), availBal:on}); } catch(_){ return; }
-    const sc = $("#sheet").scrollTop; budgetSheet(); $("#sheet").scrollTop = sc;
-    toast(on ? "Noch verfügbar rechnet jetzt mit Kontoständen" : "Noch verfügbar rechnet wieder mit Einnahmen und Ausgaben");
-  };
-  if($("#avAccs")) $("#avAccs").onclick = async e => {
-    const b = e.target.closest("[data-avacc]"); if(!b) return;
-    const ids = new Set(availAccs().map(a=>a.id)); ids.has(b.dataset.avacc) ? ids.delete(b.dataset.avacc) : ids.add(b.dataset.avacc);
-    b.setAttribute("aria-pressed", String(ids.has(b.dataset.avacc)));
-    try { await save("settings","main",{...settingsData(), availAccs:[...ids]}); } catch(_){}
-  };
   $("#tPay").onclick = async () => {
     const on = !PD(), gr = state.recurring.filter(r=>r.type==="in" && r.cat==="gehalt");
     const day = on ? (gr[0] ? Math.min(28, Math.max(2, Number(gr[0].start.slice(8,10)))) : 25) : 0;
@@ -2850,65 +2819,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-// ---- Konten sortieren: Griff gedrückt halten und schieben, oder Pfeiltasten ----
-async function saveAccOrder(){
-  const ul = $("#accList"); if(!ul) return;
-  const ids = [...ul.children].map(li=>li.dataset.sid);
-  const jobs = [];
-  ids.forEach((id,i) => {
-    const a = accById(id); if(!a) return;
-    if(a.order!==i){ const {id:_, ...d} = a; jobs.push(save("accounts", id, {...d, order:i})); }
-    const dp = pairOf(a);
-    if(dp && dp.order!==i+0.5){ const {id:_, ...d} = dp; jobs.push(save("accounts", dp.id, {...d, order:i+0.5})); }
-  });
-  try { await Promise.all(jobs); } catch(e){}
-  render();
-}
-let accDrag = null;
-document.addEventListener("pointerdown", e => {
-  const g = e.target.closest(".grip"); if(!g) return;
-  const li = g.closest("li"); if(!li) return;
-  e.preventDefault();
-  try { g.setPointerCapture(e.pointerId); } catch(_){}
-  accDrag = {li, g, y:e.clientY, pid:e.pointerId, moved:false};
-  li.classList.add("dragging");
-  try { navigator.vibrate && navigator.vibrate(10); } catch(_){}
-});
-document.addEventListener("pointermove", e => {
-  const d = accDrag; if(!d || e.pointerId!==d.pid) return;
-  e.preventDefault();
-  const ul = d.li.parentElement;
-  let dy = e.clientY - d.y, guard = 20;
-  while(guard--){
-    const nx = d.li.nextElementSibling, pv = d.li.previousElementSibling;
-    if(nx && dy > nx.offsetHeight/2){ ul.insertBefore(nx, d.li); d.y += nx.offsetHeight; d.moved = true; }
-    else if(pv && dy < -pv.offsetHeight/2){ ul.insertBefore(d.li, pv); d.y -= pv.offsetHeight; d.moved = true; }
-    else break;
-    dy = e.clientY - d.y;
-  }
-  d.li.style.transform = `translateY(${dy}px)`;
-  const vh = window.innerHeight;
-  if(e.clientY < 90) window.scrollBy(0,-8); else if(e.clientY > vh-110) window.scrollBy(0,8);
-}, {passive:false});
-const endAccDrag = e => {
-  const d = accDrag; if(!d || (e && e.pointerId!==d.pid)) return;
-  accDrag = null;
-  d.li.classList.remove("dragging"); d.li.style.transform = "";
-  if(d.moved) saveAccOrder();
-};
-document.addEventListener("pointerup", endAccDrag);
-document.addEventListener("pointercancel", endAccDrag);
-document.addEventListener("keydown", e => {
-  const g = e.target.closest && e.target.closest(".grip"); if(!g || (e.key!=="ArrowUp" && e.key!=="ArrowDown")) return;
-  e.preventDefault();
-  const li = g.closest("li"), ul = li.parentElement;
-  if(e.key==="ArrowUp" && li.previousElementSibling) ul.insertBefore(li, li.previousElementSibling);
-  else if(e.key==="ArrowDown" && li.nextElementSibling) ul.insertBefore(li.nextElementSibling, li);
-  else return;
-  const id = g.dataset.grip;
-  saveAccOrder().then(()=>{ const ng = document.querySelector(`.grip[data-grip="${CSS.escape(id)}"]`); if(ng) ng.focus(); });
-});
-const APP_VERSION = "2.36 (24.11.2026)";
+const APP_VERSION = "2.35 (25.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -3311,13 +3222,12 @@ document.addEventListener("click", e => {
   if(e.target.closest("#backupNow")){ exportBackup(); return; }
   if(e.target.closest("#impBtn")){ pickBackup(); return; }
   const tb = e.target.closest("#tabs [data-tab]");
-  if(tb){ state.tab = tb.dataset.tab; state.sortAcc = false; try{ localStorage.setItem("hhb.tab", state.tab); }catch(_){} render(); window.scrollTo({top:0}); try { if(!matchMedia("(prefers-reduced-motion: reduce)").matches) $("#main").animate([{opacity:0, transform:"translateY(8px)"},{opacity:1, transform:"none"}], {duration:220, easing:"ease-out"}); } catch(_){} return; }
+  if(tb){ state.tab = tb.dataset.tab; try{ localStorage.setItem("hhb.tab", state.tab); }catch(_){} render(); window.scrollTo({top:0}); try { if(!matchMedia("(prefers-reduced-motion: reduce)").matches) $("#main").animate([{opacity:0, transform:"translateY(8px)"},{opacity:1, transform:"none"}], {duration:220, easing:"ease-out"}); } catch(_){} return; }
   const ac = e.target.closest("[data-account]");
   if(ac){ const a = accById(ac.dataset.account); if(a) accountSheet(a); return; }
   const pt = e.target.closest("[data-put]");
   if(pt){ const k = konten().find(a=>a.id!==pt.dataset.put); entrySheet(null, {type:"transfer", to:pt.dataset.put, from:k?k.id:null, note:""}); return; }
   if(e.target.closest("#addKonto")){ accountSheet(null,"konto"); return; }
-  if(e.target.closest("#sortKonto")){ state.sortAcc = !state.sortAcc; render(); return; }
   if(e.target.closest("#addZiel")){ accountSheet(null,"ziel"); return; }
   if(e.target.closest("#addEnv2")){ accountSheet(null,"umschlag"); return; }
   if(e.target.closest("#addEnv")){ accountSheet(null,"umschlag"); return; }
