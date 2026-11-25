@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-Op6dmzhiY0BStRauNEP7FppcB9IAEPdf3tFMp874I+E='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-u1zUkuvhyNoBWMADXUBIOSi4Rhq73I8bd21lqoR0Q0s='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -293,7 +293,7 @@ header{padding-block:10px 8px}
 .avail[open] .achev{transform:rotate(90deg)}
 .avail .abrk{display:flex;flex-direction:column;gap:6px;margin-top:12px;font-size:.9rem;background:rgba(0,0,0,.14);border-radius:14px;padding:12px}
 .avail .abrk>div{display:flex;justify-content:space-between;gap:10px}
-.avail .abrk span{opacity:.85}
+.avail .abrk span{opacity:.85}.avail .abrk small{opacity:.7;font-size:.8em}
 .avail .atot{border-top:1px solid rgba(255,255,255,.22);padding-top:6px;font-weight:700}
 .avail .atot span{opacity:1}
 .avail .pl{font-size:.85rem}
@@ -1508,24 +1508,27 @@ function pendingRecs(m){
 function availHtml(m, earned, spent, invM){
   const cur = m===curPeriod(), pend = cur ? pendingRecs(m) : [];
   const pFix = pend.filter(x=>!x.inv).reduce((s,x)=>s+x.r.amount,0), pInv = pend.filter(x=>x.inv).reduce((s,x)=>s+x.r.amount,0);
-  const v = earned - spent - invM - pFix - pInv;
+  const fm = cur ? freeMoney() : null, live = !!(fm && fm.rows.length);
+  // Aktueller Zeitraum: echtes Geld auf Alltagskonten + freies Bargeld, minus was bis zum Gehalt noch abgeht
+  const v = live ? fm.total - pFix - pInv : earned - spent - invM - pFix - pInv;
   const sg = n => (n<0?"−":"")+money(Math.abs(n));
   const [w,c] = sg(v).replace(/\s?€/,"").split(",");
   const daysLeft = cur ? perDaysLeft(m) : 0;
-  const rows = [["Einnahmen", "+"+money(earned), "pos"], ["Ausgaben", "−"+money(spent)]]; if(hasDepot()||invM) rows.push(["Investiert", "−"+money(invM)]);
-  if(cur){ rows.push(["Noch fällige Fixkosten", "−"+money(pFix)]); if(pInv) rows.push(["Noch fällige Sparpläne", "−"+money(pInv)]); }
+  const rows = live ? fm.rows.map(x=>[esc(x.a.name)+(x.cc?` <small>nach Kreditkarte</small>`:x.a.kind==="bar"&&umschlaege().length?` <small>ohne Zips</small>`:""), (x.v<0?"−":"")+money(Math.abs(x.v)), ""])
+    : [["Einnahmen", "+"+money(earned), "pos"], ["Ausgaben", "−"+money(spent)]]; if(!live && (hasDepot()||invM)) rows.push(["Investiert", "−"+money(invM)]);
+  if(cur){ if(pFix || !live) rows.push(["Noch fällige Fixkosten", "−"+money(pFix)]); if(pInv) rows.push(["Noch fällige Sparpläne", "−"+money(pInv)]); }
   const list = pend.map(x=>`<div class="pl"><span>${esc(fmtShort(x.d))} · ${esc(x.r.name || (x.inv?"Sparplan":(catById(x.r.cat)||{}).name||"Dauerauftrag"))}</span><span class="num">−${money(x.r.amount)}</span></div>`).join("");
   return `<details class="avail"><summary>
       <div><div class="label">${PD() ? (cur ? "Noch verfügbar bis "+esc(fmtShort(periodRange(m).to)) : "Übrig · "+esc(perLabel(m))) : cur?"Noch verfügbar im "+esc(monthName(m).split(" ")[0]):"Übrig im "+esc(monthName(m).split(" ")[0])}</div>
         <div class="abig num ${v<0?"neg":""}">${esc(w)}<span class="cents">,${esc(c)} €</span></div>
-        ${cur && v>0 && daysLeft>0 ? `<div class="asub">≈ <b class="num">${money(Math.floor(v/daysLeft))}</b> pro Tag · noch ${daysLeft===1?"heute":daysLeft+" Tage"}</div>` : cur && v<0 ? `<div class="asub">Mehr ausgegeben als reingekommen</div>` : ""}
+        ${cur && v>0 && daysLeft>0 ? `<div class="asub">≈ <b class="num">${money(Math.floor(v/daysLeft))}</b> pro Tag · noch ${daysLeft===1?"heute":daysLeft+" Tage"}</div>` : cur && v<0 ? `<div class="asub">${live?"Weniger auf den Konten als noch abgeht":"Mehr ausgegeben als reingekommen"}</div>` : ""}
         ${cur && ccOpen().length ? `<div class="asub">Kreditkarte: <b class="num">${money(ccOpen().reduce((s,x)=>s+x.open,0))}</b> gehen am ${esc(fmtShort(ccOpen()[0].d))} vom ${esc(accName(ccOpen()[0].a.cc.from))} ab</div>` : ""}
       </div><span class="achev" aria-hidden="true">›</span></summary>
     <div class="abrk">${rows.map(([a,b,k])=>`<div><span>${a}</span><b class="num ${k||""}">${b}</b></div>`).join("")}
       <div class="atot"><span>${cur?"Noch verfügbar":"Übrig"}</span><b class="num">${sg(v)}</b></div>
       ${list ? `<div class="label" style="margin-top:6px">Kommt diesen Monat noch</div>${list}` : ""}
-      ${cur && ccOpen().length ? `<div class="label" style="margin-top:6px">Kreditkarte</div>${ccOpen().map(x=>`<div class="pl"><span>${esc(fmtShort(x.d))} · ${esc(x.a.name)} → ${esc(accName(x.a.cc.from))}</span><span class="num">${money(x.open)}</span></div>`).join("")}<p class="hint" style="margin:2px 0 0">Schon bei den Ausgaben mitgezählt. Wird nur noch vom Konto abgebucht.</p>` : ""}
-      ${cur ? `<p class="hint">Einnahmen minus Ausgaben und Investiertes, abzüglich der Daueraufträge, die ${PD()?"bis zum nächsten Gehalt":"diesen Monat"} noch abgebucht werden.${PD()?` Gehaltsmonat ${esc(perLabel(m))}.`:""}</p>` : ""}
+      ${cur && ccOpen().length ? `<div class="label" style="margin-top:6px">Kreditkarte</div>${ccOpen().map(x=>`<div class="pl"><span>${esc(fmtShort(x.d))} · ${esc(x.a.name)} → ${esc(accName(x.a.cc.from))}</span><span class="num">${money(x.open)}</span></div>`).join("")}<p class="hint" style="margin:2px 0 0">Oben schon abgezogen.</p>` : ""}
+      ${cur ? `<p class="hint">${live?`Dein Geld auf den Konten und freies Bargeld, minus offene Kreditkarte und was ${PD()?"bis zum Gehalt":"diesen Monat"} noch abgebucht wird. Zips, Tagesgeld und Depot zählen nicht mit.`:`Einnahmen minus Ausgaben und Investiertes, abzüglich der Daueraufträge, die ${PD()?"bis zum nächsten Gehalt":"diesen Monat"} noch abgebucht werden.`}${PD()?` Gehaltsmonat ${esc(perLabel(m))}.`:""}</p>` : ""}
     </div></details>`;
 }
 
@@ -1594,9 +1597,6 @@ function render(){
   let html = reminderHtml() + (m===curPeriod() ? wrappedBanner() : "") + `<div class="hero">
     ${availHtml(m, earned, spent, invM)}
     ${budgetHtml}
-    ${m===curPeriod() ? (()=>{ const f = freeMoney(); if(!f.rows.length) return ""; return `<div class="freem"><div class="fm-top"><span class="label">Jetzt frei verfügbar</span><b class="num ${f.total<0?"neg":""}">${money(f.total)}</b></div>
-      <div class="fm-rows">${f.rows.map(x=>`<span><i>${svgI(x.a.kind==="bar"?"atm":pairOf(x.a)?"invest":"bank")}</i>${esc(x.a.name)} <b class="num">${money(x.v)}</b>${x.cc?`<small> nach Karte</small>`:""}</span>`).join("")}</div>
-      ${umschlaege().length ? `<p class="fm-note">Bargeld ohne Zips. Was in Zips steckt, ist schon verplant.</p>` : ""}</div>`; })() : ""}
     <div class="trio">
       <div><div class="label">Rein</div><div class="v num pos">${money(earned)}</div></div>
       <div><div class="label">Raus</div><div class="v num">${money(spent)}</div></div>
@@ -2834,7 +2834,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.36 (25.11.2026)";
+const APP_VERSION = "2.37 (25.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
