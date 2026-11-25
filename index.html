@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-u1zUkuvhyNoBWMADXUBIOSi4Rhq73I8bd21lqoR0Q0s='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-s3kzgi0z+vywFbVz4W5fbEXbUJZfYcN6v//PbuLlOrs='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -649,6 +649,16 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .fm-rows span{display:inline-flex;align-items:center;gap:5px}.fm-rows i{display:inline-flex;width:15px;height:15px;opacity:.8}.fm-rows i svg{width:15px;height:15px}
 .fm-rows small{opacity:.7}
 .fm-note{margin:0;font-size:.76rem;opacity:.65}
+.lrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.lrow .linkbtn{font-size:.85rem}
+.cslist{display:flex;flex-direction:column;gap:10px}
+.cscard{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.cscard.off .badge,.cscard.off .csname{opacity:.45}
+.cshead{display:flex;align-items:center;gap:10px}.cshead .csname{flex:1;min-width:0;padding:10px 12px;font-weight:600}
+.cstog{border:0;background:none;text-align:left;color:var(--muted);font-size:.84rem;padding:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cssubs{flex-wrap:wrap!important;gap:8px}
+.cssub{display:inline-flex;align-items:center;gap:4px;background:var(--chip);border-radius:999px;padding:2px 4px 2px 2px}
+.cssub input{width:9.5em;padding:7px 10px;border:0;background:transparent;font-size:.9rem}
+.csx{border:0;background:none;color:var(--muted);display:inline-flex;padding:4px}.csx svg{width:16px;height:16px}
 .ruchip{align-self:center;display:flex;align-items:center;gap:8px;margin-top:-6px;padding:7px 12px 7px 7px;border-radius:999px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));font-size:.84rem;max-width:100%}
 .ruchip .ru-ic{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--surface);flex:none}.ruchip .ru-ic svg{width:14px;height:14px}
 .ruchip .ru-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ruchip b{font-weight:600}
@@ -853,6 +863,15 @@ function recentPlaces(){
 const KORR = {id:"korrektur", i:"±", name:"Korrektur", c:"--muted"};
 const isKorr = e => e.cat==="korrektur";
 const tint = v => `background:var(--chip);background:color-mix(in srgb, var(${v}) 17%, var(--surface))`;
+const CAT_BASE = OUT_CATS.map(c=>({...c}));
+const CAT_COLS = ["--c1","--c2","--c3","--c4","--c5","--c6","--c7","--c8","--c9","--c10"];
+function applyCats(){
+  const st = state.settings||{}, names = st.catNames||{};
+  OUT_CATS.length = 0;
+  CAT_BASE.forEach(c => OUT_CATS.push({...c, ...(names[c.id] ? {name:names[c.id], renamed:true} : {})}));
+  (st.catCustom||[]).forEach(c => { const so = OUT_CATS.findIndex(x=>x.id==="sonstiges"); OUT_CATS.splice(so<0?OUT_CATS.length:so, 0, {i:"•", ...c, custom:true}); });
+}
+const catHidden = id => ((state.settings||{}).catHide||[]).includes(id);
 const catById = id => OUT_CATS.concat(IN_CATS, [KORR]).find(c => c.id===id) || OUT_CATS[OUT_CATS.length-1];
 
 // ---- money & dates ----
@@ -1116,7 +1135,7 @@ function boot(){
   store.sub("recurring", rows => { state.recurring=rows; render(); });
   runRecurring();
   if(localStorage.getItem("hhb.needSetup")) setTimeout(()=>openOnboarding(true), 300);
-  store.sub("settings", rows => { const m = rows.find(r=>r.id==="main"); state.settings = m ? m : {budget:0}; if(!state.navMoved) state.month = curPeriod(); render(); });
+  store.sub("settings", rows => { const m = rows.find(r=>r.id==="main"); state.settings = m ? m : {budget:0}; applyCats(); if(!state.navMoved) state.month = curPeriod(); render(); });
   if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
   if("serviceWorker" in navigator && location.protocol.startsWith("http")){
     const hadController = !!navigator.serviceWorker.controller;
@@ -1297,7 +1316,7 @@ const ICO = {
 };
 const svgI = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[k]||ICO.sonstiges}</svg>`;
 const CAT_SHORT = {wohnen:"Wohnen", restaurant:"Essen & Café", abos:"Abos", versicherung:"Versicherung", taschengeld:"Taschengeld"};
-const catTile = (c, attr, sel) => `<button class="ctile" data-${attr}="${c.id}" aria-pressed="${c.id===sel}">${catBadge(c)}<span>${esc(CAT_SHORT[c.id]||c.name)}</span></button>`;
+const catTile = (c, attr, sel) => `<button class="ctile" data-${attr}="${c.id}" aria-pressed="${c.id===sel}">${catBadge(c)}<span>${esc(!c.renamed && CAT_SHORT[c.id] || c.name)}</span></button>`;
 const catBadge = c => `<span class="badge" style="--bc:var(${c.c==="--accent"?"--c3":c.c})" aria-hidden="true">${svgI(ICO[c.id]?c.id:(c.c==="--accent"?"gehalt":"sonstiges"))}</span>`;
 
 // ---- Unterkategorien ----
@@ -1314,7 +1333,7 @@ const SUBS = {
   sonstiges:["Gebühren","Spende","Bildung"],
 };
 const customSubs = cat => ((state.settings.subs||{})[cat]||[]);
-const subsOf = cat => (SUBS[cat]||[]).concat(customSubs(cat).filter(x=>!(SUBS[cat]||[]).includes(x)));
+const subsOf = cat => { const L = ((state.settings||{}).subsList||{})[cat]; return L ? L.slice() : (SUBS[cat]||[]).concat(customSubs(cat).filter(x=>!(SUBS[cat]||[]).includes(x))); };
 function subChips(cat, sel){
   if(!cat) return "";
   return subsOf(cat).map(n=>`<button class="chip sub" data-sub="${esc(n)}" aria-pressed="${n===sel}">${esc(n)}</button>`).join("")
@@ -1335,7 +1354,7 @@ function subClick(e, box, d, redraw){
   const ok = e.target.closest("[data-subok]");
   if(ok && box.contains(ok)){
     const v = (box.querySelector("#subIn").value||"").trim().slice(0,40);
-    if(v){ d.sub = v; if(!subsOf(d.cat).includes(v)){ const subs = {...(state.settings.subs||{})}; subs[d.cat] = customSubs(d.cat).concat([v]); state.settings = {...state.settings, subs}; save("settings","main",{...settingsData(), subs}).catch(()=>{}); } }
+    if(v){ d.sub = v; if(!subsOf(d.cat).includes(v)){ const subs = {...(state.settings.subs||{})}; subs[d.cat] = customSubs(d.cat).concat([v]); const sl = {...(state.settings.subsList||{})}; if(sl[d.cat]) sl[d.cat] = sl[d.cat].concat([v]); state.settings = {...state.settings, subs, subsList:sl}; save("settings","main",{...settingsData(), subs, subsList:sl}).catch(()=>{}); } }
     redraw(); return true;
   }
   return false;
@@ -1759,7 +1778,7 @@ document.addEventListener("focusout", e => {
 function entrySheet(entry, preset){
   const defDate = state.month===curPeriod() ? dayOffset(0) : periodRange(state.month).from;
   const k0 = (konten()[0]||{}).id || "giro";
-  const d = entry ? {...entry, account: entry.type==="transfer" ? undefined : accOf(entry)} : {type:"out", amount:0, cat: state.cat || null, date:defDate, note:"", account:k0, ...(preset||{})};
+  const d = entry ? {...entry, account: entry.type==="transfer" ? undefined : accOf(entry), ...(preset||{})} : {type:"out", amount:0, cat: state.cat || null, date:defDate, note:"", account:k0, ...(preset||{})};
   if(d.type==="transfer"){ d.from ||= k0; }
   const dateChips = [["Heute",dayOffset(0)],["Gestern",dayOffset(-1)]];
   openSheet(`
@@ -1774,7 +1793,7 @@ function entrySheet(entry, preset){
         <div id="ppList"></div>
         <div class="ppfoot"><button class="linkbtn" id="ppNone">Kein Ort</button><button class="linkbtn" id="ppEdit">Orte bearbeiten</button></div>
       </div></div>
-    <div id="catBox"><div class="label" style="margin-bottom:6px" id="catLabel">Kategorie</div><div class="chips" id="fCat"></div><div id="fSubBox"><div class="label" style="margin:12px 0 6px">Genauer (optional)</div><div class="chips" id="fSub"></div></div>
+    <div id="catBox"><div class="lrow"><div class="label" id="catLabel">Kategorie</div><button class="linkbtn" id="catEdit">Bearbeiten</button></div><div class="chips" id="fCat"></div><div id="fSubBox"><div class="label" style="margin:12px 0 6px">Genauer (optional)</div><div class="chips" id="fSub"></div></div>
       <select class="input" id="fCatSel" aria-label="Art der Einnahme" hidden></select></div>
     <div id="destBox" hidden><div class="label" style="margin-bottom:6px">Wohin?</div>
       <div class="seg" id="fDest"><button data-dest="konto">Auf ein Konto</button><button data-dest="zips">Auf Zips verteilen</button></div></div>
@@ -1806,7 +1825,8 @@ function entrySheet(entry, preset){
     const isIn = d.type==="in";
     $("#fCat").hidden = isIn; $("#fCatSel").hidden = !isIn; $("#catLabel").textContent = isIn ? "Was kommt rein?" : "Kategorie";
     if(isIn){ $("#fCatSel").innerHTML = IN_CATS.filter(c=>c.id!=="saveback" || d.cat==="saveback").map(c=>`<option value="${c.id}">${c.i} ${esc(c.name)}</option>`).join(""); $("#fCatSel").value = d.cat; }
-    else $("#fCat").innerHTML = cats().map(c=>catTile(c, "cat", d.cat)).join("");
+    else $("#fCat").innerHTML = cats().filter(c=>!catHidden(c.id) || c.id===d.cat).map(c=>catTile(c, "cat", d.cat)).join("");
+    $("#catEdit").hidden = isIn;
     drawSub();
   };
   let dest = "konto"; const chosen = [];
@@ -1981,6 +2001,7 @@ function entrySheet(entry, preset){
   drawSplit();
   function drawSub(){ const box = $("#fSubBox"); if(!box) return; const show = d.type==="out" && !!d.cat; box.hidden = !show; if(show) $("#fSub").innerHTML = subChips(d.cat, d.sub); }
   $("#fSub").onclick = e => { subClick(e, $("#fSub"), d, drawSub); };
+  $("#catEdit").onclick = () => { const back = {...d, amount: parseAmount($("#fAmount").value)||d.amount, note: $("#fNote").value}; catSheet(() => entrySheet(entry, back)); };
   $("#fCat").onclick = e => { const b=e.target.closest("[data-cat]"); if(b){ if(d.cat!==b.dataset.cat) d.sub = null; d.cat=b.dataset.cat; drawSub();
     if(!entry && d.type==="in" && ["trinkgeld","taschengeld","geschenk"].includes(d.cat)){ const bar = konten().find(a=>a.kind==="bar"); if(bar) d.account = bar.id; }
     sync(); } };
@@ -2776,6 +2797,7 @@ function budgetSheet(){
     <div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
       <div class="label">Jahresrückblick</div>
       <button class="danger" style="color:var(--ink)" id="wrBtn">Jahresrückblick ${wrYear()} ansehen</button>
+      <button class="danger" style="color:var(--ink)" id="catsBtn">Kategorien bearbeiten</button>
       <button class="danger" style="color:var(--ink)" id="obBtn">Einrichtung erneut durchgehen</button>
     </div>
     <div style="border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:10px">
@@ -2824,6 +2846,7 @@ function budgetSheet(){
   $("#tZips").onclick = async e => { const on = !zipsOn(); e.currentTarget.setAttribute("aria-checked", String(on)); try { await save("settings","main",{...settingsData(), zips:on}); toast(on ? "Zips eingeschaltet" : "Zips ausgeblendet"); } catch(_){} };
   $("#imp").onclick = pickBackup;
   $("#snaps").onclick = snapSheet;
+  $("#catsBtn").onclick = () => catSheet();
   $("#themePick").onclick = e => { const b = e.target.closest("[data-theme-pick]"); if(!b) return; const t = b.dataset.themePick; try { localStorage.setItem("hhb.theme", t); } catch(_){} applyTheme(t); document.querySelectorAll("[data-theme-pick]").forEach(x=>x.setAttribute("aria-pressed", String(x===b))); };
   $("#ok").onclick = async () => {
     const budget = parseAmount($("#fBudget").value);
@@ -2834,7 +2857,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.37 (25.11.2026)";
+const APP_VERSION = "2.38 (25.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -2959,6 +2982,60 @@ function fixAccounts(accs, entries){
     for(const id of ids) if(id && !accs[id]) accs[id] = id==="giro" ? DEFAULT_ACCS().giro : id==="bargeld" ? DEFAULT_ACCS().bargeld : {name:"Konto aus Sicherung", kind:"konto", start:0, order:Date.now()};
   }
   return accs;
+}
+// Kategorien & Unterkategorien bearbeiten: umbenennen, ausblenden, eigene anlegen
+function catSheet(back){
+  const st = state.settings||{};
+  const work = OUT_CATS.map(c => ({id:c.id, base:(CAT_BASE.find(b=>b.id===c.id)||{}).name, name:c.name, c:c.c, custom:!!c.custom, hide:catHidden(c.id), subs:subsOf(c.id).map(n=>({o:n, n}))}));
+  let open = null;
+  const close = () => { closeSheet(); if(back) back(); };
+  const used = id => state.entries.some(e=>e.cat===id) || state.recurring.some(r=>r.cat===id);
+  const draw = () => {
+    $("#csList").innerHTML = work.map((w,k) => `<div class="cscard ${w.hide?"off":""}">
+      <div class="cshead">${catBadge({id:w.id, c:w.c})}<input class="input csname" data-csn="${k}" value="${esc(w.name)}" placeholder="Name" aria-label="Name der Kategorie" autocomplete="off">
+        <button class="switch" data-csh="${k}" role="switch" aria-checked="${!w.hide}" aria-label="Anzeigen"><i></i></button></div>
+      <button class="cstog" data-cso="${k}">${open===k?"Weniger":`Genauer: ${w.subs.length ? esc(w.subs.map(x=>x.n).slice(0,3).join(", "))+(w.subs.length>3?" …":"") : "keine"}`}</button>
+      ${open===k ? `<div class="chips cssubs">${w.subs.map((x,j)=>`<span class="cssub"><input class="input" data-css="${k}:${j}" value="${esc(x.n)}" aria-label="Unterkategorie" autocomplete="off"><button class="csx" data-csd="${k}:${j}" aria-label="${esc(x.n)} löschen">${svgI("trash")}</button></span>`).join("")}
+        <button class="chip ghost" data-csa="${k}">+ Neu</button></div>
+        ${w.custom && !used(w.id) ? `<button class="linkbtn" style="color:var(--danger)" data-csdel="${k}">Kategorie löschen</button>` : ""}` : ""}
+    </div>`).join("");
+  };
+  openSheet(`
+    <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Kategorien</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="sublabel" style="margin:0">Namen antippen zum Ändern. Mit dem Schalter blendest du eine Kategorie in der Auswahl aus, alte Einträge bleiben erhalten.</p>
+    <div id="csList" class="cslist"></div>
+    <button class="chip ghost" id="csNew" style="align-self:flex-start">+ Neue Kategorie</button>
+    <div class="row"><button class="danger" id="csReset" style="flex:none;color:var(--ink)">Standard</button><button class="primary" id="ok">Speichern</button></div>
+  `);
+  draw();
+  const box = $("#csList");
+  box.addEventListener("input", e => { const t = e.target;
+    if(t.dataset.csn!=null) work[+t.dataset.csn].name = t.value;
+    if(t.dataset.css){ const [k,j] = t.dataset.css.split(":").map(Number); work[k].subs[j].n = t.value; } });
+  box.onclick = e => { const t = e.target.closest("button"); if(!t) return;
+    if(t.dataset.csh!=null){ const w = work[+t.dataset.csh]; w.hide = !w.hide; draw(); }
+    else if(t.dataset.cso!=null){ open = open===+t.dataset.cso ? null : +t.dataset.cso; draw(); }
+    else if(t.dataset.csd){ const [k,j] = t.dataset.csd.split(":").map(Number); work[k].subs.splice(j,1); draw(); }
+    else if(t.dataset.csa!=null){ const k = +t.dataset.csa; work[k].subs.push({o:null, n:""}); draw(); const ins = box.querySelectorAll(`[data-css^="${k}:"]`); ins[ins.length-1].focus(); }
+    else if(t.dataset.csdel!=null){ work.splice(+t.dataset.csdel,1); open = null; draw(); } };
+  $("#csNew").onclick = () => { const id = "k"+newId().slice(-8); work.splice(work.findIndex(w=>w.id==="sonstiges"), 0, {id, base:null, name:"", c:CAT_COLS[work.length % CAT_COLS.length], custom:true, hide:false, subs:[]}); open = work.findIndex(w=>w.id===id); draw(); box.querySelector(`[data-csn="${open}"]`).focus(); };
+  $("#cancel").onclick = close;
+  $("#csReset").onclick = () => { if(!$("#csReset").dataset.sure){ $("#csReset").dataset.sure = "1"; $("#csReset").textContent = "Sicher?"; return; }
+    const {catNames, catHide, subsList, ...rest} = settingsData(); save("settings","main",{...rest, catCustom: st.catCustom||[]}).catch(()=>{}); toast("Standard-Kategorien wiederhergestellt"); close(); };
+  $("#ok").onclick = async () => {
+    const catNames = {}, catHide = [], catCustom = [], subsList = {}, ren = [];
+    for(const w of work){ const nm = w.name.trim();
+      if(w.custom){ if(!nm) continue; catCustom.push({id:w.id, name:nm.slice(0,30), c:w.c}); }
+      else if(nm && nm!==w.base) catNames[w.id] = nm.slice(0,30);
+      if(w.hide) catHide.push(w.id);
+      const L = []; for(const x of w.subs){ const n = x.n.trim().slice(0,40); if(!n || L.includes(n)) continue; L.push(n); if(x.o && x.o!==n) ren.push([w.id, x.o, n]); }
+      const def = (SUBS[w.id]||[]); if(JSON.stringify(L)!==JSON.stringify(def)) subsList[w.id] = L; }
+    closeSheet();
+    await save("settings","main",{...settingsData(), catNames, catHide, catCustom, subsList});
+    // Umbenannte Unterkategorien auch in alten Einträgen ändern
+    for(const e of state.entries){ const r = ren.find(([c,o])=>e.cat===c && e.sub===o); if(r){ const {id, ...dd} = e; await store.set("entries", id, {...dd, sub:r[2]}); } }
+    toast("Kategorien gespeichert"); if(back) back();
+  };
 }
 async function snapSheet(){
   const l = (await SAFE.list()).filter(x=>x.n>0);
