@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-P4RsNrZdLaKluvGu5z1sQoE+Bo2W00K3ePqnxyGtFrA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-EDMF4SWTCkm7T3nEojd4QmO4pL70w5niPzrTL06lwC4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -993,7 +993,7 @@ const umschlaege = () => !zipsOn() ? [] : state.accounts.filter(a=>a.kind==="ums
 const konten = () => state.accounts.filter(a=>a.kind!=="ziel" && a.kind!=="umschlag").sort((a,b)=>(a.order||0)-(b.order||0));
 const ziele = () => state.accounts.filter(a=>a.kind==="ziel").sort((a,b)=>(a.order||0)-(b.order||0));
 const accById = id => state.accounts.find(a=>a.id===id);
-const accName = id => (accById(id)||{name:"Unbekannt"}).name;
+const accName = id => (accById(id)||{name:((state.settings||{}).goneAcc||{})[id] || "Unbekannt"}).name;
 function movement(id){
   let m = 0;
   for(const e of state.entries){
@@ -2517,6 +2517,28 @@ function accountSheet(acc, kind, presetName, tab){
   };
   if(acc) $("#del").onclick = async () => {
     const w = $("#aWarn");
+    if(usedBy(acc.id) && (isEnv || isZiel)){
+      // Zip/Sparziel samt Buchungen löschen: Umbuchungen weg, andere Konten behalten ihren Stand, Ausgaben bleiben in der Statistik
+      const bal = isEnv ? zipTotal(acc) : balance(acc), btn = $("#del");
+      if(!btn.dataset.sure){ btn.dataset.sure = "1"; btn.textContent = "Endgültig löschen";
+        w.innerHTML = `<b>${esc(acc.name)} wirklich löschen?</b><br>${bal ? `Die <b class="num">${money(bal)}</b> darin verschwinden aus der App. Liegt das Geld noch woanders, nimm es vorher mit „Rausnehmen“ raus. ` : ""}Umbuchungen mit ${isEnv?"diesem Zip":"diesem Sparziel"} werden entfernt, deine anderen Konten behalten ihren Stand. Ausgaben bleiben in der Monatsübersicht.`;
+        w.hidden = false; return; }
+      closeSheet();
+      try {
+        try { await SAFE.save("vor-loeschen", true); } catch(_){}
+        const delta = {};
+        for(const e of state.entries.filter(e=>e.type==="transfer" && (e.from===acc.id || e.to===acc.id))){
+          const other = e.from===acc.id ? e.to : e.from;
+          if(other && other!==acc.id) delta[other] = (delta[other]||0) + (e.to===other ? e.amount : -e.amount);
+          await store.del("entries", e.id);
+        }
+        for(const [oid, dv] of Object.entries(delta)){ const o = accById(oid); if(o && dv){ const {id:x, ...od} = o; await save("accounts", oid, {...od, start:(od.start||0)+dv}); } }
+        await save("settings","main",{...settingsData(), goneAcc:{...(state.settings.goneAcc||{}), [acc.id]:acc.name}});
+        await store.del("accounts", acc.id);
+        toast(`„${acc.name}“ gelöscht`);
+      } catch(e){ toast("Löschen fehlgeschlagen."); }
+      return;
+    }
     if(usedBy(acc.id)){ w.textContent = "Hier hängen noch Buchungen dran. Lösch oder ändere sie zuerst, dann kannst du "+(isEnv?"den Zip":isZiel?"das Sparziel":"das Konto")+" löschen."; w.hidden=false; return; }
     if(!isZiel && konten().length<2){ w.textContent = "Mindestens ein Konto muss bleiben."; w.hidden=false; return; }
     const {id, ...data} = acc; closeSheet();
@@ -2907,7 +2929,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.43 (25.11.2026)";
+const APP_VERSION = "2.44 (25.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
