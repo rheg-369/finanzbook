@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-wm9RyhoFMRCd7bS9EebvDRQ79g1Ca78b8gS9EJj6yxA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-1PbdL4IH2MmH+h3wO70bWNdn+EPxJdsQaJs3Yf5uoP4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -801,7 +801,6 @@ h2.pieh .mini button{flex:1;padding:7px 4px}
 .sbud input{border:0;background:none;text-align:right;width:7.5em;font-size:1rem;font-weight:600;padding:0;color:var(--ink)}
 .sbud input:focus{outline:none}
 .shint{font-size:.78rem;color:var(--muted);margin:-6px 8px 0;line-height:1.4}
-.sheet{animation:up .34s cubic-bezier(.2,.8,.2,1)}
 /* v2.46 Gesamtvermögen */
 .wbtn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:0;background:none;padding:0;color:inherit;text-align:left}
 .wbtn .achev{font-size:1.3rem;opacity:.55}
@@ -814,6 +813,36 @@ h2.pieh .mini button{flex:1;padding:7px 4px}
 .wrow>span:first-child{display:flex;flex-direction:column;min-width:0}.wrow small{color:var(--muted);font-size:.78rem;margin-top:2px}
 .wrow small b{font-weight:600}.wrow .wn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wact{display:flex;align-items:center;gap:6px}
+/* v2.48 Haptik-Gefühl: weiche Druckzustände, Federn, Tab-Pille */
+:root{--spring:cubic-bezier(.2,.9,.3,1.15);--ease:cubic-bezier(.2,.8,.2,1)}
+button{touch-action:manipulation}
+.primary,.chip,.icon,.xbtn,.seg button,.mini button,.ob-opt,.ob-next,.danger,.theme button,.switch,.linkbtn,.morebtn,.depinfo,.wbtn,.avail summary,.invsum{transition:transform .18s var(--spring),background-color .2s ease,border-color .2s ease,opacity .2s ease,box-shadow .2s ease}
+.primary:active,.ob-next:active,.danger:active{transform:scale(.975)}
+.chip:active,.seg button:active,.mini button:active,.theme button:active{transform:scale(.95)}
+.icon:active,.xbtn:active{transform:scale(.9)}
+.switch:active{transform:scale(.94)}
+.linkbtn:active,.morebtn:active{opacity:.55}
+.ob-opt:active,.depinfo:active,.wbtn:active,.avail summary:active,.invsum:active{transform:scale(.985)}
+.fab{transition:transform .2s var(--spring),box-shadow .2s ease}
+.fab:active{transform:scale(.9) rotate(90deg)}
+.tabbar button{transition:color .2s ease}
+.tabbar svg{box-sizing:content-box;padding:3px 16px;border-radius:999px;transition:background-color .25s ease,transform .2s var(--spring)}
+.tabbar button[aria-pressed="true"] svg{background:var(--accent-soft)}
+.tabbar button:active svg{transform:scale(.88)}
+.sheet{animation:up .42s var(--spring)}
+@keyframes up{from{transform:translateY(100%)}}
+.sheet.closing{animation:down .21s cubic-bezier(.4,0,1,1) forwards;pointer-events:none}
+@keyframes down{to{transform:translateY(105%)}}
+.sheet.swap .sheet-inner{animation:swapIn .26s var(--ease)}
+@keyframes swapIn{from{opacity:0;transform:translateY(8px)}}
+.scrim{animation:fadeIn .3s ease}
+.scrim.closing{animation:fadeOut .21s ease forwards;pointer-events:none}
+@keyframes fadeIn{from{opacity:0}} @keyframes fadeOut{to{opacity:0}}
+.grab{width:38px;height:5px;margin-bottom:6px;opacity:.9}
+.toast.pop{animation:toastIn .38s var(--spring)}
+.toast{white-space:nowrap;max-width:calc(100% - 32px)}.toast span{overflow:hidden;text-overflow:ellipsis}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,14px) scale(.96)}}
+@media (prefers-reduced-motion:reduce){.sheet,.sheet.closing,.scrim,.scrim.closing,.toast.pop,.sheet.swap .sheet-inner{animation:none}.fab:active{transform:none}}
 /* v2.43 ruhiger: Rein/Raus/Investiert erst nach Antippen der Hauptzahl */
 .hero:has(details.avail:not([open])) .trio{display:none}
 .wr-teaser.slim{display:flex;align-items:baseline;gap:10px;padding:14px 44px 14px 20px;border-radius:18px}
@@ -1815,7 +1844,7 @@ function entryRow(e, ctx){
 // ---- toast ----
 let toastTimer;
 function toast(msg, undo){
-  const el=$("#toast");
+  const el=$("#toast"); el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop");
   el.innerHTML = `<span>${esc(msg)}</span>${undo?'<button id="undo">Rückgängig</button>':""}`;
   el.hidden=false;
   if(undo) $("#undo").onclick = () => { undo(); el.hidden=true; };
@@ -1827,8 +1856,27 @@ async function save(col,id,data){
 }
 
 // ---- sheets ----
-function closeSheet(){ $("#sheet").hidden=true; $("#scrim").hidden=true; }
-function openSheet(html){ const s=$("#sheet"); s.innerHTML=`<div class="sheet-inner"><div class="grab"></div>${html}</div>`; s.hidden=false; $("#scrim").hidden=false; prepAmountInputs(s); }
+let sheetT = null;
+const calm = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch(_){ return false; } };
+function closeSheetNow(){ clearTimeout(sheetT); const s=$("#sheet"), sc=$("#scrim"); s.hidden=true; sc.hidden=true; s.classList.remove("closing"); sc.classList.remove("closing"); s.style.transform=""; s.style.transition=""; }
+function closeSheet(){ const s=$("#sheet"), sc=$("#scrim"); if(s.hidden) return; if(calm()){ closeSheetNow(); return; }
+  clearTimeout(sheetT); s.classList.add("closing"); sc.classList.add("closing"); sheetT = setTimeout(closeSheetNow, 210); }
+function openSheet(html){ clearTimeout(sheetT); const s=$("#sheet"), sc=$("#scrim"); const was = !s.hidden && !s.classList.contains("closing");
+  s.classList.remove("closing"); sc.classList.remove("closing"); s.style.transform=""; s.style.transition="";
+  s.innerHTML=`<div class="sheet-inner"><div class="grab"></div>${html}</div>`; s.scrollTop = 0;
+  if(was && !calm()){ s.classList.remove("swap"); void s.offsetWidth; s.classList.add("swap"); }
+  s.hidden=false; sc.hidden=false; prepAmountInputs(s); }
+// Haptik: Android über vibrate, iPhone (iOS 18+) über den System-Schalter, der beim Umschalten ein leichtes Klicken auslöst
+const HAPTIC = (() => { let lab = null;
+  const on = () => { try { return localStorage.getItem("hhb.haptic")!=="0"; } catch(_){ return true; } };
+  const tick = () => { if(!lab){ lab = document.createElement("label"); lab.setAttribute("aria-hidden","true"); lab.style.cssText = "position:fixed;left:-99px;top:0;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none";
+      const i = document.createElement("input"); i.type = "checkbox"; i.tabIndex = -1; i.setAttribute("switch",""); lab.appendChild(i); document.body.appendChild(lab); }
+    lab.click(); };
+  return { on, fire(kind){ if(!on()) return; try {
+      if(navigator.vibrate && !/iPhone|iPad|iPod/.test(navigator.userAgent)){ navigator.vibrate(kind==="success" ? [10,60,14] : kind==="warn" ? [18,40,18] : 8); return; }
+      tick(); if(kind==="success" || kind==="warn") setTimeout(tick, 110);
+    } catch(_){} } };
+})();
 // Beträge beim Tippen mit Tausenderpunkt anzeigen (9100 → 9.100), beim Verlassen mit Cent (9.100,00)
 function fmtAmountStr(v, full){
   v = String(v||"");
@@ -2975,6 +3023,8 @@ function budgetSheet(){
     <div class="sgroup">
       <div class="optrow"><div><b>Beträge in Cent tippen</b><p class="hint">1800 wird zu 18,00 €.</p></div>
         <button class="switch" id="tCent" role="switch" aria-checked="${centMode()}" aria-label="Beträge in Cent tippen"><i></i></button></div>
+      <div class="optrow"><div><b>Haptisches Feedback</b><p class="hint">Leichtes Klicken beim Tippen. iPhone ab iOS 18.</p></div>
+        <button class="switch" id="tHap" role="switch" aria-checked="${HAPTIC.on()}" aria-label="Haptisches Feedback"><i></i></button></div>
       <div class="optrow"><div><b>Zips</b><p class="hint">Bargeld-Umschläge. Aus blendet sie nur aus.</p></div>
         <button class="switch" id="tZips" role="switch" aria-checked="${zipsOn()}" aria-label="Zips verwenden"><i></i></button></div>
       ${zipsOn()?`<div class="optrow"><div><b>Zips mit Tagesgeld</b><p class="hint">Ein Teil der Zips darf auf Tagesgeld liegen.</p></div>
@@ -3030,6 +3080,7 @@ function budgetSheet(){
     toast(on ? (gr.length ? "Gehaltsmonat an. Dein Gehalt bestätigst du jetzt mit „Ist da“." : "Gehaltsmonat an") : "Wieder Kalendermonat");
   };
   if($("#payDay")) $("#payDay").onchange = async e => { await save("settings","main",{...settingsData(), payday:+e.target.value}); if(!state.navMoved) state.month = curPeriod(); render(); toast("Gehaltstag: "+e.target.value+"."); };
+  $("#tHap").onclick = e => { const on = !HAPTIC.on(); try { localStorage.setItem("hhb.haptic", on ? "1" : "0"); } catch(_){} e.currentTarget.setAttribute("aria-checked", String(on)); if(on) HAPTIC.fire("success"); };
   $("#tCent").onclick = async e => { const on = !centMode(); e.currentTarget.setAttribute("aria-checked", String(on)); try { await save("settings","main",{...settingsData(), centInput:on}); toast(on ? "1800 ergibt jetzt 18,00 €" : "1800 ergibt jetzt 1.800 €"); } catch(_){} };
   $("#tZips").onclick = async e => { const on = !zipsOn(); e.currentTarget.setAttribute("aria-checked", String(on)); try { await save("settings","main",{...settingsData(), zips:on}); toast(on ? "Zips eingeschaltet" : "Zips ausgeblendet"); } catch(_){} };
   $("#imp").onclick = pickBackup;
@@ -3043,7 +3094,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.47 (25.11.2026)";
+const APP_VERSION = "2.48 (25.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -3539,6 +3590,20 @@ $("#eye").onclick = () => { setHide(!HIDE); toast(HIDE ? "Beträge verborgen" : 
 drawEye();
 $("#fab").onclick = () => entrySheet(null);
 $("#scrim").onclick = closeSheet;
+// Nach unten wischen schließt das Fenster
+(() => { const s = $("#sheet"); let y0 = null, dy = 0, t0 = 0, head = false;
+  s.addEventListener("touchstart", e => { head = !!e.target.closest(".grab,.sheet-head"); if((!head && s.scrollTop > 2) || e.touches.length>1 || e.target.closest("input,textarea,select,.chips,.hist,.theme,.splits,.xbtn")){ y0 = null; return; } y0 = e.touches[0].clientY; dy = 0; t0 = Date.now(); }, {passive:true});
+  s.addEventListener("touchmove", e => { if(y0===null) return; dy = e.touches[0].clientY - y0; if(dy > 0 && (head || s.scrollTop <= 0)){ s.style.transition = "none"; s.style.transform = `translateY(${dy}px)`; } }, {passive:true});
+  s.addEventListener("touchend", () => { if(y0===null) return; const fast = dy > 60 && Date.now()-t0 < 250; y0 = null;
+    if(dy > 120 || fast){ s.style.transition = "transform .22s cubic-bezier(.3,.7,.3,1)"; s.style.transform = "translateY(105%)"; $("#scrim").classList.add("closing"); clearTimeout(sheetT); sheetT = setTimeout(closeSheetNow, 220); }
+    else { s.style.transition = "transform .28s cubic-bezier(.2,.9,.3,1.15)"; s.style.transform = ""; } dy = 0; });
+})();
+// Haptik bei wichtigen Tipps
+document.addEventListener("click", e => { const t = e.target.closest && e.target.closest("button,[role=switch]"); if(!t || t.disabled) return;
+  if(t.matches("#del,.danger#resetAll,[data-dvdel],.csx")) HAPTIC.fire("warn");
+  else if(t.matches(".primary,.ob-next")) HAPTIC.fire("success");
+  else if(t.matches("#fab,.tabbar button,.switch,.seg button,.mini button,.qacts button,[data-zact],.acts button,.xbtn,.chip,.ob-opt,[data-obtheme],[data-theme-pick],.lk")) HAPTIC.fire("light");
+}, true);
 document.addEventListener("keydown", e => { if(e.key==="Escape" && !$("#sheet").hidden) closeSheet(); });
 document.addEventListener("visibilitychange", () => { if(!document.hidden){ runCards(); if(!state.navMoved) state.month = curPeriod(); runRecurring(); render(); } });
 
