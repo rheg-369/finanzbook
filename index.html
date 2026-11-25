@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-yN/5eEC6NhezXQ9ebyh6sPwzux4i/gGfU6tFYzEvUEw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-RlA06307ru/VABj1bnFYMT7rxj0jIxxZEaEeYMjzbGU='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -1548,7 +1548,7 @@ function availHtml(m, earned, spent, invM){
       <div class="atot"><span>${cur?"Noch verfügbar":"Übrig"}</span><b class="num">${sg(v)}</b></div>
       ${list ? `<div class="label" style="margin-top:6px">Kommt diesen Monat noch</div>${list}` : ""}
       ${cur && ccOpen().length ? `<div class="label" style="margin-top:6px">Kreditkarte</div>${ccOpen().map(x=>`<div class="pl"><span>${esc(fmtShort(x.d))} · ${esc(x.a.name)} → ${esc(accName(x.a.cc.from))}</span><span class="num">${money(x.open)}</span></div>`).join("")}<p class="hint" style="margin:2px 0 0">Oben schon abgezogen.</p>` : ""}
-      ${cur ? `<p class="hint">${live?`Dein Geld auf den Konten und freies Bargeld, minus offene Kreditkarte und was ${PD()?"bis zum Gehalt":"diesen Monat"} noch abgebucht wird. Zips, Tagesgeld und Depot zählen nicht mit.`:`Einnahmen minus Ausgaben und Investiertes, abzüglich der Daueraufträge, die ${PD()?"bis zum nächsten Gehalt":"diesen Monat"} noch abgebucht werden.`}${PD()?` Gehaltsmonat ${esc(perLabel(m))}.`:""}</p>` : ""}
+      ${cur ? `<p class="hint">${live?`Dein Geld auf den Konten und freies Bargeld, minus offene Kreditkarte und was ${PD()?"bis zum Gehalt":"diesen Monat"} noch abgebucht wird. Zips und Depot zählen nicht mit. Welche Konten mitzählen, stellst du beim Konto unter Einstellungen ein.`:`Einnahmen minus Ausgaben und Investiertes, abzüglich der Daueraufträge, die ${PD()?"bis zum nächsten Gehalt":"diesen Monat"} noch abgebucht werden.`}${PD()?` Gehaltsmonat ${esc(perLabel(m))}.`:""}</p>` : ""}
     </div></details>`;
 }
 
@@ -2379,7 +2379,7 @@ function accountSheet(acc, kind, presetName, tab){
   const isEnv = kind==="umschlag";
   const isZiel = kind==="ziel" || isEnv;
   const word = isEnv ? "Zip" : kind==="ziel" ? "Sparziel" : "Konto";
-  const r = {cc: !!(acc && acc.cc), ccDay: acc && acc.cc ? acc.cc.day||0 : 0, ccFrom: acc && acc.cc ? acc.cc.from : null, tg: acc ? !!acc.tg : (zipTgOn() && /tagesgeld/i.test(presetName||"")), pair: acc && acc.depot && state.accounts.some(x=>x.id===acc.depot) ? acc.depot : null, kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&(acc.roundupTo||acc.savebackTo)||null, saveback: 0};
+  const r = {cc: !!(acc && acc.cc), ccDay: acc && acc.cc ? acc.cc.day||0 : 0, ccFrom: acc && acc.cc ? acc.cc.from : null, tg: acc ? !!acc.tg : (zipTgOn() && /tagesgeld/i.test(presetName||"")), avail: acc && typeof acc.avail==="boolean" ? acc.avail : null, pair: acc && acc.depot && state.accounts.some(x=>x.id===acc.depot) ? acc.depot : null, kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&(acc.roundupTo||acc.savebackTo)||null, saveback: 0};
   const targets = () => state.accounts.filter(a => (a.kind==="depot"||a.kind==="ziel") && (!acc || a.id!==acc.id));
   const cur = isEnv ? (acc ? acc.start||0 : 0) : acc ? balance(acc) : 0;
   openSheet(`
@@ -2400,6 +2400,7 @@ function accountSheet(acc, kind, presetName, tab){
         <p class="hint">${x.n} ${x.n===1?"Eintrag":"Einträge"} insgesamt, über alle Monate.</p></div></details>`; })() : ""}
     ${isZiel?"":`<div><div class="label" style="margin-bottom:6px">Art</div><div class="chips" id="aKind">${["konto","bar","depot"].map(k=>`<button class="chip" data-kind="${k}">${KINDS[k]}</button>`).join("")}</div></div>
     ${!isZiel && zipTgOn() ? `<div id="tgBox"><div class="optrow"><div><b>Tagesgeld für Zips</b><p class="hint">Hier kann ein Teil eurer Zips liegen. Einzahlen und Abheben zählt nicht als Ausgabe.</p></div><button class="switch" id="aTg" role="switch" aria-checked="false" aria-label="Tagesgeld für Zips"><i></i></button></div></div>` : ""}
+    <div id="avBox"><div class="optrow"><div><b>Zählt bei „Noch verfügbar“</b><p class="hint">An: Das Geld hier kannst du diesen Monat ausgeben. Aus: z. B. Rücklagen oder Tagesgeld, das du nicht anfassen willst.</p></div><button class="switch" id="aAv" role="switch" aria-checked="true" aria-label="Zählt bei Noch verfügbar"><i></i></button></div></div>
     <div id="ccBox"><div class="optrow"><div><b>Kreditkarte</b><p class="hint">Käufe laufen auf die Karte. Am Abrechnungstag wird der offene Betrag vom Girokonto abgebucht. Als Ausgabe zählt der Kauf, nicht die Abbuchung.</p></div><button class="switch" id="aCc" role="switch" aria-checked="false" aria-label="Kreditkarte"><i></i></button></div>
       <div id="ccOpts" style="margin-top:12px;display:flex;flex-direction:column;gap:10px"><div><div class="label" style="margin-bottom:6px">Abbuchung am</div><div class="chips" id="ccDay">${[[0,"Monatsende"],[1,"1."],[15,"15."],[20,"20."],[25,"25."]].map(([d,l])=>`<button class="chip" data-ccd="${d}">${l}</button>`).join("")}</div></div>
         <div><div class="label" style="margin-bottom:6px">Abgebucht von</div><div class="chips" id="ccFrom"></div></div></div></div>
@@ -2421,6 +2422,7 @@ function accountSheet(acc, kind, presetName, tab){
         $("#ccFrom").innerHTML = state.accounts.filter(x=>x.kind==="konto" && !x.cc && (!acc || x.id!==acc.id)).map(x=>`<button class="chip" data-ccf="${esc(x.id)}" aria-pressed="${x.id===r.ccFrom}">${esc(x.name)}</button>`).join(""); }
       if(r.cc && !r.ccFrom) $("#ok").disabled = true; }
     if($("#tgBox")){ $("#tgBox").hidden = r.kind!=="konto"; $("#aTg").setAttribute("aria-checked", String(!!r.tg)); }
+    if($("#avBox")){ $("#avBox").hidden = !(r.kind==="konto" || r.kind==="bar") || !!r.cc; $("#aAv").setAttribute("aria-checked", String(r.avail===null ? !r.tg : r.avail)); }
     if(!isZiel){ $("#pairBox").hidden = r.kind!=="konto"; $("#aPair").setAttribute("aria-checked", String(!!r.pair));
       const free = state.accounts.filter(x=>x.kind==="depot" && (!isPairedDepot(x.id) || (acc && acc.depot===x.id)));
       $("#aPairTo").innerHTML = !r.pair ? "" : free.map(x=>`<button class="chip" data-pairto="${esc(x.id)}" aria-pressed="${r.pair===x.id}">${esc(x.name)}</button>`).join("") + `<button class="chip" data-pairto="__new" aria-pressed="${r.pair==="__new"}">+ Neues Depot</button>`; }
@@ -2443,6 +2445,7 @@ function accountSheet(acc, kind, presetName, tab){
     $("#aMult").onclick = e => { const b=e.target.closest("[data-mult]"); if(b){ r.roundup=+b.dataset.mult; sync(); } };
     $("#ruTo").onclick = e => { const b=e.target.closest("[data-rto]"); if(b){ r.roundupTo=b.dataset.rto; sync(); } };
     if($("#aTg")) $("#aTg").onclick = () => { r.tg = !r.tg; sync(); };
+    if($("#aAv")) $("#aAv").onclick = () => { r.avail = !(r.avail===null ? !r.tg : r.avail); sync(); };
     if($("#aCc")){ $("#aCc").onclick = () => { r.cc = !r.cc; if(r.cc && !r.ccFrom){ const g = state.accounts.find(x=>x.kind==="konto" && !x.cc && !x.depot && !x.tg && (!acc || x.id!==acc.id)); r.ccFrom = g && g.id; } sync(); };
       $("#ccDay").onclick = e => { const b = e.target.closest("[data-ccd]"); if(b){ r.ccDay = +b.dataset.ccd; sync(); } };
       $("#ccFrom").onclick = e => { const b = e.target.closest("[data-ccf]"); if(b){ r.ccFrom = b.dataset.ccf; sync(); } }; }
@@ -2468,6 +2471,7 @@ function accountSheet(acc, kind, presetName, tab){
     if(isZiel) data.target = parseAmount($("#aTarget").value);
     if(r.kind==="konto" && r.cc && r.ccFrom && !r.pair){ const old = acc && acc.cc || {}; data.cc = {day:r.ccDay, from:r.ccFrom, since: old.since || iso(new Date()), ...(old.last?{last:old.last}:{})}; }
     if(r.kind==="konto" && (r.tg || (acc && acc.tg && !$("#aTg")))) data.tg = true;
+    if((r.kind==="konto" || r.kind==="bar") && r.avail!==null && r.avail !== !(data.tg)) data.avail = r.avail;
     if(acc && acc.lastFill) data.lastFill = acc.lastFill;
     if(isEnv && zIcon) data.icon = zIcon;
     closeSheet();
@@ -2501,8 +2505,10 @@ const balAt = (a, d) => (a.start||0) + state.entries.reduce((s,e)=> (e.date||"")
 // Offene Kreditkartenbeträge, die noch von einem Konto abgebucht werden
 const ccOpen = fromId => state.accounts.filter(a=>a.kind==="konto" && a.cc && a.cc.from && (!fromId || a.cc.from===fromId)).map(a=>({a, open: Math.max(0, -balance(a)), d: ccNext(a)})).filter(x=>x.open>0);
 // Jetzt frei verfügbares Geld: Alltagskonten (nach offener Kreditkarte) + Bargeld, das nicht in Zips steckt
+// Zählt ein Konto bei „Noch verfügbar“ mit? Standard: ja, außer Tagesgeld. Pro Konto umschaltbar (acc.avail).
+const inAvail = a => (a.kind==="bar" || a.kind==="konto") && !a.cc && (typeof a.avail==="boolean" ? a.avail : !a.tg);
 function freeMoney(){
-  const rows = konten().filter(a => (a.kind==="bar" || a.kind==="konto") && !a.tg && !a.cc)
+  const rows = konten().filter(inAvail)
     .map(a => { const cc = ccOpen(a.id).reduce((s,x)=>s+x.open,0); return {a, v: balance(a) - cc, cc}; }).filter(x => x.v || x.a.kind==="bar");
   return {rows, total: rows.reduce((s,x)=>s+x.v,0)};
 }
@@ -2867,7 +2873,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.39 (25.11.2026)";
+const APP_VERSION = "2.40 (25.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
