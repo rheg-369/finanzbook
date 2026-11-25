@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-SLu4MOWBpZPtE1Pwjx81/yKWIgKCC1e75/yzjHGprEc='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-TiLAz6j2w/7b0jQ+PVgaE3UV2Huf32pSDlG5YfH8Hrk='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -801,6 +801,18 @@ h2.pieh .mini button{flex:1;padding:7px 4px}
 .sbud input:focus{outline:none}
 .shint{font-size:.78rem;color:var(--muted);margin:-6px 8px 0;line-height:1.4}
 .sheet{animation:up .34s cubic-bezier(.2,.8,.2,1)}
+/* v2.46 Gesamtvermögen */
+.wbtn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:0;background:none;padding:0;color:inherit;text-align:left}
+.wbtn .achev{font-size:1.3rem;opacity:.55}
+.wchart{display:flex;flex-direction:column;gap:6px}
+.wchart svg{width:100%;height:110px;display:block}
+.wdiff{text-align:center;font-weight:600;font-size:.95rem}.wdiff span{color:var(--muted);font-weight:400}
+.wlab{display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted)}
+.wgl{display:flex;justify-content:space-between;margin-right:8px}
+.wrow{min-height:52px}.wrow b{font-weight:600;font-variant-numeric:tabular-nums}
+.wrow>span:first-child{display:flex;flex-direction:column;min-width:0}.wrow small{color:var(--muted);font-size:.78rem;margin-top:2px}
+.wrow small b{font-weight:600}.wrow .wn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wact{display:flex;align-items:center;gap:6px}
 /* v2.43 ruhiger: Rein/Raus/Investiert erst nach Antippen der Hauptzahl */
 .hero:has(details.avail:not([open])) .trio{display:none}
 .wr-teaser.slim{display:flex;align-items:baseline;gap:10px;padding:14px 44px 14px 20px;border-radius:18px}
@@ -2121,14 +2133,73 @@ function entrySheet(entry, preset){
   if(!entry) setTimeout(()=>$("#fAmount").focus(), 60);
 }
 
+// ---- Gesamtvermögen: alles zusammen, Depots mit eingetragenem Wert, Verlauf pro Monat ----
+function wealthSheet(){
+  const ks = konten(), total = wealthNow(), today = iso(new Date());
+  const groups = [["Konten", ks.filter(a=>a.kind==="konto" && !a.tg)], ["Bargeld", ks.filter(a=>a.kind==="bar")], ["Tagesgeld", ks.filter(a=>a.kind==="konto" && a.tg)],
+    ["Zips", umschlaege()], ["Sparziele", ziele()], ["Depots", ks.filter(a=>a.kind==="depot")]].filter(g=>g[1].length);
+  // Verlauf: Monatsenden der letzten 12 Monate ab dem ersten Datum mit Daten
+  const dates = state.entries.map(e=>e.date).filter(Boolean).concat(...ks.map(a=>(a.vals||[]).map(x=>x.d))).sort();
+  const first = (dates[0] || today).slice(0,7), now = new Date(); const pts = [];
+  for(let k=11;k>=0;k--){ const m0 = new Date(now.getFullYear(), now.getMonth()-k, 1); const ym = m0.getFullYear()+"-"+pad(m0.getMonth()+1); if(ym < first) continue;
+    const end = k===0 ? today : iso(new Date(m0.getFullYear(), m0.getMonth()+1, 0)); pts.push({l:MON[m0.getMonth()], d:end, v: k===0 ? total : wealthAt(end)}); }
+  let chart = "";
+  if(pts.length >= 2){
+    const W = 300, H = 92, vs = pts.map(p=>p.v), mn = Math.min(...vs), mx = Math.max(...vs), span = Math.max(1, mx-mn);
+    const xy = pts.map((p,k)=>[k/(pts.length-1)*W, 8 + (1-(p.v-mn)/span)*(H-16)]);
+    const line = xy.map(([x,y],k)=>(k?"L":"M")+x.toFixed(1)+" "+y.toFixed(1)).join(" ");
+    const diff = total - pts[0].v;
+    chart = `<div class="wchart"><div class="wdiff ${diff<0?"neg":"pos"}">${diff<0?"−":"+"}${money(Math.abs(diff))} <span>seit ${esc(pts[0].l)}</span></div>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Verlauf des Gesamtvermögens"><defs><linearGradient id="wg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".28"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+        <path d="${line} L${W} ${H} L0 ${H} Z" fill="url(#wg)"/><path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
+      <div class="wlab"><span>${esc(pts[0].l)}</span><span>Heute</span></div></div>`;
+  } else chart = `<p class="shint" style="margin:0">Der Verlauf füllt sich Monat für Monat.</p>`;
+  const [w,c] = money(Math.abs(total)).replace(/\s?€/,"").split(",");
+  openSheet(`
+    <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Gesamtvermögen</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="ahero"><div class="big num ${total<0?"neg":""}">${total<0?"−":""}${esc(w)}<span class="cents">,${esc(c)} €</span></div></div>
+    ${chart}
+    ${groups.map(([n,L])=>`<div class="sgl label wgl"><span>${n}</span><span class="num">${money(L.reduce((s,a)=>s+accVal(a),0))}</span></div>
+      <div class="sgroup">${L.map(a=>{ if(a.kind!=="depot") return `<div class="srow wrow"><span>${esc(a.name)}</span><b class="num">${money(accVal(a))}</b></div>`;
+        const lv = depLast(a), paid = balance(a), gain = accVal(a) - paid;
+        return `<button class="srow wrow" data-dval="${esc(a.id)}"><span><span class="wn">${esc(a.name)}</span><small>${lv ? `Wert vom ${esc(fmtShort(lv.d))}${paid>0?` · <b class="${gain<0?"neg":"pos"}">${gain<0?"−":"+"}${money(Math.abs(gain))}</b>`:""}` : "Wert eintragen"}</small></span><b class="num">${money(accVal(a))}</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>`; }).join("")}</div>`).join("")}
+    ${ks.some(a=>a.kind==="depot") ? `<p class="shint">Depotwert tippst du von Hand ein, z. B. aus der Trade-Republic-App. Investiert zählt weiter nur, was du eingezahlt hast.</p>` : ""}
+  `);
+  $("#cancel").onclick = closeSheet;
+  document.querySelectorAll("[data-dval]").forEach(b => b.onclick = () => depValSheet(accById(b.dataset.dval), wealthSheet));
+}
+function depValSheet(a, back){
+  if(!a) return;
+  const lv = depLast(a); let d = iso(new Date());
+  const hist = depVals(a).reverse().slice(0,5);
+  openSheet(`
+    <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">${esc(a.name)}</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="hint" style="text-align:center;margin:0">Was ist dein Depot gerade wert?</p>
+    <label class="amount"><input id="dvAmt" inputmode="decimal" placeholder="0,00" value="${esc(toInput(depNow(a)))}" aria-label="Depotwert in Euro" autocomplete="off"><span>€</span></label>
+    <div class="chips" id="dvDate" style="justify-content:center"><button class="chip" data-dd="today" aria-pressed="true">Heute</button><label class="chip datechip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14" rx="3"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/></svg><span id="dvTxt">Anderes Datum</span><input type="date" id="dvIn" value="${d}" max="${d}" aria-label="Datum wählen"></label></div>
+    ${hist.length ? `<div class="sgl label">Bisher eingetragen</div><div class="sgroup">${hist.map(x=>`<div class="srow wrow"><span>${esc(fmtShort(x.d))}</span><span class="wact"><b class="num">${money(x.v)}</b><button class="csx" data-dvdel="${esc(x.d)}" aria-label="Wert vom ${esc(fmtShort(x.d))} löschen">${svgI("trash")}</button></span></div>`).join("")}</div>` : ""}
+    <p class="shint">Eingezahlt hast du ${money(balance(a))}. Neue Ein- und Auszahlungen rechnet die App bis zum nächsten Wert dazu.</p>
+    <div class="row"><button class="primary" id="ok">Speichern</button></div>
+  `);
+  const sync = () => { const t = d===iso(new Date()); document.querySelector('[data-dd="today"]').setAttribute("aria-pressed", String(t)); $("#dvTxt").textContent = t ? "Anderes Datum" : new Date(d+"T12:00").toLocaleDateString("de-DE",{day:"numeric", month:"short"}); };
+  $("#dvDate").onclick = e => { if(e.target.closest('[data-dd="today"]')){ d = iso(new Date()); $("#dvIn").value = d; sync(); } };
+  $("#dvIn").onchange = e => { if(e.target.value){ d = e.target.value; sync(); } };
+  const store1 = async vals => { const {id, ...rest} = accById(a.id) || a; await save("accounts", a.id, {...rest, vals}); };
+  document.querySelectorAll("[data-dvdel]").forEach(b => b.onclick = async () => { await store1(depVals(a).filter(x=>x.d!==b.dataset.dvdel)); toast("Wert gelöscht"); depValSheet(accById(a.id), back); });
+  $("#cancel").onclick = () => back ? back() : closeSheet();
+  $("#ok").onclick = async () => { const v = parseAmount($("#dvAmt").value); if(isNaN(v) || v<0) return;
+    const vals = depVals(a).filter(x=>x.d!==d).concat([{d, v}]).sort((x,y)=>x.d<y.d?-1:1).slice(-120);
+    await store1(vals); toast("Depotwert gespeichert"); if(back) back(); else closeSheet(); };
+}
+
 // ---- Konten & Sparziele ----
 function renderKonten(){
   const ks = konten(), zs = ziele(), us = umschlaege();
-  const onAcc = ks.reduce((s,a)=>s+balance(a),0), inGoals = zs.reduce((s,a)=>s+balance(a),0), inEnv = us.reduce((s,a)=>s+balance(a),0);
+  const onAcc = ks.reduce((s,a)=>s+accVal(a),0), inGoals = zs.reduce((s,a)=>s+balance(a),0), inEnv = us.reduce((s,a)=>s+balance(a),0);
   const total = onAcc + inGoals + inEnv;
   const [whole, cents] = money(Math.abs(total)).replace(/\s?€/,"").split(",");
   let html = reminderHtml() + `<div class="hero">
-    <div><div class="label">Gesamtvermögen</div><div class="big num ${total<0?"neg":""}">${total<0?"−":""}${esc(whole)}<span class="cents">,${esc(cents)} €</span></div></div>
+    <button class="wbtn" id="wealthBtn" aria-label="Gesamtvermögen ansehen"><div><div class="label">Gesamtvermögen</div><div class="big num ${total<0?"neg":""}">${total<0?"−":""}${esc(whole)}<span class="cents">,${esc(cents)} €</span></div></div><span class="achev" aria-hidden="true">›</span></button>
     <div class="hrows">
       <div><span>Auf Konten</span><b class="num">${money(onAcc)}</b></div>
       ${us.length||inEnv?`<div><span>In Zips</span><b class="num">${money(inEnv)}</b></div>`:""}
@@ -2141,11 +2212,11 @@ function renderKonten(){
       <button id="checkAcc">${svgI("check")}Prüfen</button>
     </div>`;
   html += `<section><h2><span>Konten</span><button class="linkbtn" id="addKonto">+ Neu</button></h2><ul class="accs">${ks.filter(a=>!(a.kind==="depot" && isPairedDepot(a.id))).map(a => {
-    const b = balance(a), dp = pairOf(a);
+    const b = accVal(a), dp = pairOf(a);
     const cco = ccOpen(a.id), ccSum = cco.reduce((s,x)=>s+x.open,0);
     const extra = a.kind==="bar" && umschlaege().length && !ccSum ? `frei verfügbar, ohne Zips` : ccSum ? `nach Kreditkarte <b class="num">${money(b - ccSum)}</b> (am ${fmtShort(cco[0].d)})` : a.cc && a.cc.from ? `${b<0?`offen ${money(-b)} · `:""}Abbuchung ${fmtShort(ccNext(a))} von ${esc(accName(a.cc.from))}` : `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.roundupTo&&a.roundupTo!==a.depot?` → ${esc(accName(a.roundupTo))}`:""}`;
-    if(dp) return `<li><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(--c4)" aria-hidden="true">${svgI("invest")}</span><span class="mid"><div class="t">${esc(a.name)}</div><div class="s">Konto &amp; Depot${extra?" · "+extra:""}</div></span><span class="a num ${b<0?"neg":""}">${money(b)}<small class="dep">im Depot ${money(balance(dp))}</small></span></button></li>`;
-    return `<li class="${dp?"paired":""}"><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(${a.kind==="depot"||dp?"--c4":a.kind==="bar"?"--c3":a.cc?"--c6":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":dp?"invest":a.cc?"card":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button>${dp?`<button class="acc dsub" data-account="${esc(dp.id)}"><span class="mid"><div class="t">Depot</div><div class="s">${esc(dp.name)}</div></span><span class="a num">${money(balance(dp))}</span></button>`:""}</li>`;
+    if(dp) return `<li><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(--c4)" aria-hidden="true">${svgI("invest")}</span><span class="mid"><div class="t">${esc(a.name)}</div><div class="s">Konto &amp; Depot${extra?" · "+extra:""}</div></span><span class="a num ${b<0?"neg":""}">${money(b)}<small class="dep">im Depot ${money(depNow(dp))}</small></span></button></li>`;
+    return `<li class="${dp?"paired":""}"><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(${a.kind==="depot"||dp?"--c4":a.kind==="bar"?"--c3":a.cc?"--c6":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":dp?"invest":a.cc?"card":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button>${dp?`<button class="acc dsub" data-account="${esc(dp.id)}"><span class="mid"><div class="t">Depot</div><div class="s">${esc(dp.name)}</div></span><span class="a num">${money(depNow(dp))}</span></button>`:""}</li>`;
   }).join("")}</ul></section>`;
 
   if(ks.some(a=>a.kind==="depot")){
@@ -2542,6 +2613,7 @@ function accountSheet(acc, kind, presetName, tab){
     if(r.kind==="konto" && (r.tg || (acc && acc.tg && !$("#aTg")))) data.tg = true;
     if((r.kind==="konto" || r.kind==="bar") && r.avail!==null && r.avail !== !(data.tg)) data.avail = r.avail;
     if(acc && acc.lastFill) data.lastFill = acc.lastFill;
+    if(acc && acc.vals && r.kind==="depot") data.vals = acc.vals;
     if(isEnv && zIcon) data.icon = zIcon;
     closeSheet();
     try { await save("accounts", id, data); toast(acc ? "Gespeichert" : word+" angelegt"); } catch(e){}
@@ -2593,6 +2665,15 @@ let recRunning = false;
 const ccDate = (m, day) => { const [y,mo] = m.split("-").map(Number), last = new Date(y,mo,0).getDate(); return m+"-"+pad(!day || day>last ? last : day); };
 const ccNext = a => { const t = iso(new Date()); let m = t.slice(0,7); for(let i=0;i<3;i++){ const d = ccDate(m, a.cc.day); if(d >= t && (!a.cc.last || d > a.cc.last)) return d; m = shiftMonth(m,1); } return ccDate(m, a.cc.day); };
 const balAt = (a, d) => (a.start||0) + state.entries.reduce((s,e)=> (e.date||"") > d ? s : e.type==="transfer" ? s + (e.to===a.id?e.amount:0) - (e.from===a.id?e.amount:0) : accOf(e)===a.id ? s + (e.type==="in"?e.amount:-e.amount) : s, 0);
+// Depotwert: von Hand eingetragene Werte (acc.vals = [{d, v}]), danach Ein-/Auszahlungen obendrauf
+const depVals = a => (a.vals||[]).slice().sort((x,y)=>x.d<y.d?-1:x.d>y.d?1:0);
+const depLast = a => depVals(a).pop() || null;
+const depValAt = (a, d) => { const v = depVals(a).filter(x=>x.d<=d).pop(); return v ? v.v + balAt(a, d) - balAt(a, v.d) : balAt(a, d); };
+const depNow = a => { const v = depLast(a); return v ? v.v + balance(a) - balAt(a, v.d) : balance(a); };
+const accVal = a => a.kind==="depot" ? depNow(a) : balance(a);
+const wealthAccs = () => konten().concat(ziele(), umschlaege());
+const wealthNow = () => wealthAccs().reduce((s,a)=>s+accVal(a),0);
+const wealthAt = d => wealthAccs().reduce((s,a)=>s+(a.kind==="depot" ? depValAt(a,d) : balAt(a,d)),0);
 // Offene Kreditkartenbeträge, die noch von einem Konto abgebucht werden
 const ccOpen = fromId => state.accounts.filter(a=>a.kind==="konto" && a.cc && a.cc.from && (!fromId || a.cc.from===fromId)).map(a=>({a, open: Math.max(0, -balance(a)), d: ccNext(a)})).filter(x=>x.open>0);
 // Jetzt frei verfügbares Geld: Alltagskonten (nach offener Kreditkarte) + Bargeld, das nicht in Zips steckt
@@ -2960,7 +3041,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.45 (25.11.2026)";
+const APP_VERSION = "2.46 (25.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -3441,6 +3522,7 @@ document.addEventListener("click", e => {
   if(fl){ const bar = konten().find(a=>a.kind==="bar") || konten()[0]; entrySheet(null, {type:"transfer", from:bar&&bar.id, to:fl.dataset.fill}); return; }
   const tk = e.target.closest("[data-take]");
   if(tk){ const bar = konten().find(a=>a.kind==="bar") || konten()[0]; entrySheet(null, {type:"transfer", from:tk.dataset.take, to:bar&&bar.id}); return; }
+  if(e.target.closest("#wealthBtn")){ wealthSheet(); return; }
   if(e.target.closest("#addTransfer")){ entrySheet(null, {type:"transfer"}); return; }
   const iy = e.target.closest("[data-invyear]");
   if(iy){ state.invYear = Number(iy.dataset.invyear); render(); return; }
