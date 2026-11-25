@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-7nggH5jzq6s5gHQEvDNNTkNIHZ746hCujpitr5uRCv4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-Op6dmzhiY0BStRauNEP7FppcB9IAEPdf3tFMp874I+E='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -643,6 +643,12 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .ahrows .atot{border-top:1px solid var(--line);padding-top:6px;font-weight:700}.ahrows .atot span{color:var(--ink)}
 .ahero .asub small{font-size:.8rem}
 .ahist .entry .s{white-space:normal;overflow:visible}.ahist .ahm{margin:14px 0 4px}.ahist .entries{margin:0}
+.freem{border-top:1px solid rgba(255,255,255,.14);padding-top:12px;margin-top:2px;display:flex;flex-direction:column;gap:8px}
+.fm-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}.fm-top b{font-family:var(--f-serif);font-size:1.35rem;font-weight:600}
+.fm-rows{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.84rem;opacity:.85}
+.fm-rows span{display:inline-flex;align-items:center;gap:5px}.fm-rows i{display:inline-flex;width:15px;height:15px;opacity:.8}.fm-rows i svg{width:15px;height:15px}
+.fm-rows small{opacity:.7}
+.fm-note{margin:0;font-size:.76rem;opacity:.65}
 .ruchip{align-self:center;display:flex;align-items:center;gap:8px;margin-top:-6px;padding:7px 12px 7px 7px;border-radius:999px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));font-size:.84rem;max-width:100%}
 .ruchip .ru-ic{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--surface);flex:none}.ruchip .ru-ic svg{width:14px;height:14px}
 .ruchip .ru-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ruchip b{font-weight:600}
@@ -1588,6 +1594,9 @@ function render(){
   let html = reminderHtml() + (m===curPeriod() ? wrappedBanner() : "") + `<div class="hero">
     ${availHtml(m, earned, spent, invM)}
     ${budgetHtml}
+    ${m===curPeriod() ? (()=>{ const f = freeMoney(); if(!f.rows.length) return ""; return `<div class="freem"><div class="fm-top"><span class="label">Jetzt frei verfügbar</span><b class="num ${f.total<0?"neg":""}">${money(f.total)}</b></div>
+      <div class="fm-rows">${f.rows.map(x=>`<span><i>${svgI(x.a.kind==="bar"?"atm":pairOf(x.a)?"invest":"bank")}</i>${esc(x.a.name)} <b class="num">${money(x.v)}</b>${x.cc?`<small> nach Karte</small>`:""}</span>`).join("")}</div>
+      ${umschlaege().length ? `<p class="fm-note">Bargeld ohne Zips. Was in Zips steckt, ist schon verplant.</p>` : ""}</div>`; })() : ""}
     <div class="trio">
       <div><div class="label">Rein</div><div class="v num pos">${money(earned)}</div></div>
       <div><div class="label">Raus</div><div class="v num">${money(spent)}</div></div>
@@ -2028,7 +2037,7 @@ function renderKonten(){
   html += `<section><h2><span>Konten</span><button class="linkbtn" id="addKonto">+ Neu</button></h2><ul class="accs">${ks.filter(a=>!(a.kind==="depot" && isPairedDepot(a.id))).map(a => {
     const b = balance(a), dp = pairOf(a);
     const cco = ccOpen(a.id), ccSum = cco.reduce((s,x)=>s+x.open,0);
-    const extra = ccSum ? `nach Kreditkarte <b class="num">${money(b - ccSum)}</b> (am ${fmtShort(cco[0].d)})` : a.cc && a.cc.from ? `${b<0?`offen ${money(-b)} · `:""}Abbuchung ${fmtShort(ccNext(a))} von ${esc(accName(a.cc.from))}` : `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.roundupTo&&a.roundupTo!==a.depot?` → ${esc(accName(a.roundupTo))}`:""}`;
+    const extra = a.kind==="bar" && umschlaege().length && !ccSum ? `frei verfügbar, ohne Zips` : ccSum ? `nach Kreditkarte <b class="num">${money(b - ccSum)}</b> (am ${fmtShort(cco[0].d)})` : a.cc && a.cc.from ? `${b<0?`offen ${money(-b)} · `:""}Abbuchung ${fmtShort(ccNext(a))} von ${esc(accName(a.cc.from))}` : `${a.roundup&&a.roundupTo?`Round-up ${a.roundup}×`:""}${a.roundup&&a.roundupTo&&a.roundupTo!==a.depot?` → ${esc(accName(a.roundupTo))}`:""}`;
     if(dp) return `<li><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(--c4)" aria-hidden="true">${svgI("invest")}</span><span class="mid"><div class="t">${esc(a.name)}</div><div class="s">Konto &amp; Depot${extra?" · "+extra:""}</div></span><span class="a num ${b<0?"neg":""}">${money(b)}<small class="dep">im Depot ${money(balance(dp))}</small></span></button></li>`;
     return `<li class="${dp?"paired":""}"><button class="acc" data-account="${esc(a.id)}"><span class="badge" style="--bc:var(${a.kind==="depot"||dp?"--c4":a.kind==="bar"?"--c3":a.cc?"--c6":"--c1"})" aria-hidden="true">${svgI(a.kind==="depot"?"invest":a.kind==="bar"?"atm":dp?"invest":a.cc?"card":"bank")}</span><span class="mid"><div class="t">${esc(a.name)}</div>${extra?`<div class="s">${extra}</div>`:""}</span><span class="a num ${b<0?"neg":""}">${money(b)}</span></button>${dp?`<button class="acc dsub" data-account="${esc(dp.id)}"><span class="mid"><div class="t">Depot</div><div class="s">${esc(dp.name)}</div></span><span class="a num">${money(balance(dp))}</span></button>`:""}</li>`;
   }).join("")}</ul></section>`;
@@ -2463,6 +2472,12 @@ const ccNext = a => { const t = iso(new Date()); let m = t.slice(0,7); for(let i
 const balAt = (a, d) => (a.start||0) + state.entries.reduce((s,e)=> (e.date||"") > d ? s : e.type==="transfer" ? s + (e.to===a.id?e.amount:0) - (e.from===a.id?e.amount:0) : accOf(e)===a.id ? s + (e.type==="in"?e.amount:-e.amount) : s, 0);
 // Offene Kreditkartenbeträge, die noch von einem Konto abgebucht werden
 const ccOpen = fromId => state.accounts.filter(a=>a.kind==="konto" && a.cc && a.cc.from && (!fromId || a.cc.from===fromId)).map(a=>({a, open: Math.max(0, -balance(a)), d: ccNext(a)})).filter(x=>x.open>0);
+// Jetzt frei verfügbares Geld: Alltagskonten (nach offener Kreditkarte) + Bargeld, das nicht in Zips steckt
+function freeMoney(){
+  const rows = konten().filter(a => (a.kind==="bar" || a.kind==="konto") && !a.tg && !a.cc)
+    .map(a => { const cc = ccOpen(a.id).reduce((s,x)=>s+x.open,0); return {a, v: balance(a) - cc, cc}; }).filter(x => x.v || x.a.kind==="bar");
+  return {rows, total: rows.reduce((s,x)=>s+x.v,0)};
+}
 let ccRunning = false;
 async function runCards(){
   if(ccRunning || !state.ready) return; ccRunning = true;
@@ -2819,7 +2834,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.35 (25.11.2026)";
+const APP_VERSION = "2.36 (25.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
