@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-ijPPjRc0pEKMYfUjOXDEQi9g5CndS5jQr4n8iq/+qR0='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-EdI7/J9mU6AzeBFMgw1PhgEjn9myCro73nVoMIpq09w='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -347,6 +347,14 @@ section > h2 .num{font-family:var(--f-body);font-size:.85rem;color:var(--muted);
 .zcard .zact button.fill{background:color-mix(in srgb,var(--zc) 20%,var(--surface));background:var(--chip)}
 .zcard.addz{align-items:center;justify-content:center;border:2px dashed var(--line);box-shadow:none;background:none;color:var(--muted);font-weight:600;min-height:150px}
 .zcard.addz::before{display:none}
+.zgrid .zcard[data-zid]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.zedit .zcard[data-zid]{animation:zwig .32s ease-in-out infinite alternate;touch-action:none}
+.zedit .zcard[data-zid]:nth-child(2n){animation-delay:-.16s;animation-duration:.29s}
+.zedit .zcard .open{cursor:grab}
+.zcard.zlift{animation:none!important;z-index:5;box-shadow:0 22px 44px -14px rgba(0,0,0,.55);scale:1.06;transition:scale .15s,box-shadow .15s;cursor:grabbing}
+.zedit .zcard.addz{opacity:.35;pointer-events:none}
+@keyframes zwig{from{rotate:-1.1deg}to{rotate:1.1deg}}
+@media (prefers-reduced-motion: reduce){.zedit .zcard[data-zid]{animation:none;outline:1.5px dashed var(--line);outline-offset:-1.5px}}
 .zhead{display:flex;align-items:center;gap:12px}
 .zhead .ic{width:48px;height:48px;border-radius:15px;display:grid;place-items:center;font-size:1.5rem;background:var(--chip);background:color-mix(in srgb,var(--zc) 18%,var(--surface))}
 .zhead .zb{font-family:var(--f-display);font-weight:700;font-size:1.8rem}
@@ -587,6 +595,10 @@ details.more summary span{margin-left:auto;color:var(--accent);font-weight:500}
 .tgrows{display:flex;flex-direction:column;gap:6px;font-size:.86rem}
 .tgrows>div{display:flex;justify-content:space-between;gap:10px}.tgrows span{display:flex;align-items:center;gap:6px;color:var(--muted)}
 .tgrows .zi svg{width:14px;height:14px}
+.tgall{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:0;border-radius:999px;padding:12px 14px;font-weight:600;font-size:.9rem;background:var(--accent);color:var(--surface)}.tgall svg{width:16px;height:16px}
+.tgall small{font-weight:500;opacity:.85}
+.tgfix .mid .s{color:var(--muted)}
+.tgfix .zi svg{width:16px;height:16px}.tgfix .zi{display:inline-flex;vertical-align:-3px;margin-right:6px}
 .tgint{align-self:flex-start;display:flex;align-items:center;gap:6px;border:0;background:none;padding:2px 0;color:var(--accent);font-weight:600;font-size:.86rem}.tgint svg{width:15px;height:15px}
 .eurin{position:relative;display:block}
 .eurin input{padding-right:2.2em}
@@ -2484,13 +2496,13 @@ function renderSips(){
     ${us.length?`<div class="acts"><button class="main" id="fillAll">Zips befüllen</button><button id="payZip">Aus Zip bezahlen</button></div>`:""}
   </div>`;
   if(free<0 && us.length) html += `<div class="fixcard"><div><b>Bargeld ohne Zip: ${money(free)}</b><p>Meist wurden Zips aus Bargeld befüllt, obwohl das Geld schon drin steckte.</p></div><button id="fixFills">Korrigieren</button></div>`;
-  html += `<section><h2><span>Deine Zips</span></h2>`;
+  html += `<section><h2><span>Deine Zips</span>${state.zipEdit && us.length?`<button class="linkbtn" id="zipDone">Fertig</button>`:""}</h2>`;
   if(!us.length) html += `<div class="empty" style="padding:20px 16px"><strong>Noch keine Zips</strong>Für dein Bargeld im Budgetplaner. Leg los mit einem Tipp:</div>
     <div class="chips" style="justify-content:center">${["Urlaub","Auto","Rückzahlung","Geschenke","Lebensmittel","Notgroschen"].map(n=>`<button class="chip" data-newenv="${n}">+ ${n}</button>`).join("")}</div>
     <div class="addrow" style="margin-top:14px"><button class="addbtn" id="addEnv">+ Eigenen Zip anlegen</button></div>`;
-  else html += `<div class="zgrid">${us.map(a => {
+  else html += `<div class="zgrid${state.zipEdit?" zedit":""}" id="zgrid">${us.map(a => {
     const b = zipTotal(a), tg = tgShare(a.id), t = a.target||0, pct = t ? Math.max(0,Math.min(1,b/t)) : 0, x = zipMonth(a.id, m);
-    return `<div class="zcard" style="--zc:var(${zipColor(a)})">
+    return `<div class="zcard" data-zid="${esc(a.id)}" style="--zc:var(${zipColor(a)})">
       <button class="open" data-zip="${esc(a.id)}" aria-label="${esc(a.name)} öffnen">
         <span class="ztop"><span class="ic" aria-hidden="true">${zipSvg(a)}</span><span class="zn">${esc(a.name)}</span></span>
         <span class="zb num ${b<0?"neg":""}">${money(b)}</span>${tg?`<span class="ztg"><i aria-hidden="true">${svgI("bank")}</i>${money(tg)} auf Tagesgeld</span>`:""}${parkAccs(a.id).filter(x=>x.v>0).map(x=>`<span class="ztg"><i aria-hidden="true">${svgI("bank")}</i>${money(x.v)} auf ${esc(x.a.name)}</span>`).join("")}
@@ -2502,6 +2514,7 @@ function renderSips(){
   html += `</section>`;
   if(us.length && zipTgOn()){
     html += `<section><h2><span>Tagesgeld</span><button class="linkbtn" id="addTg">+ Neu</button></h2>`;
+    const tgSk = new Set(((state.settings||{}).tgSkip)||[]), cashAll = us.reduce((s,a)=>s+Math.max(0,balance(a)),0), cashSel = us.filter(a=>!tgSk.has(a.id)).reduce((s,a)=>s+Math.max(0,balance(a)),0);
     html += tgAccs().map(t => { const bal = balance(t), sh = us.reduce((s,a)=>s+tgShare(a.id, t.id),0), x = accBreak(t.id);
       const zins = x.inn - x.out, rest = bal - sh - zins;
       const parts = us.map(a=>({a, v:tgShare(a.id, t.id)})).filter(x=>x.v);
@@ -2510,6 +2523,7 @@ function renderSips(){
           ${zins?`<div><span>Zinsen</span><b class="num ${zins>0?"pos":"neg"}">${zins>0?"+":""}${money(zins)}</b></div>`:""}
           ${rest?`<div class="tgfree"><span>Keinem Zip zugeordnet</span><b class="num">${money(rest)}</b></div>${rest>0?`<p class="hint">Gehört es zu euren Zips? Dann zuordnen.</p><button class="tgint" data-tgasg="${esc(t.id)}">${svgI("zip")}Zips zuordnen</button>`:""}`:""}
           ${!parts.length&&!rest&&!zins?`<p class="hint">Noch nichts eingezahlt. Öffne einen Zip und tippe auf „Aufs Tagesgeld“.</p>`:""}</div>
+        ${cashAll>0?`<button class="tgall" data-tgall="${esc(t.id)}">${svgI("bank")}Alles aufs Tagesgeld${cashSel>0?` <small class="num">${money(cashSel)}</small>`:""}</button>`:""}
         <button class="tgint" data-tgint="${esc(t.id)}">${svgI("plus")}Zinsen eintragen</button></div>`; }).join("");
     html += `</section>`;
   }
@@ -2521,6 +2535,54 @@ function renderSips(){
   }
   $("#main").innerHTML = html;
 }
+
+// Zips umsortieren wie Apps auf dem iPhone: lange drücken → wackeln, ziehen, loslassen. „Fertig“ beendet.
+(() => {
+  let hold = null, drag = null, sx = 0, sy = 0, eatClick = false, scrollRaf = 0;
+  const cards = () => [...document.querySelectorAll("#zgrid .zcard[data-zid]")];
+  const enter = () => { if(state.zipEdit) return; state.zipEdit = true; const g = $("#zgrid"); if(g) g.classList.add("zedit");
+    const h = g && g.closest("section").querySelector("h2"); if(h && !h.querySelector("#zipDone")) h.insertAdjacentHTML("beforeend", `<button class="linkbtn" id="zipDone">Fertig</button>`); HAPTIC.fire(); };
+  const place = () => { if(!drag) return; const c = drag.el; c.style.transform = "";
+    const r = c.getBoundingClientRect(); c.style.transform = `translate(${drag.x - drag.ox - r.left}px,${drag.y - drag.oy - r.top}px)`; };
+  const start = (el, x, y) => { const r = el.getBoundingClientRect(); drag = {el, ox:x - r.left, oy:y - r.top, x, y}; el.classList.add("zlift"); place(); };
+  const reorder = () => {
+    const c = drag.el; c.style.visibility = "hidden"; const hit = document.elementFromPoint(drag.x, drag.y); c.style.visibility = "";
+    const t = hit && hit.closest("#zgrid .zcard[data-zid]"); if(!t || t===c) return;
+    const all = cards(), from = all.indexOf(c), to = all.indexOf(t);
+    const others = all.filter(x=>x!==c), before = new Map(others.map(x=>[x, x.getBoundingClientRect()]));
+    t.parentNode.insertBefore(c, from < to ? t.nextSibling : t);
+    if(!calm()) others.forEach(x => { const a = before.get(x), b = x.getBoundingClientRect(); const dx = a.left-b.left, dy = a.top-b.top;
+      if(dx||dy) x.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:"none"}], {duration:220, easing:"cubic-bezier(.2,.8,.2,1)"}); });
+    place(); HAPTIC.fire();
+  };
+  const edgeScroll = () => { scrollRaf = 0; if(!drag) return; const H = innerHeight, y = drag.y;
+    const v = y < 90 ? -(90-y)/6 : y > H-150 ? (y-(H-150))/6 : 0;
+    if(v){ window.scrollBy(0, v); place(); reorder(); scrollRaf = requestAnimationFrame(edgeScroll); } };
+  const finish = async () => { clearTimeout(hold); hold = null; if(!drag) return;
+    const c = drag.el; drag = null; cancelAnimationFrame(scrollRaf);
+    const from = c.style.transform; c.style.transform = ""; c.classList.remove("zlift");
+    if(!calm() && from) c.animate([{transform:from},{transform:"none"}], {duration:200, easing:"cubic-bezier(.2,.8,.2,1)"});
+    const ids = cards().map(x=>x.dataset.zid), now = umschlaege().map(a=>a.id);
+    if(ids.join()===now.join()) return;
+    const accs = local.read("accounts"); let ch = false;
+    ids.forEach((id,i)=>{ if(accs[id] && accs[id].order!==i+1){ accs[id].order = i+1; ch = true; } });
+    if(ch){ const last = ids[ids.length-1]; const {id:_, ...d} = accById(last); local.write("accounts", accs); await store.set("accounts", last, {...d, order:ids.length}); }
+  };
+  document.addEventListener("pointerdown", e => {
+    const c = e.target.closest && e.target.closest("#zgrid .zcard[data-zid]"); if(!c || (e.pointerType==="mouse" && e.button!==0)) return;
+    sx = e.clientX; sy = e.clientY;
+    if(state.zipEdit){ start(c, sx, sy); return; }
+    clearTimeout(hold); hold = setTimeout(() => { hold = null; eatClick = true; enter(); start(c, sx, sy); }, 450);
+  });
+  document.addEventListener("pointermove", e => {
+    if(hold && Math.hypot(e.clientX-sx, e.clientY-sy) > 9){ clearTimeout(hold); hold = null; }
+    if(!drag) return; drag.x = e.clientX; drag.y = e.clientY; place(); reorder(); if(!scrollRaf) scrollRaf = requestAnimationFrame(edgeScroll);
+  });
+  document.addEventListener("pointerup", finish); document.addEventListener("pointercancel", finish);
+  document.addEventListener("touchmove", e => { if(drag) e.preventDefault(); }, {passive:false});
+  document.addEventListener("contextmenu", e => { if(e.target.closest && e.target.closest("#zgrid")) e.preventDefault(); });
+  document.addEventListener("click", e => { if(eatClick){ eatClick = false; if(e.target.closest && e.target.closest("#zgrid")){ e.preventDefault(); e.stopPropagation(); } } }, true);
+})();
 
 // ---- Selbstständigkeit: eigener Reiter, Ausgaben/Einnahmen pro Jahr, privat bezahlt
 function renderBiz(){
@@ -2590,6 +2652,39 @@ function tgAssignSheet(t){
     }
     const {id, ...td} = accById(t.id); await store.set("accounts", id, {...td, start:(td.start||0)-sum});
     toast(`${money(sum)} zugeordnet`);
+  };
+}
+
+// Bargeld aller Zips mit einem Tipp aufs Tagesgeld (abgewählte Zips merkt sich die App in settings.tgSkip)
+function tgAllSheet(t){
+  const list = umschlaege().map(a=>({a, v:balance(a)})).filter(x=>x.v>0);
+  const skip = new Set(((state.settings||{}).tgSkip)||[]);
+  const sel = new Set(list.filter(x=>!skip.has(x.a.id)).map(x=>x.a.id));
+  const parked = list.some(x=>parkShare(x.a.id)>0);
+  openSheet(`
+    <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Aufs Tagesgeld</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="hint" style="margin-top:0">Das Bargeld der markierten Zips geht auf ${esc(t.name)}. Es gehört weiter zum Zip.${parked?" Was auf Konten liegt, bleibt dort.":""}</p>
+    <ul class="accs fixlist tgfix">${list.map(x=>`<li><button class="acc" data-tgsel="${esc(x.a.id)}" aria-pressed="${sel.has(x.a.id)}"><span class="tick" aria-hidden="true">${svgI("check")}</span><span class="mid"><div class="t"><i class="zi" style="color:var(${zipColor(x.a)})">${zipSvg(x.a)}</i>${esc(x.a.name)}</div><div class="s">bar im Zip</div></span><span class="a num">${money(x.v)}</span></button></li>`).join("")}</ul>
+    <p class="splitrest" id="tgaSum"></p>
+    <div class="row"><button class="primary" id="ok">Aufs Tagesgeld</button></div>
+  `);
+  const sum = () => list.filter(x=>sel.has(x.a.id)).reduce((s,x)=>s+x.v,0);
+  const sync = () => {
+    document.querySelectorAll("[data-tgsel]").forEach(b=>b.setAttribute("aria-pressed", String(sel.has(b.dataset.tgsel))));
+    const v = sum();
+    $("#tgaSum").innerHTML = `Danach auf ${esc(t.name)} <b class="num">${money(balance(t)+v)}</b>`;
+    $("#ok").disabled = !v; $("#ok").textContent = v ? `${money(v)} aufs Tagesgeld` : "Nichts ausgewählt";
+  };
+  sync();
+  $("#sheet").onclick = e => { const b = e.target.closest("[data-tgsel]"); if(!b) return; const id = b.dataset.tgsel; sel.has(id) ? sel.delete(id) : sel.add(id); sync(); };
+  $("#cancel").onclick = () => { $("#sheet").onclick = null; closeSheet(); };
+  $("#ok").onclick = async () => {
+    const go = list.filter(x=>sel.has(x.a.id)), v = sum(), today = iso(new Date()), now = Date.now(), ids = [];
+    $("#sheet").onclick = null; closeSheet();
+    const newSkip = [...skip].filter(id=>!list.some(x=>x.a.id===id)).concat(list.filter(x=>!sel.has(x.a.id)).map(x=>x.a.id));
+    if(newSkip.join()!==[...skip].join()) await save("settings","main",{...settingsData(), tgSkip:newSkip});
+    for(const [i,{a,v:amt}] of go.entries()){ const id = newId(); ids.push(id); await save("entries", id, {type:"transfer", from:a.id, to:t.id, amount:amt, date:today, note:"Aufs Tagesgeld", createdAt:now+i}); }
+    toast(`${money(v)} aufs Tagesgeld`, async () => { for(const id of ids) await store.del("entries", id); });
   };
 }
 
@@ -3337,7 +3432,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.57 (26.11.2026)";
+const APP_VERSION = "2.58 (26.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -3805,6 +3900,7 @@ document.addEventListener("click", e => {
   if(rc){ const r = state.recurring.find(x=>x.id===rc.dataset.rec); if(r) recSheet(r); return; }
   if(e.target.closest("#addRec")){ recSheet(null); return; }
   const ta = e.target.closest("[data-tgasg]"); if(ta){ const t = accById(ta.dataset.tgasg); if(t) tgAssignSheet(t); return; }
+  const tga = e.target.closest("[data-tgall]"); if(tga){ const t = accById(tga.dataset.tgall); if(t) tgAllSheet(t); return; }
   const ti = e.target.closest("[data-tgint]"); if(ti){ entrySheet(null, {type:"in", cat:"zinsen", account:ti.dataset.tgint, note:"Zinsen"}); return; }
   if(e.target.closest("#addTg")){ accountSheet(null, "konto", "Tagesgeld"); return; }
   const pg = e.target.closest("[data-paygot]"); if(pg){ const r = state.recurring.find(x=>x.id===pg.dataset.paygot); if(r) payGotSheet(r); return; }
@@ -3822,7 +3918,7 @@ document.addEventListener("click", e => {
   if(e.target.closest("#backupNow")){ exportBackup(); return; }
   if(e.target.closest("#impBtn")){ pickBackup(); return; }
   const tb = e.target.closest("#tabs [data-tab]");
-  if(tb){ state.tab = tb.dataset.tab; try{ localStorage.setItem("hhb.tab", state.tab); }catch(_){} render(); window.scrollTo({top:0}); try { if(!matchMedia("(prefers-reduced-motion: reduce)").matches) $("#main").animate([{opacity:0, transform:"translateY(8px)"},{opacity:1, transform:"none"}], {duration:220, easing:"ease-out"}); } catch(_){} return; }
+  if(tb){ state.zipEdit = false; state.tab = tb.dataset.tab; try{ localStorage.setItem("hhb.tab", state.tab); }catch(_){} render(); window.scrollTo({top:0}); try { if(!matchMedia("(prefers-reduced-motion: reduce)").matches) $("#main").animate([{opacity:0, transform:"translateY(8px)"},{opacity:1, transform:"none"}], {duration:220, easing:"ease-out"}); } catch(_){} return; }
   const ac = e.target.closest("[data-account]");
   if(ac){ const a = accById(ac.dataset.account); if(a) accountSheet(a); return; }
   const pt = e.target.closest("[data-put]");
@@ -3833,6 +3929,8 @@ document.addEventListener("click", e => {
   if(e.target.closest("#addEnv")){ accountSheet(null,"umschlag"); return; }
   const ne = e.target.closest("[data-newenv]");
   if(ne){ accountSheet(null,"umschlag",ne.dataset.newenv); return; }
+  if(e.target.closest("#zipDone")){ state.zipEdit = false; render(); return; }
+  if(state.zipEdit && e.target.closest("#zgrid")) return;
   const zo = e.target.closest("[data-zip]");
   if(zo){ const a = accById(zo.dataset.zip); if(a) zipSheet(a); return; }
   const pz = e.target.closest("[data-payzip]");
