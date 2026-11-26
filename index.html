@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-DghBrP7739rqM2sVbi2J2FCH2He658CC9sF+A4Zr6wU='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-cyvsLTbZyZQHyYMh17S5i610lnGyuPx5cTLr5jtRK3w='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -1065,7 +1065,7 @@ const balance = a => (a.start||0) + movement(a.id);
 function accBreak(id){
   const r = {inn:0, out:0, tin:0, tout:0, ru:0, n:0};
   for(const e of state.entries){
-    if(e.type==="transfer"){ if(e.to===id){ r.tin += e.amount; r.n++; } if(e.from===id){ r.tout += e.amount; r.n++; if(e.auto) r.ru += e.amount; } }
+    if(e.type==="transfer"){ if(e.to===id){ r.tin += e.amount; r.n++; } if(e.from===id){ r.tout += e.amount; r.n++; if(e.auto && !e.topup) r.ru += e.amount; } }
     else if(accOf(e)===id){ r.n++; if(e.type==="in") r.inn += e.amount; else r.out += e.amount; }
   }
   return r;
@@ -1125,7 +1125,15 @@ function roundupFor(amount, acc){
   if(!acc || !acc.roundup || !acc.roundupTo || !accById(acc.roundupTo)) return 0;
   return ruDiff(amount) * acc.roundup;
 }
-const childOf = id => state.entries.find(e => e.auto && e.parent===id && e.type==="transfer");
+const childOf = id => state.entries.find(e => e.auto && !e.topup && e.parent===id && e.type==="transfer");
+const topOf = id => state.entries.find(e => e.auto && e.topup && e.parent===id);
+// Bezahldienst mit Guthaben (z. B. PayPal): wie viel liegt drauf, ohne diese Zahlung und ihre Aufladung
+function svcHave(acc, parentId){ const ex = new Set([parentId, parentId && parentId+"-pp"]); const t = parentId && topOf(parentId); if(t) ex.add(t.id);
+  let v = acc.start||0; for(const e of state.entries){ if(ex.has(e.id)) continue;
+    if(e.type==="transfer"){ if(e.to===acc.id) v += e.amount; if(e.from===acc.id) v -= e.amount; }
+    else if(accOf(e)===acc.id) v += e.type==="in" ? e.amount : -e.amount; }
+  return v; }
+const svcShort = (acc, amount, parentId) => Math.max(0, amount - Math.max(0, svcHave(acc, parentId)));
 const sbOf = id => state.entries.find(e => e.auto && e.parent===id && e.type==="in");
 // Saveback (z. B. Trade Republic): Prozent der Kartenzahlung als Einnahme ins Depot, mit Monatsdeckel
 // Saveback ist seit v2.25 entfernt (Geschenk, kein Investment): es wird nichts mehr gebucht.
@@ -1141,9 +1149,15 @@ function savebackFor(amount, acc, date, parentId){
   return Math.max(0, Math.min(raw, cap - used));
 }
 async function syncRoundup(parentId, data){
-  const child = childOf(parentId);
-  const acc = data && data.type==="out" ? accById(data.account) : null;
-  const amt = acc ? roundupFor(data.amount, acc) : 0;
+  const child = childOf(parentId), top = topOf(parentId);
+  let acc = data && data.type==="out" ? accById(data.account) : null, base = data ? data.amount : 0;
+  const pf = acc && acc.payFrom && acc.useBal && accById(acc.payFrom);
+  if(pf){ const short = svcShort(acc, data.amount, parentId);
+    if(short>0) await save("entries", top ? top.id : parentId+"-pp", {type:"transfer", auto:true, topup:true, parent:parentId, from:pf.id, to:acc.id, amount:short, date:data.date, note:"", createdAt:data.createdAt});
+    else if(top) await store.del("entries", top.id);
+    acc = short>0 ? pf : null; base = short; }
+  else if(top) await store.del("entries", top.id);
+  const amt = acc ? roundupFor(base, acc) : 0;
   if(amt>0) await save("entries", child ? child.id : parentId+"-ru", {type:"transfer", auto:true, parent:parentId, from:acc.id, to:acc.roundupTo, amount:amt, date:data.date, note:"", createdAt:data.createdAt});
   else if(child) await store.del("entries", child.id);
   const sb = sbOf(parentId);
@@ -1862,7 +1876,7 @@ function entryRow(e, ctx){
   if(e.type==="transfer"){
     const toKind = (accById(e.to)||{}).kind;
     const fromKind = (accById(e.from)||{}).kind;
-    const label = e.auto && !e.parkRel ? "Round-up" : e.park ? (fromKind==="umschlag" ? "Zip-Geld aufs Konto" : "Abgehoben für Zip") : toKind==="umschlag" ? "In Zip gesteckt" : fromKind==="umschlag" ? "Aus Zip genommen" : ({ziel:"Zurückgelegt", bar:"Abgehoben", depot:"Investiert"})[toKind] || "Umbuchung";
+    const label = e.topup ? "Aufgeladen" : e.auto && !e.parkRel ? "Round-up" : e.park ? (fromKind==="umschlag" ? "Zip-Geld aufs Konto" : "Abgehoben für Zip") : toKind==="umschlag" ? "In Zip gesteckt" : fromKind==="umschlag" ? "Aus Zip genommen" : ({ziel:"Zurückgelegt", bar:"Abgehoben", depot:"Investiert"})[toKind] || "Umbuchung";
     return `<li><button class="entry" data-edit="${esc(e.id)}">
       <span class="badge" style="--bc:var(${label==="Investiert"||label==="Round-up"?"--c4":(accById(e.to)||{}).kind==="umschlag"||(accById(e.from)||{}).kind==="umschlag"?"--c5":"--c1"})" aria-hidden="true">${svgI(label==="Investiert"||label==="Round-up"?"invest":(accById(e.to)||{}).kind==="umschlag"||(accById(e.from)||{}).kind==="umschlag"?"zip":label==="Abgehoben"?"atm":label==="Zurückgelegt"?"ziel":"transfer")}</span>
       <span class="mid"><div class="t">${esc(e.note || label)}</div><div class="s">${esc(ctx && e.from===ctx && (accById(e.to)||{}).kind==="depot" ? "Ins Depot" : ctx && e.to===ctx ? "Von "+accName(e.from) : ctx ? "Nach "+accName(e.to) : accName(e.from)+" → "+accName(e.to))}</div></span>
@@ -1881,7 +1895,7 @@ function entryRow(e, ctx){
     ${ctx && ru ? `<span class="mid"><div class="t">${esc(title)}</div><div class="s">${money(e.amount)} + ${money(ru.amount)} Round-up</div></span>
     <span class="a num">−${money(e.amount+ru.amount)}</span>
   </button></li>` : ""}${ctx && ru ? "" : `
-    <span class="mid"><div class="t">${esc(title)}</div>${(e.note||e.place||e.sub||multi||ru||sbk)?`<div class="s">${esc([(e.note||e.place)?cName:(e.sub?c.name:""), e.note&&e.place?e.place:"", multi?(e.via&&accById(e.via)?accName(e.via)+" ("+accName(accOf(e))+")":accName(accOf(e))):"", e.zip&&accById(e.zip)?"aus "+accName(e.zip):"", ru?"Round-up "+money(ru.amount):"", sbk?"Saveback +"+money(sbk.amount):"", e.rec?"Dauerauftrag":""].filter(Boolean).join(" · "))}</div>`:""}</span>
+    <span class="mid"><div class="t">${esc(title)}</div>${(e.note||e.place||e.sub||multi||ru||sbk)?`<div class="s">${esc([(e.note||e.place)?cName:(e.sub?c.name:""), e.note&&e.place?e.place:"", multi?(e.via&&accById(e.via)?accName(e.via)+" ("+accName(accOf(e))+")":accName(accOf(e))+(topOf(e.id)?", "+money(topOf(e.id).amount)+" von "+accName(topOf(e.id).from):"")):"", e.zip&&accById(e.zip)?"aus "+accName(e.zip):"", ru?"Round-up "+money(ru.amount):"", sbk?"Saveback +"+money(sbk.amount):"", e.rec?"Dauerauftrag":""].filter(Boolean).join(" · "))}</div>`:""}</span>
     <span class="a num ${isIn?"pos":""}">${isIn?"+":"−"}${money(e.amount)}</span>
   </button></li>`}`;
 }
@@ -1988,6 +2002,7 @@ function entrySheet(entry, preset){
     <div id="destBox" hidden><div class="label" style="margin-bottom:6px">Wohin?</div>
       <div class="seg" id="fDest"><button data-dest="konto">Auf ein Konto</button><button data-dest="zips">Auf Zips verteilen</button></div></div>
     <div id="accBox"><div class="label" style="margin-bottom:6px" id="accLabel">Konto</div><div class="chips" id="fAcc"></div></div>
+    <p class="hint" id="svcHint" hidden style="margin-top:-6px"></p>
     <div id="zipBox" hidden><div class="label" style="margin-bottom:6px" id="zipLabel">Aus Zip-Geld bezahlt?</div><div class="chips" id="fZip"></div></div>
     <div id="splitBox" hidden><div class="label" style="margin-bottom:6px">Verteilen auf</div>
       <div class="splits" id="splitRows"></div>
@@ -2041,7 +2056,7 @@ function entrySheet(entry, preset){
     drawZip(); drawPark();
   };
   // Zip-Geld, das auf dem gewählten Konto liegt: Ausgabe dem Zip zuordnen
-  const effAcc = () => { const a = accById(d.account); return d.type!=="transfer" && a && a.payFrom && accById(a.payFrom) ? a.payFrom : d.account; };
+  const effAcc = () => { const a = accById(d.account); return d.type!=="transfer" && a && a.payFrom && !a.useBal && accById(a.payFrom) ? a.payFrom : d.account; };
   const zipOpts = () => { const a = accById(effAcc()); if(d.type!=="out" || !a || !isParkAcc(a.id)) return [];
     return umschlaege().map(z=>({z, v:parkShare(z.id, a.id) + (entry && entry.zip===z.id && accOf(entry)===a.id ? entry.amount + ((childOf(entry.id)||{}).amount||0) : 0)})).filter(x=>x.v>0 || x.z.id===d.zip); };
   function drawZip(){ const box = $("#zipBox"); if(!box) return;
@@ -2100,10 +2115,15 @@ function entrySheet(entry, preset){
       $("#splitRest").innerHTML = rest < 0 ? `<span class="neg">Du hast <b class="neg">${money(-rest)}</b> mehr verteilt, als reinkommt.</span>`
         : !chosen.length ? `Wähl oben die Zips aus, auf die du verteilen willst.` : used ? `Noch frei: <b class="num">${money(rest)}</b>, bleibt auf ${esc(accName(d.account))}` : `Was du nicht verteilst, bleibt auf ${esc(accName(d.account))}.`;
     }
-    const ra = d.type==="out" ? accById(effAcc()) : null, rv = ra ? roundupFor(parseAmount($("#fAmount").value), ra) : 0;
+    let ra = d.type==="out" ? accById(effAcc()) : null, ruBase = parseAmount($("#fAmount").value);
+    { const sa = accById(d.account), box = $("#svcHint"); box.hidden = true;
+      if(d.type==="out" && sa && sa.payFrom && sa.useBal && accById(sa.payFrom)){ const amt = parseAmount($("#fAmount").value)||0, short = svcShort(sa, amt, entry && entry.id), have = Math.max(0, svcHave(sa, entry && entry.id));
+        ra = short>0 ? accById(sa.payFrom) : null; ruBase = short;
+        box.hidden = false; box.innerHTML = !amt ? `Guthaben auf ${esc(sa.name)}: <b class="num">${money(have)}</b>` : short<=0 ? `Komplett aus dem ${esc(sa.name)}-Guthaben` : amt-short>0 ? `<b class="num">${money(amt-short)}</b> aus Guthaben, <b class="num">${money(short)}</b> von ${esc(accName(sa.payFrom))}` : `Komplett von ${esc(accName(sa.payFrom))}`; } }
+    const rv = ra ? roundupFor(ruBase, ra) : 0;
     const sv = ra ? savebackFor(parseAmount($("#fAmount").value), ra, d.date, entry&&entry.id) : 0;
     $("#ruHint").hidden = !rv;
-    if(rv){ const a0 = parseAmount($("#fAmount").value), diff = ruDiff(a0);
+    if(rv){ const a0 = ruBase, diff = ruDiff(a0);
       $("#ruHint").innerHTML = `<span class="ru-ic" aria-hidden="true">${svgI("invest")}</span><span class="ru-t"><b class="num">+${money(rv)}</b> Round-up <span class="ru-to">→ ${ra.roundupTo===ra.depot ? "Depot" : esc(accName(ra.roundupTo))}</span></span><span class="ru-calc num">${money(diff)} × ${ra.roundup}</span>`; }
   };
   // Eigene Orts-Auswahl: Suche, Favoriten, zuletzt genutzt, eigene Orte, Standard-Orte
@@ -2256,7 +2276,7 @@ function entrySheet(entry, preset){
   $("#ok").onclick = submit;
   $("#fNote").onkeydown = e => { if(e.key==="Enter"){ e.preventDefault(); submit(); } };
   if(entry) $("#del").onclick = async () => {
-    const {id, ...data} = entry; const kids = [childOf(id), sbOf(id), ...state.entries.filter(x=>x.relTo===id)].filter(Boolean); closeSheet();
+    const {id, ...data} = entry; const kids = [childOf(id), sbOf(id), topOf(id), ...state.entries.filter(x=>x.relTo===id)].filter(Boolean); closeSheet();
     try {
       await store.del("entries", id); for(const k of kids) await store.del("entries", k.id);
       toast("Gelöscht", async () => { await save("entries", id, data); for(const k of kids){ const {id:cid, ...cd} = k; await save("entries", cid, cd); } });
@@ -2645,9 +2665,9 @@ function accHistHtml(acc){
     ["Einnahmen", sum(inM, e => e.type==="in" && !isKorr(e)), "+"],
     ["Umbuchungen rein", sum(inM, e => e.type==="transfer" && e.to===acc.id), "+"],
     ["Ausgaben", sum(inM, e => e.type==="out" && !isKorr(e)), "−"],
-    ["Round-up ins Depot", sum(inM, e => e.type==="transfer" && e.auto && e.from===acc.id), "−"],
+    ["Round-up ins Depot", sum(inM, e => e.type==="transfer" && e.auto && !e.topup && e.from===acc.id), "−"],
     ["Selbst ins Depot", sum(inM, e => e.type==="transfer" && !e.auto && e.from===acc.id && isDep(e)), "−"],
-    ["Umbuchungen raus", sum(inM, e => e.type==="transfer" && !e.auto && e.from===acc.id && !isDep(e)), "−"],
+    ["Umbuchungen raus", sum(inM, e => e.type==="transfer" && (!e.auto || e.topup) && e.from===acc.id && !isDep(e)), "−"],
     ["Korrekturen", sum(inM, e => isKorr(e) && e.type==="in") - sum(inM, e => isKorr(e) && e.type!=="in"), "±"]].filter(x=>x[1]);
   const net = parts.reduce((s,[,v,g]) => s + (g==="−" ? -v : v), 0);
   let depTxt = "";
@@ -2670,7 +2690,7 @@ function accountSheet(acc, kind, presetName, tab){
   const isEnv = kind==="umschlag";
   const isZiel = kind==="ziel" || isEnv;
   const word = isEnv ? "Zip" : kind==="ziel" ? "Sparziel" : "Konto";
-  const r = {cc: !!(acc && acc.cc), ccDay: acc && acc.cc ? acc.cc.day||0 : 0, ccFrom: acc && acc.cc ? acc.cc.from : null, tg: acc ? !!acc.tg : (zipTgOn() && /tagesgeld/i.test(presetName||"")), avail: acc && typeof acc.avail==="boolean" ? acc.avail : null, pair: acc && acc.depot && state.accounts.some(x=>x.id===acc.depot) ? acc.depot : null, kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&(acc.roundupTo||acc.savebackTo)||null, saveback: 0, payFrom: acc && acc.payFrom && accById(acc.payFrom) ? acc.payFrom : null};
+  const r = {cc: !!(acc && acc.cc), ccDay: acc && acc.cc ? acc.cc.day||0 : 0, ccFrom: acc && acc.cc ? acc.cc.from : null, tg: acc ? !!acc.tg : (zipTgOn() && /tagesgeld/i.test(presetName||"")), avail: acc && typeof acc.avail==="boolean" ? acc.avail : null, pair: acc && acc.depot && state.accounts.some(x=>x.id===acc.depot) ? acc.depot : null, kind, roundup: acc&&acc.roundup||0, roundupTo: acc&&(acc.roundupTo||acc.savebackTo)||null, saveback: 0, payFrom: acc && acc.payFrom && accById(acc.payFrom) ? acc.payFrom : null, useBal: !!(acc && acc.useBal)};
   const targets = () => state.accounts.filter(a => (a.kind==="depot"||a.kind==="ziel") && (!acc || a.id!==acc.id));
   const cur = isEnv ? (acc ? acc.start||0 : 0) : acc ? balance(acc) : 0;
   openSheet(`
@@ -2692,7 +2712,8 @@ function accountSheet(acc, kind, presetName, tab){
     ${isZiel?"":`<div><div class="label" style="margin-bottom:6px">Art</div><div class="chips" id="aKind">${["konto","bar","depot"].map(k=>`<button class="chip" data-kind="${k}">${KINDS[k]}</button>`).join("")}</div></div>
     ${!isZiel && zipTgOn() ? `<div id="tgBox"><div class="optrow"><div><b>Tagesgeld für Zips</b><p class="hint">Hier kann ein Teil eurer Zips liegen. Einzahlen und Abheben zählt nicht als Ausgabe.</p></div><button class="switch" id="aTg" role="switch" aria-checked="false" aria-label="Tagesgeld für Zips"><i></i></button></div></div>` : ""}
     <div id="avBox"><div class="optrow"><div><b>Zählt bei „Noch verfügbar“</b><p class="hint">An: Das Geld hier kannst du diesen Monat ausgeben. Aus: z. B. Rücklagen oder Tagesgeld, das du nicht anfassen willst.</p></div><button class="switch" id="aAv" role="switch" aria-checked="true" aria-label="Zählt bei Noch verfügbar"><i></i></button></div></div>
-    <div id="payBox"><div class="optrow"><div><b>Bezahldienst</b><p class="hint">Z. B. PayPal oder Klarna. Kein eigenes Guthaben: Zahlungen gehen direkt vom Konto ab, Round-up inklusive.</p></div><button class="switch" id="aPay" role="switch" aria-checked="false" aria-label="Bezahldienst"><i></i></button></div><div class="chips" id="aPayFrom" style="margin-top:10px"></div></div>
+    <div id="payBox"><div class="optrow"><div><b>Bezahldienst</b><p class="hint">Z. B. PayPal oder Klarna. Kein eigenes Guthaben: Zahlungen gehen direkt vom Konto ab, Round-up inklusive.</p></div><button class="switch" id="aPay" role="switch" aria-checked="false" aria-label="Bezahldienst"><i></i></button></div><div class="chips" id="aPayFrom" style="margin-top:10px"></div>
+      <div class="optrow" id="useBalRow" style="margin-top:12px"><div><b>Guthaben zuerst nutzen</b><p class="hint">Liegt Geld drauf, wird erst das genommen. Nur der Rest kommt vom Verrechnungskonto.</p></div><button class="switch" id="aUseBal" role="switch" aria-checked="false" aria-label="Guthaben zuerst nutzen"><i></i></button></div></div>
     <div id="ccBox"><div class="optrow"><div><b>Kreditkarte</b><p class="hint">Käufe laufen auf die Karte. Am Abrechnungstag wird der offene Betrag vom Girokonto abgebucht. Als Ausgabe zählt der Kauf, nicht die Abbuchung.</p></div><button class="switch" id="aCc" role="switch" aria-checked="false" aria-label="Kreditkarte"><i></i></button></div>
       <div id="ccOpts" style="margin-top:12px;display:flex;flex-direction:column;gap:10px"><div><div class="label" style="margin-bottom:6px">Abbuchung am</div><div class="chips" id="ccDay">${[[0,"Monatsende"],[1,"1."],[15,"15."],[20,"20."],[25,"25."]].map(([d,l])=>`<button class="chip" data-ccd="${d}">${l}</button>`).join("")}</div></div>
         <div><div class="label" style="margin-bottom:6px">Abgebucht von</div><div class="chips" id="ccFrom"></div></div></div></div>
@@ -2724,9 +2745,11 @@ function accountSheet(acc, kind, presetName, tab){
     $("#ruBox").hidden = r.kind!=="konto";
     document.querySelectorAll("#aMult [data-mult]").forEach(b=>b.setAttribute("aria-pressed", String(+b.dataset.mult===r.roundup)));
     if($("#payBox")){ const pk = r.kind==="konto" && !r.pair; $("#payBox").hidden = !pk; $("#aPay").setAttribute("aria-checked", String(!!r.payFrom));
-      $("#aPayFrom").innerHTML = !r.payFrom ? "" : `<div class="label" style="margin:0 0 6px;width:100%">Abgebucht von</div>` + state.accounts.filter(x=>x.kind==="konto" && !x.cc && !x.payFrom && !x.tg && (!acc || x.id!==acc.id)).map(x=>`<button class="chip" data-payf="${esc(x.id)}" aria-pressed="${x.id===r.payFrom}">${esc(x.name)}</button>`).join("");
-      if(pk && r.payFrom){ ["ccBox","pairBox","ruBox","tgBox","avBox"].forEach(k=>{ const b = $("#"+k); if(b) b.hidden = true; }); $("#aBal").closest("div").hidden = true; }
-      else if($("#aBal")) $("#aBal").closest("div").hidden = false;
+      $("#aPayFrom").innerHTML = !r.payFrom ? "" : `<div class="label" style="margin:0 0 6px;width:100%">Verrechnungskonto</div>` + state.accounts.filter(x=>x.kind==="konto" && !x.cc && !x.payFrom && !x.tg && (!acc || x.id!==acc.id)).map(x=>`<button class="chip" data-payf="${esc(x.id)}" aria-pressed="${x.id===r.payFrom}">${esc(x.name)}</button>`).join("");
+      $("#useBalRow").hidden = !(pk && r.payFrom); $("#aUseBal").setAttribute("aria-checked", String(!!r.useBal));
+      const noBal = pk && r.payFrom && !r.useBal;
+      if(pk && r.payFrom){ ["ccBox","pairBox","ruBox","tgBox","avBox"].forEach(k=>{ const b = $("#"+k); if(b) b.hidden = true; }); }
+      $("#aBal").closest("div").hidden = noBal;
       { const sl = $("#aBal").closest("div").nextElementSibling; if(sl && sl.classList.contains("sublabel")) sl.hidden = !!(pk && r.payFrom); } }
     const ts = targets();
     $("#ruTo").innerHTML = !(r.roundup||r.saveback) ? "" : ts.length
@@ -2743,7 +2766,8 @@ function accountSheet(acc, kind, presetName, tab){
     $("#aMult").onclick = e => { const b=e.target.closest("[data-mult]"); if(b){ r.roundup=+b.dataset.mult; sync(); } };
     $("#ruTo").onclick = e => { const b=e.target.closest("[data-rto]"); if(b){ r.roundupTo=b.dataset.rto; sync(); } };
     if($("#aPay")){ $("#aPay").onclick = () => { if(r.payFrom) r.payFrom = null; else { const g = state.accounts.find(x=>x.kind==="konto" && !x.cc && !x.payFrom && !x.tg && !x.depot && (!acc || x.id!==acc.id)) || state.accounts.find(x=>x.kind==="konto" && !x.payFrom && (!acc || x.id!==acc.id)); r.payFrom = g ? g.id : null; } sync(); };
-      $("#aPayFrom").onclick = e => { const b = e.target.closest("[data-payf]"); if(b){ r.payFrom = b.dataset.payf; sync(); } }; }
+      $("#aPayFrom").onclick = e => { const b = e.target.closest("[data-payf]"); if(b){ r.payFrom = b.dataset.payf; sync(); } };
+      $("#aUseBal").onclick = () => { r.useBal = !r.useBal; sync(); }; }
     if($("#aTg")) $("#aTg").onclick = () => { r.tg = !r.tg; sync(); };
     if($("#aAv")) $("#aAv").onclick = () => { r.avail = !(r.avail===null ? !r.tg : r.avail); sync(); };
     if($("#aCc")){ $("#aCc").onclick = () => { r.cc = !r.cc; if(r.cc && !r.ccFrom){ const g = state.accounts.find(x=>x.kind==="konto" && !x.cc && !x.depot && !x.tg && (!acc || x.id!==acc.id)); r.ccFrom = g && g.id; } sync(); };
@@ -2776,14 +2800,14 @@ function accountSheet(acc, kind, presetName, tab){
     if(acc && acc.vals && r.kind==="depot") data.vals = acc.vals;
     if(isEnv && zIcon) data.icon = zIcon;
     let moved = [];
-    if(r.kind==="konto" && r.payFrom && !r.pair){ data.payFrom = r.payFrom; delete data.roundup; delete data.roundupTo; delete data.cc; delete data.tg; delete data.avail;
+    if(r.kind==="konto" && r.payFrom && !r.pair){ data.payFrom = r.payFrom; if(r.useBal) data.useBal = true; delete data.roundup; delete data.roundupTo; delete data.cc; delete data.tg; delete data.avail;
       // Steht der Dienst im Minus, wurden Zahlungen nicht aufgeladen: die neuesten davon gehen aufs verknüpfte Konto, Round-up wird nachgebucht
       if(acc){ let neg = -balance(acc);
         for(const e of state.entries.filter(e=>e.type==="out" && !e.auto && !isKorr(e) && accOf(e)===acc.id).sort((x,y)=> x.date===y.date ? (y.createdAt||0)-(x.createdAt||0) : (x.date<y.date?1:-1))){
           if(neg <= 0) break; if(e.amount <= neg){ moved.push(e); neg -= e.amount; } } } }
     closeSheet();
     try { await save("accounts", id, data);
-      for(const e of moved){ const {id:eid, ...ed} = e; const nd = {...ed, account:r.payFrom, via:acc.id}; await save("entries", eid, nd); await syncRoundup(eid, nd); }
+      for(const e of moved){ const {id:eid, ...ed} = e; const nd = r.useBal ? ed : {...ed, account:r.payFrom, via:acc.id}; if(!r.useBal) await save("entries", eid, nd); await syncRoundup(eid, nd); }
       toast(moved.length ? `${moved.length} Zahlung${moved.length>1?"en":""} jetzt über ${accName(r.payFrom)}` : acc ? "Gespeichert" : word+" angelegt"); } catch(e){}
   };
   if(acc) $("#del").onclick = async () => {
@@ -3212,7 +3236,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.53 (26.11.2026)";
+const APP_VERSION = "2.54 (26.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
