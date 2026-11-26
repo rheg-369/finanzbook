@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-rxZcLOmREJuIW/U1Q9D/G2sO7MGgC1bWP/eihVulTZI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-ijPPjRc0pEKMYfUjOXDEQi9g5CndS5jQr4n8iq/+qR0='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -1077,8 +1077,7 @@ const accName = id => (accById(id)||{name:((state.settings||{}).goneAcc||{})[id]
 function movement(id){
   let m = 0;
   for(const e of state.entries){
-    if(e.pending) continue;
-    if(e.type==="transfer"){ if(e.to===id) m += e.amount; if(e.from===id) m -= e.amount; }
+    if(e.type==="transfer"){ if(e.to===id && !e.pending) m += e.amount; if(e.from===id) m -= e.amount; }
     else if(accOf(e)===id) m += e.type==="in" ? e.amount : -e.amount;
   }
   return m;
@@ -1087,8 +1086,7 @@ const balance = a => (a.start||0) + movement(a.id);
 function accBreak(id){
   const r = {inn:0, out:0, tin:0, tout:0, ru:0, n:0};
   for(const e of state.entries){
-    if(e.pending) continue;
-    if(e.type==="transfer"){ if(e.to===id){ r.tin += e.amount; r.n++; } if(e.from===id){ r.tout += e.amount; r.n++; if(e.auto && !e.topup) r.ru += e.amount; } }
+    if(e.type==="transfer"){ if(e.to===id && !e.pending){ r.tin += e.amount; r.n++; } if(e.from===id){ r.tout += e.amount; r.n++; if(e.auto && !e.topup) r.ru += e.amount; } }
     else if(accOf(e)===id){ r.n++; if(e.type==="in") r.inn += e.amount; else r.out += e.amount; }
   }
   return r;
@@ -1155,8 +1153,8 @@ const childOf = id => state.entries.find(e => e.auto && !e.topup && e.parent===i
 const topOf = id => state.entries.find(e => e.auto && e.topup && e.parent===id);
 // Bezahldienst mit Guthaben (z. B. PayPal): wie viel liegt drauf, ohne diese Zahlung und ihre Aufladung
 function svcHave(acc, parentId){ const ex = new Set([parentId, parentId && parentId+"-pp"]); const t = parentId && topOf(parentId); if(t) ex.add(t.id);
-  let v = acc.start||0; for(const e of state.entries){ if(ex.has(e.id) || e.pending) continue;
-    if(e.type==="transfer"){ if(e.to===acc.id) v += e.amount; if(e.from===acc.id) v -= e.amount; }
+  let v = acc.start||0; for(const e of state.entries){ if(ex.has(e.id)) continue;
+    if(e.type==="transfer"){ if(e.to===acc.id && !e.pending) v += e.amount; if(e.from===acc.id) v -= e.amount; }
     else if(accOf(e)===acc.id) v += e.type==="in" ? e.amount : -e.amount; }
   return v; }
 const svcShort = (acc, amount, parentId) => Math.max(0, amount - Math.max(0, svcHave(acc, parentId)));
@@ -2362,6 +2360,7 @@ function wealthSheet(){
       <div class="sgroup">${L.map(a=>{ if(a.kind!=="depot") return `<div class="srow wrow"><span>${esc(a.name)}</span><b class="num">${money(accVal(a))}</b></div>`;
         const lv = depLast(a), paid = balance(a), gain = accVal(a) - paid;
         return `<button class="srow wrow" data-dval="${esc(a.id)}"><span><span class="wn">${esc(a.name)}</span><small>${lv ? `Wert vom ${esc(fmtShort(lv.d))}${paid>0?` · <b class="${gain<0?"neg":"pos"}">${gain<0?"−":"+"}${money(Math.abs(gain))}</b>`:""}` : "Wert eintragen"}</small></span><b class="num">${money(accVal(a))}</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>`; }).join("")}</div>`).join("")}
+    ${ruOpen() ? `<div class="sgroup"><div class="srow wrow"><span><span class="wn">Round-up unterwegs</span><small>schon abgebucht, noch nicht investiert</small></span><b class="num">${money(ruOpen())}</b></div></div>` : ""}
     ${ks.some(a=>a.kind==="depot") ? `<p class="shint">Depotwert tippst du von Hand ein, z. B. aus der Trade-Republic-App. Investiert zählt weiter nur, was du eingezahlt hast.</p>` : ""}
   `);
   $("#cancel").onclick = closeSheet;
@@ -2739,7 +2738,7 @@ function accHistHtml(acc){
   const dp = pairOf(acc), ids = new Set([acc.id]);
   const list = state.entries.filter(e => e.type==="transfer" ? (ids.has(e.from)||ids.has(e.to)) : (accOf(e)===acc.id || e.via===acc.id))
     .sort((a,b)=> a.date===b.date ? (b.createdAt||0)-(a.createdAt||0) : (a.date<b.date?1:-1));
-  const m = curPeriod(), inM = list.filter(e=>inPer(e.date, m) && e.via!==acc.id);
+  const m = curPeriod(), inM = list.filter(e=>inPer(e.type==="transfer" && e.from===acc.id ? (e.ruDate||e.date) : e.date, m) && e.via!==acc.id && !(e.pending && e.to===acc.id));
   const sum = (arr, f) => arr.filter(f).reduce((s,e)=>s+e.amount,0);
   const isDep = e => (accById(e.to)||{}).kind==="depot";
   const parts = [
@@ -2770,6 +2769,7 @@ function accHistHtml(acc){
     ${acc.cc && acc.cc.from ? `<div class="asub">${b<0?`Offen <b class="num">${money(-b)}</b> · wird am <b>${esc(fmtShort(ccNext(acc)))}</b> von ${esc(accName(acc.cc.from))} abgebucht`:`Nichts offen · nächste Abrechnung am ${esc(fmtShort(ccNext(acc)))}`}</div>` : ""}
     ${svc?`<div class="asub">Was fehlt, kommt von <b>${esc(accName(acc.payFrom))}</b></div>`:""}
     ${dp?`<div class="asub">im Depot <b class="num">${money(balance(dp))}</b>${depTxt?`<br><small>${esc(depTxt)}</small>`:""}</div>`:""}
+    ${ruOpen(acc.id)?`<div class="asub">Round-up <b class="num">${money(ruOpen(acc.id))}</b> abgebucht, noch nicht im Depot<br><button class="linkbtn" data-ruacc style="margin-top:2px">Ist investiert</button></div>`:""}
     <div class="ahrows"><div class="label" style="margin-bottom:2px">${svc ? `Im ${esc(monthName(m).split(" ")[0])} mit ${esc(acc.name)}` : `${esc(monthName(m).split(" ")[0])} auf diesem Konto`}</div>${parts.length ? parts.map(([l,v,g])=>`<div${g==="·"?' class="asubrow"':""}><span>${l}</span><b class="num ${g==="+"?"pos":""}">${g==="·"?"":g==="±"?(v<0?"−":"+"):g}${money(Math.abs(v))}</b></div>`).join("") + (svc ? "" : `<div class="atot"><span>Zusammen</span><b class="num">${net<0?"−":"+"}${money(Math.abs(net))}</b></div>`) : `<div><span>Noch nichts gebucht</span></div>`}</div></div>`;
   if(!list.length) return html + `<p class="hint">Noch keine Buchungen auf diesem Konto.</p>`;
   let last = ""; const shown = list.filter(e=>!e.auto).slice(0, 80);
@@ -2818,6 +2818,7 @@ function accountSheet(acc, kind, presetName, tab){
     <div class="row">${acc?`<button class="danger" id="del">Löschen</button>`:""}<button class="primary" id="ok">${acc?"Speichern":"Anlegen"}</button></div></div>
   `);
   { const dv = document.querySelector("[data-depval]"); if(dv) dv.onclick = () => depValSheet(accById(dv.dataset.depval), () => accountSheet(accById(acc.id), acc.kind, null, "e")); }
+  document.querySelectorAll("[data-ruacc]").forEach(b => b.onclick = () => ruSheet());
   if($("#aHist")){ let t = tab || "v"; const seg = () => { document.querySelectorAll("[data-aseg]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.aseg===t))); $("#aHist").hidden = t!=="v"; $("#aEdit").hidden = t!=="e"; };
     document.querySelector(".aseg").onclick = e => { const b = e.target.closest("[data-aseg]"); if(b){ t = b.dataset.aseg; seg(); } }; seg(); }
   const sync = () => {
@@ -2948,7 +2949,8 @@ let recRunning = false;
 // ---- Kreditkarte: Käufe laufen auf die Karte, am Abrechnungstag zieht das Referenzkonto den offenen Betrag ein ----
 const ccDate = (m, day) => { const [y,mo] = m.split("-").map(Number), last = new Date(y,mo,0).getDate(); return m+"-"+pad(!day || day>last ? last : day); };
 const ccNext = a => { const t = iso(new Date()); let m = t.slice(0,7); for(let i=0;i<3;i++){ const d = ccDate(m, a.cc.day); if(d >= t && (!a.cc.last || d > a.cc.last)) return d; m = shiftMonth(m,1); } return ccDate(m, a.cc.day); };
-const balAt = (a, d) => (a.start||0) + state.entries.reduce((s,e)=> (e.date||"") > d || e.pending ? s : e.type==="transfer" ? s + (e.to===a.id?e.amount:0) - (e.from===a.id?e.amount:0) : accOf(e)===a.id ? s + (e.type==="in"?e.amount:-e.amount) : s, 0);
+// Round-up: vom Konto weg am Kauftag (ruDate bzw. date), im Depot erst ab dem Investier-Tag (date, nicht solange pending)
+const balAt = (a, d) => (a.start||0) + state.entries.reduce((s,e)=> e.type==="transfer" ? s + (e.to===a.id && !e.pending && (e.date||"") <= d ? e.amount : 0) - (e.from===a.id && (e.ruDate||e.date||"") <= d ? e.amount : 0) : (e.date||"") > d ? s : accOf(e)===a.id ? s + (e.type==="in"?e.amount:-e.amount) : s, 0);
 // Depotwert: von Hand eingetragene Werte (acc.vals = [{d, v}]), danach Ein-/Auszahlungen obendrauf
 const depVals = a => (a.vals||[]).slice().sort((x,y)=>x.d<y.d?-1:x.d>y.d?1:0);
 const depLast = a => depVals(a).pop() || null;
@@ -2956,8 +2958,10 @@ const depValAt = (a, d) => { const v = depVals(a).filter(x=>x.d<=d).pop(); retur
 const depNow = a => { const v = depLast(a); return v ? v.v + balance(a) - balAt(a, v.d) : balance(a); };
 const accVal = a => a.kind==="depot" ? depNow(a) : balance(a);
 const wealthAccs = () => konten().concat(ziele(), umschlaege());
-const wealthNow = () => wealthAccs().reduce((s,a)=>s+accVal(a),0);
-const wealthAt = d => wealthAccs().reduce((s,a)=>s+(a.kind==="depot" ? depValAt(a,d) : balAt(a,d)),0);
+// Round-up unterwegs: schon vom Konto weg, aber noch nicht im Depot – gehört trotzdem zum Vermögen
+const ruTransit = d => state.entries.reduce((s,e)=> e.type==="transfer" && e.auto && !e.topup && (e.ruDate||e.date||"") <= d && (e.pending || (e.date||"") > d) ? s + e.amount : s, 0);
+const wealthNow = () => wealthAccs().reduce((s,a)=>s+accVal(a),0) + ruOpen();
+const wealthAt = d => wealthAccs().reduce((s,a)=>s+(a.kind==="depot" ? depValAt(a,d) : balAt(a,d)),0) + ruTransit(d);
 // Offene Kreditkartenbeträge, die noch von einem Konto abgebucht werden
 const ccOpen = fromId => state.accounts.filter(a=>a.kind==="konto" && a.cc && a.cc.from && (!fromId || a.cc.from===fromId)).map(a=>({a, open: Math.max(0, -balance(a)), d: ccNext(a)})).filter(x=>x.open>0);
 // Jetzt frei verfügbares Geld: Alltagskonten (nach offener Kreditkarte) + Bargeld, das nicht in Zips steckt
@@ -2965,7 +2969,7 @@ const ccOpen = fromId => state.accounts.filter(a=>a.kind==="konto" && a.cc && a.
 const inAvail = a => (a.kind==="bar" || a.kind==="konto") && !a.cc && (typeof a.avail==="boolean" ? a.avail : !a.tg);
 function freeMoney(){
   const rows = konten().filter(inAvail)
-    .map(a => { const cc = ccOpen(a.id).reduce((s,x)=>s+x.open,0), pk = parkedOn(a.id) + ruOpen(a.id); return {a, v: balance(a) - cc - pk, cc, pk}; }).filter(x => x.v || x.a.kind==="bar");
+    .map(a => { const cc = ccOpen(a.id).reduce((s,x)=>s+x.open,0), pk = parkedOn(a.id); return {a, v: balance(a) - cc - pk, cc, pk}; }).filter(x => x.v || x.a.kind==="bar");
   return {rows, total: rows.reduce((s,x)=>s+x.v,0)};
 }
 let ccRunning = false;
@@ -3333,7 +3337,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.56 (26.11.2026)";
+const APP_VERSION = "2.57 (26.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -3392,7 +3396,7 @@ function ruSheet(back){
   const sync = () => { document.querySelectorAll("#ruDay [data-rud]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.rud===d)));
     $("#ruTxt").textContent = [dayOffset(0),dayOffset(-1)].includes(d) ? "Anderes Datum" : new Date(d+"T12:00").toLocaleDateString("de-DE",{day:"numeric", month:"short"});
     const p = pick(), sum = p.reduce((s,e)=>s+e.amount,0), rest = ruOpen() - sum;
-    $("#ruSum").innerHTML = `<b class="num">${money(sum)}</b> gehen an diesem Tag ins Depot und vom Konto ab.${rest>0?` Neuere ${money(rest)} bleiben offen.`:""}`; $("#ok").disabled = !sum; };
+    $("#ruSum").innerHTML = `<b class="num">${money(sum)}</b> zählen ab diesem Tag zum Depot. Vom Konto sind sie schon abgezogen.${rest>0?` Neuere ${money(rest)} bleiben offen.`:""}`; $("#ok").disabled = !sum; };
   sync();
   $("#ruDay").onclick = e => { const b = e.target.closest("[data-rud]"); if(b){ d = b.dataset.rud; $("#ruIn").value = d; sync(); } };
   $("#ruIn").onchange = e => { if(e.target.value){ d = e.target.value; sync(); } };
