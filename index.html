@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-XVrnZqP40VP8KBWy7x5BrgtB59fl0rwFzHP6noBOWmE='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-DghBrP7739rqM2sVbi2J2FCH2He658CC9sF+A4Zr6wU='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -1264,6 +1264,11 @@ function boot(){
         if(a.roundup && a.roundupTo && accs[a.roundupTo] && !E().some(x=>x.auto && x.type==="transfer" && x.parent===id))
           ents[id+"-ru"] = {type:"transfer", auto:true, parent:id, from:aid, to:a.roundupTo, amount:diff*a.roundup, date:e.date, note:"", createdAt:e.createdAt||Date.now()}; } }
     if(ch) local.write("entries", ents); localStorage.setItem("hhb.mig.park249","1"); } } catch(e){}
+  try { if(!localStorage.getItem("hhb.mig.rel253")){ const ents = local.read("entries"); let ch = false;
+    for(const [id, e] of Object.entries(ents)){ if(!(e.type==="transfer" && e.park && e.parkRel)) continue;
+      const mate = e.relTo ? ents[e.relTo] : Object.values(ents).find(x=>x.type==="transfer" && !x.park && x.from===e.to && x.to===e.from && x.amount===e.amount && x.date===e.date);
+      if(!mate){ delete ents[id]; ch = true; } }
+    if(ch) local.write("entries", ents); localStorage.setItem("hhb.mig.rel253","1"); } } catch(e){}
   try { if(!localStorage.getItem("hhb.mig.nosb")){ const accs = local.read("accounts"); for(const a of Object.values(accs)){ delete a.saveback; delete a.savebackCap; delete a.savebackTo; } local.write("accounts", accs); localStorage.setItem("hhb.mig.nosb","1"); } } catch(e){}
   store.sub("accounts", rows => { state.accounts=rows; render(); });
   store.sub("entries", rows => { setTimeout(runCards, 0); const was = state.ready ? curPeriod() : null; state.entries=rows; state.ready=true; if(!state.navMoved && was!==null && state.month===was) state.month = curPeriod(); render(); });
@@ -2251,7 +2256,7 @@ function entrySheet(entry, preset){
   $("#ok").onclick = submit;
   $("#fNote").onkeydown = e => { if(e.key==="Enter"){ e.preventDefault(); submit(); } };
   if(entry) $("#del").onclick = async () => {
-    const {id, ...data} = entry; const kids = [childOf(id), sbOf(id)].filter(Boolean); closeSheet();
+    const {id, ...data} = entry; const kids = [childOf(id), sbOf(id), ...state.entries.filter(x=>x.relTo===id)].filter(Boolean); closeSheet();
     try {
       await store.del("entries", id); for(const k of kids) await store.del("entries", k.id);
       toast("Gelöscht", async () => { await save("entries", id, data); for(const k of kids){ const {id:cid, ...cd} = k; await save("entries", cid, cd); } });
@@ -2506,8 +2511,9 @@ function zipSheet(a){
     ${zipTgOn() && tgs.length ? `<div class="zsplit"><div><span>${svgI("zip")}Bar im Zip</span><b class="num ${cash<0?"neg":""}">${money(cash)}</b></div><div><span>${svgI("bank")}Auf Tagesgeld</span><b class="num">${money(tg)}</b></div>
       <div class="zsplit-acts"><button data-zact="tgin">Aufs Tagesgeld</button><button data-zact="tgout" ${tg>0?"":"disabled"}>Zurückholen</button></div></div>` : tg ? `<p class="hint">Davon ${money(tg)} auf Tagesgeld.</p>` : ""}
     ${pks.length ? `<div class="zpark">${zipTgOn() && tgs.length ? "" : `<div class="zpk"><span>${svgI("zip")}Bar im Zip</span><b class="num ${cash<0?"neg":""}">${money(cash)}</b></div>`}${pks.map(x=>`<div class="zpk"><span>${svgI("bank")}Auf ${esc(x.a.name)}</span><b class="num ${x.v<0?"neg":""}">${money(x.v)}</b></div>
-      ${x.v>0?`<div class="zsplit-acts"><button data-zback="${esc(x.a.id)}">Abheben</button><button data-zfree="${esc(x.a.id)}">Freigeben</button></div>`:""}`).join("")}
-      <p class="hint">Abheben macht daraus Bargeld im Zip. Beim Bezahlen wählst du Bar oder Konto.</p></div>` : ""}
+      ${x.v>0?`<button class="primary" style="width:100%" data-zback="${esc(x.a.id)}">Abheben</button>`:""}`).join("")}
+      <p class="hint">Zum Bezahlen tippst du unten auf „Bezahlen“ und wählst Bar oder ${esc(pks[0].a.name)}.</p>
+      ${pks.filter(x=>x.v>0).map(x=>`<button class="linkbtn" style="justify-self:start" data-zfree="${esc(x.a.id)}">Rest soll nicht mehr zum Zip gehören</button>`).join("")}</div>` : ""}
     <div class="zacts"><button data-zact="pay">${svgI("pay")}Bezahlen</button><button data-zact="fill">${svgI("plus")}Befüllen</button>${pkTo?`<button data-zact="park">${svgI("bank")}Aufs Konto</button>`:""}<button data-zact="take">${svgI("out")}Rausnehmen</button></div>
     <div><div class="label" style="margin-bottom:8px">Letzte 6 Monate</div>
       <div class="hist" role="img" aria-label="Befüllt und ausgegeben pro Monat">${months.map(x=>`<div class="col"><i class="in" style="height:${x.inn?Math.max(3,x.inn/mx*100):0}%" title="${x.l}: +${money(x.inn)}"></i><i class="out" style="height:${x.out?Math.max(3,x.out/mx*100):0}%" title="${x.l}: −${money(x.out)}"></i></div>`).join("")}</div>
@@ -2536,8 +2542,8 @@ function zipSheet(a){
     if(btn.dataset.zback){ entrySheet(null, {type:"transfer", from:acc.id, to:a.id, park:true, amount:0, note:"Abgehoben"}); return; }
     closeSheet();
     const id1 = newId(), id2 = newId();
-    await save("entries", id1, {type:"transfer", park:true, parkRel:true, from:acc.id, to:a.id, amount:v, date:today, note:"", createdAt:now});
-    await save("entries", id2, {type:"transfer", from:a.id, to:acc.id, amount:v, date:today, note:"Rest freigegeben", createdAt:now+1});
+    await save("entries", id1, {type:"transfer", park:true, parkRel:true, relTo:id2, from:acc.id, to:a.id, amount:v, date:today, note:"", createdAt:now});
+    await save("entries", id2, {type:"transfer", from:a.id, to:acc.id, amount:v, date:today, note:"Rest gehört jetzt "+acc.name, createdAt:now+1});
     toast(`${money(v)} gehören jetzt ${acc.name}`, async () => { await store.del("entries", id1); await store.del("entries", id2); });
   });
 }
@@ -3057,7 +3063,7 @@ function korrSheet(x){
 }
 
 // ---- Alles zurücksetzen (mit Sicherheitsabfrage) ----
-const RESET_KEYS = ["entries","accounts","settings","recurring","lastCheck","checkSnooze","snooze","mig.paypal","mig.union","mig.pair","mig.nosb","mig.park249"];
+const RESET_KEYS = ["entries","accounts","settings","recurring","lastCheck","checkSnooze","snooze","mig.paypal","mig.union","mig.pair","mig.nosb","mig.park249","mig.rel253"];
 const RESET_WORD = "LÖSCHEN";
 function resetSheet(){
   const nE = state.entries.length, nA = state.accounts.length, nR = state.recurring.length;
@@ -3206,7 +3212,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.52 (26.11.2026)";
+const APP_VERSION = "2.53 (26.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
