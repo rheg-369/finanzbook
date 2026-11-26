@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-0dlk+S/kQWKD864JGbD5NUdN4+2bQZit5Kb1Xj+F7Uw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-x3v0R3UrCsJ6UxVIsm00KsAG4E9xMsnmc5bohCVG7/A='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -2661,11 +2661,13 @@ function tgAllSheet(t){
   const list = umschlaege().map(a=>({a, v:balance(a)})).filter(x=>x.v>0);
   const skip = new Set(((state.settings||{}).tgSkip)||[]);
   const sel = new Set(list.filter(x=>!skip.has(x.a.id)).map(x=>x.a.id));
-  const parked = list.some(x=>parkShare(x.a.id)>0);
+  const onAcc = umschlaege().filter(a=>balance(a)<=0).map(a=>({a, pk:parkAccs(a.id).filter(x=>x.v>0)})).filter(x=>x.pk.length);
   openSheet(`
     <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Aufs Tagesgeld</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    <p class="hint" style="margin-top:0">Das Bargeld der markierten Zips geht auf ${esc(t.name)}. Es gehört weiter zum Zip.${parked?" Was auf Konten liegt, bleibt dort.":""}</p>
-    <ul class="accs fixlist tgfix">${list.map(x=>`<li><button class="acc" data-tgsel="${esc(x.a.id)}" aria-pressed="${sel.has(x.a.id)}"><span class="tick" aria-hidden="true">${svgI("check")}</span><span class="mid"><div class="t"><i class="zi" style="color:var(${zipColor(x.a)})">${zipSvg(x.a)}</i>${esc(x.a.name)}</div><div class="s">bar im Zip</div></span><span class="a num">${money(x.v)}</span></button></li>`).join("")}</ul>
+    <p class="hint" style="margin-top:0">Das Bargeld der markierten Zips geht auf ${esc(t.name)} und gehört weiter zum Zip. Antippen zum Ab- oder Anwählen.</p>
+    <div class="lrow"><div class="label">Was soll mit?</div>${list.length>1?`<button class="linkbtn" id="tgaAll"></button>`:""}</div>
+    <ul class="accs fixlist tgfix">${list.map(x=>`<li><button class="acc" data-tgsel="${esc(x.a.id)}" aria-pressed="${sel.has(x.a.id)}"><span class="tick" aria-hidden="true">${svgI("check")}</span><span class="mid"><div class="t"><i class="zi" style="color:var(${zipColor(x.a)})">${zipSvg(x.a)}</i>${esc(x.a.name)}</div><div class="s">bar im Zip${parkShare(x.a.id)>0?` · Rest bleibt auf ${esc(parkAccs(x.a.id).filter(y=>y.v>0).map(y=>y.a.name).join(", "))}`:""}</div></span><span class="a num">${money(x.v)}</span></button></li>`).join("") || `<li class="hint" style="padding:14px">In keinem Zip steckt gerade Bargeld.</li>`}</ul>
+    ${onAcc.length?`<p class="hint">${onAcc.map(x=>esc(x.a.name)).join(", ")} ${onAcc.length>1?"liegen":"liegt"} auf ${esc([...new Set(onAcc.flatMap(x=>x.pk.map(y=>y.a.name)))].join(", "))} und ${onAcc.length>1?"bleiben":"bleibt"} dort.</p>`:""}
     <p class="splitrest" id="tgaSum"></p>
     <div class="row"><button class="primary" id="ok">Aufs Tagesgeld</button></div>
   `);
@@ -2673,11 +2675,12 @@ function tgAllSheet(t){
   const sync = () => {
     document.querySelectorAll("[data-tgsel]").forEach(b=>b.setAttribute("aria-pressed", String(sel.has(b.dataset.tgsel))));
     const v = sum();
+    if($("#tgaAll")) $("#tgaAll").textContent = sel.size===list.length ? "Keine" : "Alle";
     $("#tgaSum").innerHTML = `Danach auf ${esc(t.name)} <b class="num">${money(balance(t)+v)}</b>`;
     $("#ok").disabled = !v; $("#ok").textContent = v ? `${money(v)} aufs Tagesgeld` : "Nichts ausgewählt";
   };
   sync();
-  $("#sheet").onclick = e => { const b = e.target.closest("[data-tgsel]"); if(!b) return; const id = b.dataset.tgsel; sel.has(id) ? sel.delete(id) : sel.add(id); sync(); };
+  $("#sheet").onclick = e => { if(e.target.closest("#tgaAll")){ const all = sel.size===list.length; sel.clear(); if(!all) list.forEach(x=>sel.add(x.a.id)); sync(); return; } const b = e.target.closest("[data-tgsel]"); if(!b) return; const id = b.dataset.tgsel; sel.has(id) ? sel.delete(id) : sel.add(id); sync(); };
   $("#cancel").onclick = () => { $("#sheet").onclick = null; closeSheet(); };
   $("#ok").onclick = async () => {
     const go = list.filter(x=>sel.has(x.a.id)), v = sum(), today = iso(new Date()), now = Date.now(), ids = [];
@@ -3433,7 +3436,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.59 (26.11.2026)";
+const APP_VERSION = "2.60 (26.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
