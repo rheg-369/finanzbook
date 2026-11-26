@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-1PbdL4IH2MmH+h3wO70bWNdn+EPxJdsQaJs3Yf5uoP4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-MqPB11kGoeusgZKEKKk9gn2ORrzcJYrjod/TqIRbrJU='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -813,6 +813,13 @@ h2.pieh .mini button{flex:1;padding:7px 4px}
 .wrow>span:first-child{display:flex;flex-direction:column;min-width:0}.wrow small{color:var(--muted);font-size:.78rem;margin-top:2px}
 .wrow small b{font-weight:600}.wrow .wn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wact{display:flex;align-items:center;gap:6px}
+/* v2.49 Zip-Geld auf Konten */
+.zpark{display:grid;gap:10px;padding:14px;border-radius:18px;background:var(--chip)}
+.zpk{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.zpk span{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:.86rem}.zpk svg{width:16px;height:16px;color:var(--accent)}
+.zpark .zsplit-acts{grid-column:auto}
+.zpark .hint{margin:0}
+#fZip .zi{display:inline-grid;width:14px;height:14px;margin-right:4px;vertical-align:-2px}#fZip .zi svg{width:14px;height:14px}
 /* v2.48 Haptik-Gefühl: weiche Druckzustände, Federn, Tab-Pille */
 :root{--spring:cubic-bezier(.2,.9,.3,1.15);--ease:cubic-bezier(.2,.8,.2,1)}
 button{touch-action:manipulation}
@@ -1073,7 +1080,22 @@ function tgShare(zid, tid){
     else if(e.to===zid && isTg(e.from) && (!tid || e.from===tid)) v -= e.amount; }
   return v;
 }
-const zipTotal = a => balance(a) + tgShare(a.id);
+// Zip-Geld auf einem Konto (z. B. Urlaubsgeld auf Trade Republic): Umbuchung mit park:true. Das Konto zeigt den echten Stand,
+// das Geld gehört aber weiter zum Zip. Ausgaben auf dem Konto mit e.zip verringern den Zip (Round-up läuft normal übers Konto).
+const isParkAcc = id => { const a = accById(id); return !!(a && (a.kind==="konto" || a.kind==="bar") && !a.tg); };
+function parkShare(zid, accId){
+  let v = 0;
+  for(const e of state.entries){
+    if(e.type==="transfer"){ if(!e.park) continue;
+      if(e.from===zid && (!accId || e.to===accId)) v += e.amount;
+      else if(e.to===zid && (!accId || e.from===accId)) v -= e.amount; }
+    else if(e.type==="out" && e.zip===zid && (!accId || accOf(e)===accId)) v -= e.amount;
+  }
+  return v;
+}
+const parkedOn = accId => umschlaege().reduce((s,z)=>s+parkShare(z.id, accId),0);
+const parkAccs = zid => konten().filter(a=>isParkAcc(a.id)).map(a=>({a, v:parkShare(zid, a.id)})).filter(x=>x.v);
+const zipTotal = a => balance(a) + tgShare(a.id) + parkShare(a.id);
 // Investiert: alles, was in einem Jahr auf Depot-Konten geflossen ist (Einzahlungen, Round-up, Saveback)
 function investedYear(year){
   const D = new Set(state.accounts.filter(a=>a.kind==="depot").map(a=>a.id));
@@ -1753,7 +1775,7 @@ function render(){
     let segs = [];
     if(mode==="cat") segs = byCat.map(c=>({k:c.id, name:c.name, i:c.i, sum:c.sum, n:c.n, col:c.c}));
     else if(mode==="zip"){
-      const g = {}; outs.forEach(e => { const a = accById(accOf(e)); const k = a && a.kind==="umschlag" ? a.id : "_"; (g[k] ||= {sum:0,n:0}); g[k].sum += e.amount; g[k].n++; });
+      const g = {}; outs.forEach(e => { const a = accById(e.zip && accById(e.zip) ? e.zip : accOf(e)); const k = a && a.kind==="umschlag" ? a.id : "_"; (g[k] ||= {sum:0,n:0}); g[k].sum += e.amount; g[k].n++; });
       segs = Object.entries(g).map(([k,v]) => k==="_" ? {name:"Nicht aus Zips", i:"🏦", col:"--c9", ...v} : {name:accName(k), i:zipIcon(accById(k)), col:zipColor(accById(k)), ...v}).sort((a,b)=>b.sum-a.sum);
     }
     else if(mode==="place"){
@@ -1817,11 +1839,11 @@ function entryRow(e, ctx){
   if(e.type==="transfer"){
     const toKind = (accById(e.to)||{}).kind;
     const fromKind = (accById(e.from)||{}).kind;
-    const label = e.auto ? "Round-up" : toKind==="umschlag" ? "In Zip gesteckt" : fromKind==="umschlag" ? "Aus Zip genommen" : ({ziel:"Zurückgelegt", bar:"Abgehoben", depot:"Investiert"})[toKind] || "Umbuchung";
+    const label = e.auto && !e.parkRel ? "Round-up" : e.park ? (fromKind==="umschlag" ? "Zip-Geld aufs Konto" : "Zurück in den Zip") : toKind==="umschlag" ? "In Zip gesteckt" : fromKind==="umschlag" ? "Aus Zip genommen" : ({ziel:"Zurückgelegt", bar:"Abgehoben", depot:"Investiert"})[toKind] || "Umbuchung";
     return `<li><button class="entry" data-edit="${esc(e.id)}">
       <span class="badge" style="--bc:var(${label==="Investiert"||label==="Round-up"?"--c4":(accById(e.to)||{}).kind==="umschlag"||(accById(e.from)||{}).kind==="umschlag"?"--c5":"--c1"})" aria-hidden="true">${svgI(label==="Investiert"||label==="Round-up"?"invest":(accById(e.to)||{}).kind==="umschlag"||(accById(e.from)||{}).kind==="umschlag"?"zip":label==="Abgehoben"?"atm":label==="Zurückgelegt"?"ziel":"transfer")}</span>
       <span class="mid"><div class="t">${esc(e.note || label)}</div><div class="s">${esc(ctx && e.from===ctx && (accById(e.to)||{}).kind==="depot" ? "Ins Depot" : ctx && e.to===ctx ? "Von "+accName(e.from) : ctx ? "Nach "+accName(e.to) : accName(e.from)+" → "+accName(e.to))}</div></span>
-      <span class="a num ${ctx && e.to===ctx ? "pos" : ""}" ${ctx?"":`style="color:var(--muted)"`}>${ctx ? (e.to===ctx?"+":"−") : ""}${money(e.amount)}</span>
+      <span class="a num ${ctx && !e.park && e.to===ctx ? "pos" : ""}" ${ctx && !e.park?"":`style="color:var(--muted)"`}>${ctx && !e.park ? (e.to===ctx?"+":"−") : ""}${money(e.amount)}</span>
     </button></li>`;
   }
   const c = catById(e.cat);
@@ -1836,7 +1858,7 @@ function entryRow(e, ctx){
     ${ctx && ru ? `<span class="mid"><div class="t">${esc(title)}</div><div class="s">${money(e.amount)} + ${money(ru.amount)} Round-up</div></span>
     <span class="a num">−${money(e.amount+ru.amount)}</span>
   </button></li>` : ""}${ctx && ru ? "" : `
-    <span class="mid"><div class="t">${esc(title)}</div>${(e.note||e.place||e.sub||multi||ru||sbk)?`<div class="s">${esc([(e.note||e.place)?cName:(e.sub?c.name:""), e.note&&e.place?e.place:"", multi?accName(accOf(e)):"", ru?"Round-up "+money(ru.amount):"", sbk?"Saveback +"+money(sbk.amount):"", e.rec?"Dauerauftrag":""].filter(Boolean).join(" · "))}</div>`:""}</span>
+    <span class="mid"><div class="t">${esc(title)}</div>${(e.note||e.place||e.sub||multi||ru||sbk)?`<div class="s">${esc([(e.note||e.place)?cName:(e.sub?c.name:""), e.note&&e.place?e.place:"", multi?accName(accOf(e)):"", e.zip&&accById(e.zip)?"aus "+accName(e.zip):"", ru?"Round-up "+money(ru.amount):"", sbk?"Saveback +"+money(sbk.amount):"", e.rec?"Dauerauftrag":""].filter(Boolean).join(" · "))}</div>`:""}</span>
     <span class="a num ${isIn?"pos":""}">${isIn?"+":"−"}${money(e.amount)}</span>
   </button></li>`}`;
 }
@@ -1943,6 +1965,7 @@ function entrySheet(entry, preset){
     <div id="destBox" hidden><div class="label" style="margin-bottom:6px">Wohin?</div>
       <div class="seg" id="fDest"><button data-dest="konto">Auf ein Konto</button><button data-dest="zips">Auf Zips verteilen</button></div></div>
     <div id="accBox"><div class="label" style="margin-bottom:6px" id="accLabel">Konto</div><div class="chips" id="fAcc"></div></div>
+    <div id="zipBox" hidden><div class="label" style="margin-bottom:6px">Aus Zip-Geld bezahlt?</div><div class="chips" id="fZip"></div></div>
     <div id="splitBox" hidden><div class="label" style="margin-bottom:6px">Verteilen auf</div>
       <div class="splits" id="splitRows"></div>
       <select class="input" id="splitAdd" aria-label="Zip zum Verteilen hinzufügen" style="margin-top:8px"></select>
@@ -1956,6 +1979,8 @@ function entrySheet(entry, preset){
         <div class="row"><button class="danger" style="color:var(--ink)" id="naCancel">Abbrechen</button><button class="primary" id="naOk">Anlegen</button></div>
       </div>
       <p class="warnmsg" id="trWarn" hidden></p>
+      <div class="optrow" id="parkBox" hidden style="margin-top:12px"><div><b id="parkT">Bleibt Zip-Geld</b><p class="hint" id="parkH"></p></div>
+        <button class="switch" id="fPark" role="switch" aria-checked="false" aria-label="Bleibt Zip-Geld"><i></i></button></div>
       <p class="hint" style="margin-top:10px">Umbuchungen zählen weder als Ausgabe noch als Einnahme.</p></div>
     <div><div class="label" style="margin-bottom:6px">Datum</div><div class="chips" id="fDate">
       ${dateChips.map(([n,v])=>`<button class="chip" data-date="${v}">${n}</button>`).join("")}
@@ -1990,7 +2015,26 @@ function entrySheet(entry, preset){
     $("#placeBox").hidden = d.type!=="out";
     $("#accBox").hidden = d.type==="transfer" || state.accounts.length<2;
     $("#trBox").hidden = d.type!=="transfer";
+    drawZip(); drawPark();
   };
+  // Zip-Geld, das auf dem gewählten Konto liegt: Ausgabe dem Zip zuordnen
+  const zipOpts = () => { const a = accById(d.account); if(d.type!=="out" || !a || !isParkAcc(a.id)) return [];
+    return umschlaege().map(z=>({z, v:parkShare(z.id, a.id) + (entry && entry.zip===z.id && accOf(entry)===a.id ? entry.amount : 0)})).filter(x=>x.v>0 || x.z.id===d.zip); };
+  function drawZip(){ const box = $("#zipBox"); if(!box) return; const opts = zipOpts();
+    if(!entry && !d.zipTouched) d.zip = opts.length ? opts[0].z.id : null;
+    if(d.zip && !opts.some(x=>x.z.id===d.zip)) d.zip = null;
+    box.hidden = !opts.length; if(!opts.length) return;
+    $("#fZip").innerHTML = `<button class="chip" data-zipsel="" aria-pressed="${!d.zip}">Nein</button>` + opts.map(x=>`<button class="chip" data-zipsel="${esc(x.z.id)}" aria-pressed="${x.z.id===d.zip}"><i class="zi">${zipSvg(x.z)}</i>${esc(x.z.name)} <small class="num" style="opacity:.7">${money(x.v)}</small></button>`).join(""); }
+  // Umbuchung Zip ↔ Konto: gehört das Geld weiter zum Zip?
+  const parkPair = () => { if(d.type!=="transfer") return null; const f = accById(d.from), t = accById(d.to); if(!f || !t) return null;
+    if(f.kind==="umschlag" && isParkAcc(t.id)) return {dir:"out", z:f, a:t};
+    if(t.kind==="umschlag" && isParkAcc(f.id) && (d.park || parkShare(t.id, f.id)>0)) return {dir:"back", z:t, a:f};
+    return null; };
+  function drawPark(){ const box = $("#parkBox"); if(!box) return; const p = parkPair(); box.hidden = !p; if(!p) return;
+    $("#fPark").setAttribute("aria-checked", String(!!d.park));
+    $("#parkT").textContent = p.dir==="out" ? "Bleibt Zip-Geld" : "Ist Zip-Geld vom Konto";
+    $("#parkH").textContent = p.dir==="out" ? (d.park ? `Liegt auf ${p.a.name}, gehört aber weiter zu ${p.z.name}. Ausgaben dort ordnest du dem Zip zu.` : `Das Geld verlässt den Zip und gehört dann ${p.a.name}.`)
+      : (d.park ? `Holt Zip-Geld zurück, das auf ${p.a.name} lag (noch ${money(parkShare(p.z.id, p.a.id))}).` : `Neues Geld vom Konto in den Zip.`); }
   const canSplit = () => !entry && d.type==="in" && umschlaege().length>0;
   const splitOn = () => canSplit() && dest==="zips" && (accById(d.account)||{}).kind!=="umschlag";
   const drawSplit = () => {
@@ -2109,6 +2153,8 @@ function entrySheet(entry, preset){
   drawCats(); sync();
   $("#fType").onclick = e => { const b=e.target.closest("[data-type]"); if(b){ d.type=b.dataset.type; if(d.type==="transfer"){ d.from ||= d.account||k0; } else { d.account ||= d.from||k0; drawCats(); } sync(); } };
   $("#fAcc").onclick = e => { const b=e.target.closest("[data-acc]"); if(b){ d.account=b.dataset.acc; sync(); } };
+  $("#fZip").onclick = e => { const b=e.target.closest("[data-zipsel]"); if(b){ d.zip = b.dataset.zipsel || null; d.zipTouched = true; sync(); } };
+  $("#fPark").onclick = () => { d.park = !d.park; sync(); };
   const manage = e => {
     const nf = e.target.closest("[data-newfor]");
     if(nf){ na.slot = nf.dataset.newfor; $("#naSlot").textContent = na.slot==="from" ? "Von" : "Nach"; $("#naName").value = ""; $("#newAcc").hidden = false; syncNa(); $("#naName").focus(); return true; }
@@ -2162,6 +2208,8 @@ function entrySheet(entry, preset){
     const id = entry ? entry.id : newId();
     const base = {type:d.type, amount, date:d.date, note:$("#fNote").value.trim(), createdAt: entry ? (entry.createdAt||Date.now()) : Date.now()};
     const data = d.type==="transfer" ? {...base, from:d.from, to:d.to} : {...base, cat:d.cat, account:d.account||"giro"};
+    if(d.type==="transfer" && d.park && parkPair()) data.park = true;
+    if(d.type==="out" && d.zip && zipOpts().some(x=>x.z.id===d.zip)) data.zip = d.zip;
     if(d.type==="out" && d.place) data.place = d.place;
     if(d.type==="out" && d.sub) data.sub = d.sub;
     const sp = splits();
@@ -2312,8 +2360,9 @@ function zipMonth(id, m){
   let inn = 0, out = 0;
   for(const e of state.entries){
     if(!inPer(e.date, m)) continue;
-    if(e.type==="transfer" && (isTg(e.from) || isTg(e.to))) continue;
+    if(e.type==="transfer" && (isTg(e.from) || isTg(e.to) || e.park)) continue;
     if(e.type==="transfer"){ if(e.to===id) inn += e.amount; if(e.from===id) out += e.amount; }
+    else if(e.type==="out" && e.zip===id){ out += e.amount; }
     else if(accOf(e)===id && !isKorr(e)){ if(e.type==="out") out += e.amount; else inn += e.amount; }
   }
   return {inn, out};
@@ -2321,14 +2370,14 @@ function zipMonth(id, m){
 const MON = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 function renderSips(){
   const us = umschlaege();
-  const inEnv = us.reduce((s,a)=>s+zipTotal(a),0), inTg = us.reduce((s,a)=>s+tgShare(a.id),0);
+  const inEnv = us.reduce((s,a)=>s+zipTotal(a),0), inTg = us.reduce((s,a)=>s+tgShare(a.id),0), inPk = us.reduce((s,a)=>s+parkShare(a.id),0);
   const bar = konten().filter(a=>a.kind==="bar");
   const free = bar.reduce((s,a)=>s+balance(a),0);
   const m = curPeriod();
   const tot = us.reduce((r,a)=>{ const x = zipMonth(a.id, m); r.inn += x.inn; r.out += x.out; return r; }, {inn:0,out:0});
   const [whole, cents] = money(Math.abs(inEnv)).replace(/\s?€/,"").split(",");
   let html = reminderHtml() + `<div class="hero">
-    <div><div class="label">In allen Zips</div><div class="big num">${inEnv<0?"−":""}${esc(whole)}<span class="cents">,${esc(cents)} €</span></div>${inTg?`<div class="asub">davon bar <b class="num">${money(inEnv-inTg)}</b> · Tagesgeld <b class="num">${money(inTg)}</b></div>`:""}</div>
+    <div><div class="label">In allen Zips</div><div class="big num">${inEnv<0?"−":""}${esc(whole)}<span class="cents">,${esc(cents)} €</span></div>${inTg||inPk?`<div class="asub">davon bar <b class="num">${money(inEnv-inTg-inPk)}</b>${inTg?` · Tagesgeld <b class="num">${money(inTg)}</b>`:""}${inPk?` · auf Konten <b class="num">${money(inPk)}</b>`:""}</div>`:""}</div>
     ${us.length?`<div class="acts"><button class="main" id="fillAll">Zips befüllen</button><button id="payZip">Aus Zip bezahlen</button></div>`:""}
   </div>`;
   if(free<0 && us.length) html += `<div class="fixcard"><div><b>Bargeld ohne Zip: ${money(free)}</b><p>Meist wurden Zips aus Bargeld befüllt, obwohl das Geld schon drin steckte.</p></div><button id="fixFills">Korrigieren</button></div>`;
@@ -2341,7 +2390,7 @@ function renderSips(){
     return `<div class="zcard" style="--zc:var(${zipColor(a)})">
       <button class="open" data-zip="${esc(a.id)}" aria-label="${esc(a.name)} öffnen">
         <span class="ztop"><span class="ic" aria-hidden="true">${zipSvg(a)}</span><span class="zn">${esc(a.name)}</span></span>
-        <span class="zb num ${b<0?"neg":""}">${money(b)}</span>${tg?`<span class="ztg"><i aria-hidden="true">${svgI("bank")}</i>${money(tg)} auf Tagesgeld</span>`:""}
+        <span class="zb num ${b<0?"neg":""}">${money(b)}</span>${tg?`<span class="ztg"><i aria-hidden="true">${svgI("bank")}</i>${money(tg)} auf Tagesgeld</span>`:""}${parkAccs(a.id).filter(x=>x.v>0).map(x=>`<span class="ztg"><i aria-hidden="true">${svgI("bank")}</i>${money(x.v)} auf ${esc(x.a.name)}</span>`).join("")}
         ${t?`<span class="zbar" role="img" aria-label="${Math.round(pct*100)} Prozent von ${money(t)}"><i style="width:${(pct*100).toFixed(1)}%"></i></span><span class="zt">${b>=t?"Ziel erreicht":`${Math.round(pct*100)} % von ${money(t)}`}</span>`:""}
         <span class="zm">${x.out ? `${MON[Number(m.slice(5))-1]} ausgegeben ${money(x.out)}` : x.inn ? `${MON[Number(m.slice(5))-1]} befüllt ${money(x.inn)}` : ""}</span>
       </button>
@@ -2363,7 +2412,7 @@ function renderSips(){
   }
   if(us.length){
     const ids = new Set(us.map(a=>a.id));
-    const moves = state.entries.filter(e => e.type==="transfer" ? (ids.has(e.from)||ids.has(e.to)) : ids.has(accOf(e)))
+    const moves = state.entries.filter(e => !e.parkRel && (e.type==="transfer" ? (ids.has(e.from)||ids.has(e.to)) : (ids.has(accOf(e)) || ids.has(e.zip))))
       .sort((a,b)=> a.date===b.date ? (b.createdAt||0)-(a.createdAt||0) : (a.date<b.date?1:-1)).slice(0,15);
     if(moves.length) html += `<section><h2><span>Letzte Bewegungen</span></h2><ul class="entries">${moves.map(entryRow).join("")}</ul></section>`;
   }
@@ -2415,17 +2464,21 @@ function zipSheet(a){
   const now = new Date(); const months = [];
   for(let i=5;i>=0;i--){ const d = new Date(now.getFullYear(), now.getMonth()-i, 1); const mm = d.getFullYear()+"-"+pad(d.getMonth()+1); months.push({mm, l:MON[d.getMonth()], ...zipMonth(a.id, mm)}); }
   const mx = Math.max(1, ...months.map(x=>Math.max(x.inn,x.out)));
-  const moves = state.entries.filter(e => e.type==="transfer" ? (e.from===a.id||e.to===a.id) : accOf(e)===a.id)
+  const moves = state.entries.filter(e => !e.parkRel && (e.type==="transfer" ? (e.from===a.id||e.to===a.id) : (accOf(e)===a.id || e.zip===a.id)))
     .sort((x,y)=> x.date===y.date ? (y.createdAt||0)-(x.createdAt||0) : (x.date<y.date?1:-1)).slice(0,12);
-  const spent = state.entries.filter(e=>e.type==="out" && accOf(e)===a.id && !isKorr(e));
+  const spent = state.entries.filter(e=>e.type==="out" && (accOf(e)===a.id || e.zip===a.id) && !isKorr(e));
+  const pks = parkAccs(a.id), pkTo = konten().filter(a=>isParkAcc(a.id)).sort((x,y)=>(!!y.roundup - !!x.roundup))[0];
   const byCat = OUT_CATS.map(c=>({c, sum: spent.filter(e=>e.cat===c.id).reduce((s,e)=>s+e.amount,0)})).filter(x=>x.sum).sort((x,y)=>y.sum-x.sum).slice(0,3);
   openSheet(`
-    <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">Zip</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="sheet-head"><button class="xbtn" id="zEdit" aria-label="Zip bearbeiten">${svgI("edit")}</button><h3 id="sheetTitle">Zip</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="zhead" style="--zc:var(${zipColor(a)})"><span class="ic" aria-hidden="true">${zipSvg(a)}</span><div style="min-width:0"><div style="font-weight:600">${esc(a.name)}</div><div class="zb num ${b<0?"neg":""}">${money(b)}</div></div></div>
     ${t?`<div><div class="bar" role="img" aria-label="${Math.round(pct*100)} Prozent"><i style="width:${(pct*100).toFixed(1)}%"></i></div><p class="hint" style="margin-top:6px">${b>=t?"Ziel erreicht 🎉":`Noch ${money(t-b)} bis ${money(t)}`}</p></div>`:""}
     ${zipTgOn() && tgs.length ? `<div class="zsplit"><div><span>${svgI("zip")}Bar im Zip</span><b class="num ${cash<0?"neg":""}">${money(cash)}</b></div><div><span>${svgI("bank")}Auf Tagesgeld</span><b class="num">${money(tg)}</b></div>
       <div class="zsplit-acts"><button data-zact="tgin">Aufs Tagesgeld</button><button data-zact="tgout" ${tg>0?"":"disabled"}>Zurückholen</button></div></div>` : tg ? `<p class="hint">Davon ${money(tg)} auf Tagesgeld.</p>` : ""}
-    <div class="zacts"><button data-zact="pay">${svgI("pay")}Bezahlen</button><button data-zact="fill">${svgI("plus")}Befüllen</button><button data-zact="take">${svgI("out")}Rausnehmen</button><button data-zact="edit">${svgI("edit")}Bearbeiten</button></div>
+    ${pks.length ? `<div class="zpark">${pks.map(x=>`<div class="zpk"><span>${svgI("bank")}Auf ${esc(x.a.name)}</span><b class="num ${x.v<0?"neg":""}">${money(x.v)}</b></div>
+      ${x.v>0?`<div class="zsplit-acts"><button data-zback="${esc(x.a.id)}">Zurück in den Zip</button><button data-zfree="${esc(x.a.id)}">Freigeben</button></div>`:""}`).join("")}
+      <p class="hint">Ausgaben mit dem Konto ordnest du beim Eintragen dem Zip zu. Round-up läuft ganz normal.</p></div>` : ""}
+    <div class="zacts"><button data-zact="pay">${svgI("pay")}Bezahlen</button><button data-zact="fill">${svgI("plus")}Befüllen</button>${pkTo?`<button data-zact="park">${svgI("bank")}Aufs Konto</button>`:""}<button data-zact="take">${svgI("out")}Rausnehmen</button></div>
     <div><div class="label" style="margin-bottom:8px">Letzte 6 Monate</div>
       <div class="hist" role="img" aria-label="Befüllt und ausgegeben pro Monat">${months.map(x=>`<div class="col"><i class="in" style="height:${x.inn?Math.max(3,x.inn/mx*100):0}%" title="${x.l}: +${money(x.inn)}"></i><i class="out" style="height:${x.out?Math.max(3,x.out/mx*100):0}%" title="${x.l}: −${money(x.out)}"></i></div>`).join("")}</div>
       <div class="hlab">${months.map(x=>`<span>${x.l}</span>`).join("")}</div>
@@ -2442,7 +2495,20 @@ function zipSheet(a){
     else if(k==="take") entrySheet(null, {type:"transfer", from:a.id, to:bar0&&bar0.id});
     else if(k==="tgin") entrySheet(null, {type:"transfer", from:a.id, to:tgs[0].id, note:"Aufs Tagesgeld"});
     else if(k==="tgout"){ const src = tgs.find(t=>tgShare(a.id, t.id)>0) || tgs[0]; entrySheet(null, {type:"transfer", from:src.id, to:a.id, note:"Vom Tagesgeld"}); }
+    else if(k==="park") entrySheet(null, {type:"transfer", from:a.id, to:pkTo.id, park:true});
     else accountSheet(a);
+  });
+  $("#zEdit").onclick = () => accountSheet(a);
+  // Rest vom Konto zurück in den Zip (nur Zuordnung) oder freigeben (gehört dann dem Konto)
+  document.querySelectorAll("[data-zback],[data-zfree]").forEach(btn => btn.onclick = async () => {
+    const acc = accById(btn.dataset.zback || btn.dataset.zfree), v = parkShare(a.id, acc.id); if(!acc || v<=0) return;
+    const today = iso(new Date()), now = Date.now();
+    if(btn.dataset.zback){ entrySheet(null, {type:"transfer", from:acc.id, to:a.id, park:true, amount:v, note:"Zurück in den Zip"}); return; }
+    closeSheet();
+    const id1 = newId(), id2 = newId();
+    await save("entries", id1, {type:"transfer", park:true, parkRel:true, from:acc.id, to:a.id, amount:v, date:today, note:"", createdAt:now});
+    await save("entries", id2, {type:"transfer", from:a.id, to:acc.id, amount:v, date:today, note:"Rest freigegeben", createdAt:now+1});
+    toast(`${money(v)} gehören jetzt ${acc.name}`, async () => { await store.del("entries", id1); await store.del("entries", id2); });
   });
 }
 
@@ -2731,7 +2797,7 @@ const ccOpen = fromId => state.accounts.filter(a=>a.kind==="konto" && a.cc && a.
 const inAvail = a => (a.kind==="bar" || a.kind==="konto") && !a.cc && (typeof a.avail==="boolean" ? a.avail : !a.tg);
 function freeMoney(){
   const rows = konten().filter(inAvail)
-    .map(a => { const cc = ccOpen(a.id).reduce((s,x)=>s+x.open,0); return {a, v: balance(a) - cc, cc}; }).filter(x => x.v || x.a.kind==="bar");
+    .map(a => { const cc = ccOpen(a.id).reduce((s,x)=>s+x.open,0), pk = parkedOn(a.id); return {a, v: balance(a) - cc - pk, cc, pk}; }).filter(x => x.v || x.a.kind==="bar");
   return {rows, total: rows.reduce((s,x)=>s+x.v,0)};
 }
 let ccRunning = false;
@@ -3094,7 +3160,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.48 (25.11.2026)";
+const APP_VERSION = "2.49 (26.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
