@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-lvVrzf8C2qy2Hx/pPGJXh1654RhhROfCKzkXKFxeeao='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-rxZcLOmREJuIW/U1Q9D/G2sO7MGgC1bWP/eihVulTZI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -813,6 +813,11 @@ h2.pieh .mini button{flex:1;padding:7px 4px}
 .wrow>span:first-child{display:flex;flex-direction:column;min-width:0}.wrow small{color:var(--muted);font-size:.78rem;margin-top:2px}
 .wrow small b{font-weight:600}.wrow .wn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wact{display:flex;align-items:center;gap:6px}
+/* v2.56 Selbstständigkeit */
+.bizyr{display:flex;align-items:center;gap:8px}.bizyr .label{margin:0}
+.bizyr .xbtn{width:28px;height:28px;font-size:1.1rem;line-height:1;background:transparent;color:inherit;opacity:.8}.bizyr .xbtn:disabled{opacity:.25}
+.bizrow{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px}.bizrow .badge{width:32px;height:32px}
+#fBiz{margin-bottom:-4px}
 /* v2.55 Bezahldienst-Ansicht */
 .ahrows .asubrow span,.ahrows .asubrow b{color:var(--muted);font-weight:400;font-size:.92em}
 /* v2.49 Zip-Geld auf Konten */
@@ -894,6 +899,7 @@ main section{margin-top:34px}
   <button data-tab="sips"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/></svg>Zips</button>
   <button data-tab="monat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Übersicht</button>
   <button data-tab="konten"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20.5h18"/></svg>Konten</button>
+  <button data-tab="biz" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V5.8a1.3 1.3 0 0 1 1.3-1.3h3.4A1.3 1.3 0 0 1 15 5.8v1.7M3.5 12.5h17"/></svg><span id="bizTabName">Business</span></button>
 </nav>
 <button class="fab" id="fab" aria-label="Neue Ausgabe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
 <div class="scrim" id="scrim" hidden></div>
@@ -978,7 +984,19 @@ function applyCats(){
   (st.catCustom||[]).forEach(c => { const so = OUT_CATS.findIndex(x=>x.id==="sonstiges"); OUT_CATS.splice(so<0?OUT_CATS.length:so, 0, {i:"•", ...c, custom:true}); });
 }
 const catHidden = id => ((state.settings||{}).catHide||[]).includes(id);
-const catById = id => OUT_CATS.concat(IN_CATS, [KORR]).find(c => c.id===id) || OUT_CATS[OUT_CATS.length-1];
+const BIZ_OUT = [
+  {id:"b-ware", short:"Ware", name:"Wareneinkauf", c:"--c4", ico:"shopping"},
+  {id:"b-material", name:"Material", c:"--c2", ico:"sonstiges"},
+  {id:"b-software", short:"Software", name:"Software & Tools", c:"--c1", ico:"phone"},
+  {id:"b-marketing", name:"Marketing", c:"--c5", ico:"sparkle"},
+  {id:"b-fahrt", short:"Fahrten", name:"Fahrtkosten", c:"--c3", ico:"mobilitaet"},
+  {id:"b-gebuehr", short:"Gebühren", name:"Gebühren & Versand", c:"--c10", ico:"receipt"},
+  {id:"b-sonst", name:"Sonstiges", c:"--c9", ico:"sonstiges"},
+];
+const BIZ_IN = [{id:"b-umsatz", name:"Umsatz", c:"--accent", ico:"gehalt"}, {id:"b-in-sonst", name:"Sonstige Einnahme", c:"--accent", ico:"gehalt"}];
+const bizOn = () => !!(state.settings && state.settings.biz && state.settings.biz.on);
+const bizName = () => ((state.settings||{}).biz||{}).name || "Selbstständig";
+const catById = id => OUT_CATS.concat(IN_CATS, [KORR], BIZ_OUT, BIZ_IN).find(c => c.id===id) || OUT_CATS[OUT_CATS.length-1];
 
 // ---- money & dates ----
 const eur = new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR"});
@@ -1326,7 +1344,7 @@ const WR_MON = ["Januar","Februar","März","April","Mai","Juni","Juli","August",
 const WR_WD = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
 const wrYear = () => { const d = new Date(); return d.getMonth()<=1 ? d.getFullYear()-1 : d.getFullYear(); };
 function wrStats(Y){
-  const y = String(Y), ents = state.entries.filter(e=>(e.date||"").startsWith(y));
+  const y = String(Y), ents = state.entries.filter(e=>(e.date||"").startsWith(y) && !e.biz);
   const outs = ents.filter(e=>e.type==="out" && !isKorr(e)), ins = ents.filter(e=>e.type==="in" && !isKorr(e) && !isSb(e));
   const sum = a => a.reduce((s,e)=>s+(e.amount||0),0);
   const spent = sum(outs), earned = sum(ins), inv = investedYear(Y);
@@ -1490,8 +1508,8 @@ const ICO = {
 };
 const svgI = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[k]||ICO.sonstiges}</svg>`;
 const CAT_SHORT = {wohnen:"Wohnen", restaurant:"Essen & Café", abos:"Abos", versicherung:"Versicherung", taschengeld:"Taschengeld"};
-const catTile = (c, attr, sel) => `<button class="ctile" data-${attr}="${c.id}" aria-pressed="${c.id===sel}">${catBadge(c)}<span>${esc(!c.renamed && CAT_SHORT[c.id] || c.name)}</span></button>`;
-const catBadge = c => `<span class="badge" style="--bc:var(${c.c==="--accent"?"--c3":c.c})" aria-hidden="true">${svgI(ICO[c.id]?c.id:(c.c==="--accent"?"gehalt":"sonstiges"))}</span>`;
+const catTile = (c, attr, sel) => `<button class="ctile" data-${attr}="${c.id}" aria-pressed="${c.id===sel}">${catBadge(c)}<span>${esc(!c.renamed && (CAT_SHORT[c.id] || c.short) || c.name)}</span></button>`;
+const catBadge = c => `<span class="badge" style="--bc:var(${c.c==="--accent"?"--c3":c.c})" aria-hidden="true">${svgI(c.ico || (ICO[c.id]?c.id:(c.c==="--accent"?"gehalt":"sonstiges")))}</span>`;
 
 // ---- Unterkategorien ----
 const SUBS = {
@@ -1777,19 +1795,22 @@ function render(){
   const m = state.month;
   if(!zipsOn() && state.tab==="sips") state.tab = "monat";
   $('#tabs [data-tab="sips"]').hidden = !zipsOn();
+  if(!bizOn() && state.tab==="biz") state.tab = "monat";
+  $('#tabs [data-tab="biz"]').hidden = !bizOn(); $("#bizTabName").textContent = bizName().length > 12 ? bizName().slice(0,11)+"…" : bizName();
   document.querySelectorAll("#tabs [data-tab]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.tab===state.tab)));
   $("#monthNav").hidden = state.tab!=="monat"; $("#pageTitle").hidden = state.tab==="monat";
-  $("#pageTitle").textContent = state.tab==="sips" ? "Zips" : "Konten";
+  $("#pageTitle").textContent = state.tab==="sips" ? "Zips" : state.tab==="biz" ? bizName() : "Konten";
   $("#fab").hidden = state.tab==="konten";
   if(state.tab==="konten" && state.ready){ renderKonten(); return; }
   if(state.tab==="sips" && state.ready){ renderSips(); return; }
+  if(state.tab==="biz" && state.ready){ renderBiz(); return; }
   $("#monthTitle").innerHTML = esc(monthName(m)) + (PD() ? `<small>${esc(perLabel(m))}</small>` : "");
   $("#next").disabled = m >= shiftMonth(curPeriod(), 12);
   const main = $("#main");
   if(!state.ready){ main.innerHTML = `<div class="empty">Daten werden geladen …</div>`; return; }
   if(m > curPeriod()){ main.innerHTML = forecastHtml(m); return; }
 
-  const inMonth = state.entries.filter(e => inPer(e.date, m));
+  const inMonth = state.entries.filter(e => inPer(e.date, m) && !e.biz);
   const outs = inMonth.filter(e => e.type!=="in" && e.type!=="transfer" && !isKorr(e));
   const ins = inMonth.filter(e => e.type==="in" && !isKorr(e) && !isSb(e));
   const spent = outs.reduce((s,e)=>s+(e.amount||0),0);
@@ -2010,6 +2031,7 @@ function entrySheet(entry, preset){
   openSheet(`
     <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">${entry?"Eintrag":"Neuer Eintrag"}</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="seg seg3" id="fType"><button data-type="out">Ausgabe</button><button data-type="in">Einnahme</button><button data-type="transfer">Umbuchung</button></div>
+    <div class="seg" id="fBiz" hidden><button data-biz="0">Privat</button><button data-biz="1" id="fBizName"></button></div>
     <label class="amount"><input id="fAmount" inputmode="decimal" placeholder="0,00" value="${esc(toInput(d.amount))}" aria-label="Betrag in Euro" autocomplete="off"><span>€</span></label>
     <div class="ruchip" id="ruHint" hidden></div>
     <div id="placeBox"><div class="label" style="margin-bottom:6px">Wo?</div>
@@ -2049,14 +2071,15 @@ function entrySheet(entry, preset){
     <input class="input" id="fNote" placeholder="Notiz (optional)" value="${esc(d.note||"")}" autocomplete="off" enterkeyhint="done">
     <div class="row">${entry?`<button class="danger" id="del">Löschen</button>`:""}<button class="primary" id="ok">${entry?"Speichern":"Eintragen"}</button></div>
   `);
-  const cats = () => d.type==="in" ? IN_CATS : OUT_CATS;
+  const cats = () => d.biz ? (d.type==="in" ? BIZ_IN : BIZ_OUT) : d.type==="in" ? IN_CATS : OUT_CATS;
   const drawCats = () => {
-    if(!cats().some(c=>c.id===d.cat)) d.cat = d.type==="in" ? "gehalt" : null;
+    if(!cats().some(c=>c.id===d.cat)) d.cat = d.type==="in" ? (d.biz ? "b-umsatz" : "gehalt") : null;
+    if($("#fBiz")){ $("#fBiz").hidden = !(bizOn() || d.biz) || d.type==="transfer"; $("#fBizName").textContent = bizName(); document.querySelectorAll("#fBiz [data-biz]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.biz==="1" ? !!d.biz : !d.biz))); }
     const isIn = d.type==="in";
     $("#fCat").hidden = isIn; $("#fCatSel").hidden = !isIn; $("#catLabel").textContent = isIn ? "Was kommt rein?" : "Kategorie";
-    if(isIn){ $("#fCatSel").innerHTML = IN_CATS.filter(c=>c.id!=="saveback" || d.cat==="saveback").map(c=>`<option value="${c.id}">${c.i} ${esc(c.name)}</option>`).join(""); $("#fCatSel").value = d.cat; }
+    if(isIn){ $("#fCatSel").innerHTML = cats().filter(c=>c.id!=="saveback" || d.cat==="saveback").map(c=>`<option value="${c.id}">${c.i} ${esc(c.name)}</option>`).join(""); $("#fCatSel").value = d.cat; }
     else $("#fCat").innerHTML = cats().filter(c=>!catHidden(c.id) || c.id===d.cat).map(c=>catTile(c, "cat", d.cat)).join("");
-    $("#catEdit").hidden = isIn;
+    $("#catEdit").hidden = isIn || !!d.biz;
     drawSub();
   };
   let dest = "konto"; const chosen = [];
@@ -2227,8 +2250,9 @@ function entrySheet(entry, preset){
     const uh = e.target.closest("[data-unhide]"); if(uh){ savePlacePrefs({...pr, hidden: pr.hidden.filter(y=>y!==uh.dataset.unhide)}); drawPP(); return; }
   };
   drawCats(); sync();
-  $("#fType").onclick = e => { const b=e.target.closest("[data-type]"); if(b){ d.type=b.dataset.type; if(d.type==="transfer"){ d.from ||= d.account||k0; } else { d.account ||= d.from||k0; drawCats(); } sync(); } };
+  $("#fType").onclick = e => { const b=e.target.closest("[data-type]"); if(b){ d.type=b.dataset.type; if(d.type==="transfer"){ d.from ||= d.account||k0; $("#fBiz").hidden = true; } else { d.account ||= d.from||k0; drawCats(); } sync(); } };
   $("#fAcc").onclick = e => { const b=e.target.closest("[data-acc]"); if(b){ d.account=b.dataset.acc; sync(); } };
+  $("#fBiz").onclick = e => { const b=e.target.closest("[data-biz]"); if(b){ d.biz = b.dataset.biz==="1"; d.sub = null; drawCats(); sync(); } };
   $("#fZip").onclick = e => { const w=e.target.closest("[data-pw]"); if(w){ d.account = w.dataset.pw || d.payZip; sync(); return; } const b=e.target.closest("[data-zipsel]"); if(b){ d.zip = b.dataset.zipsel || null; d.zipTouched = true; sync(); } };
   $("#fPark").onclick = () => { d.park = !d.park; sync(); };
   const manage = e => {
@@ -2286,6 +2310,7 @@ function entrySheet(entry, preset){
     const data = d.type==="transfer" ? {...base, from:d.from, to:d.to} : {...base, cat:d.cat, account:effAcc()||"giro"};
     if(d.type!=="transfer" && effAcc()!==d.account) data.via = d.account;
     if(d.type==="transfer" && d.park && parkPair()) data.park = true;
+    if(d.type!=="transfer" && d.biz) data.biz = true;
     if(d.type==="out" && d.zip && zipOpts().some(x=>x.z.id===d.zip)) data.zip = d.zip;
     if(d.type==="out" && d.place) data.place = d.place;
     if(d.type==="out" && d.sub) data.sub = d.sub;
@@ -2496,6 +2521,38 @@ function renderSips(){
     if(moves.length) html += `<section><h2><span>Letzte Bewegungen</span></h2><ul class="entries">${moves.map(entryRow).join("")}</ul></section>`;
   }
   $("#main").innerHTML = html;
+}
+
+// ---- Selbstständigkeit: eigener Reiter, Ausgaben/Einnahmen pro Jahr, privat bezahlt
+function renderBiz(){
+  const Y = state.bizYear || new Date().getFullYear(), ys = String(Y);
+  const ents = state.entries.filter(e => e.biz && !e.auto && (e.date||"").startsWith(ys)).sort((a,b)=> a.date===b.date ? (b.createdAt||0)-(a.createdAt||0) : (a.date<b.date?1:-1));
+  const outs = ents.filter(e=>e.type==="out"), ins = ents.filter(e=>e.type==="in");
+  const out = outs.reduce((s,e)=>s+e.amount,0), inn = ins.reduce((s,e)=>s+e.amount,0);
+  const [w, c] = money(out).replace(/\s?€/,"").split(",");
+  const years = [...new Set(state.entries.filter(e=>e.biz).map(e=>Number((e.date||"").slice(0,4))).concat([new Date().getFullYear()]))].sort();
+  let html = `<div class="hero"><div>
+    <div class="bizyr"><button class="xbtn" id="bizPrev" aria-label="Jahr davor" ${Y<=years[0]?"disabled":""}>‹</button><div class="label">Ausgaben ${Y}</div><button class="xbtn" id="bizNext" aria-label="Jahr danach" ${Y>=new Date().getFullYear()?"disabled":""}>›</button></div>
+    <div class="big num">${esc(w)}<span class="cents">,${esc(c)} €</span></div>
+    ${inn ? `<div class="asub">Einnahmen <b class="num">${money(inn)}</b> · Ergebnis <b class="num ${inn-out<0?"neg":"pos"}">${inn-out<0?"−":"+"}${money(Math.abs(inn-out))}</b></div>` : `<div class="asub">Privat bezahlt, zählt nicht bei deinen privaten Ausgaben.</div>`}
+  </div></div>`;
+  if(!ents.length){ html += `<div class="empty" style="padding:28px 16px"><strong>Noch nichts für ${esc(bizName())} ${Y}</strong>Tippe auf +, dann landet die Ausgabe hier und nicht bei deinen privaten.</div>`; $("#main").innerHTML = html; bizWire(Y, years); return; }
+  const byCat = BIZ_OUT.map(c=>({c, v: outs.filter(e=>e.cat===c.id).reduce((s,e)=>s+e.amount,0)})).filter(x=>x.v).sort((a,b)=>b.v-a.v);
+  if(byCat.length) html += `<section><h2><span>Wofür</span></h2><div class="sgroup">${byCat.map(x=>`<div class="srow bizrow">${catBadge(x.c)}<span>${esc(x.c.name)}</span><b class="num">${money(x.v)}</b></div>`).join("")}</div></section>`;
+  html += `<section><h2><span>Buchungen</span><button class="linkbtn" id="bizCsv">Als Liste exportieren</button></h2><ul class="entries">${ents.slice(0,100).map(e=>entryRow(e)).join("")}</ul></section>`;
+  $("#main").innerHTML = html; bizWire(Y, years, ents);
+}
+function bizWire(Y, years, ents){
+  const go = y => { state.bizYear = y; render(); };
+  if($("#bizPrev")) $("#bizPrev").onclick = () => { const i = years.indexOf(Y); if(i>0) go(years[i-1]); else go(Y-1); };
+  if($("#bizNext")) $("#bizNext").onclick = () => go(Y+1);
+  if($("#bizCsv")) $("#bizCsv").onclick = () => {
+    const q = v => `"${String(v==null?"":v).replace(/"/g,'""')}"`;
+    const rows = [["Datum","Art","Kategorie","Notiz","Ort","Bezahlt von","Betrag"]].concat(ents.slice().reverse().map(e=>[e.date, e.type==="in"?"Einnahme":"Ausgabe", catById(e.cat).name, e.note||"", e.place||"", accName(e.via||accOf(e)), (e.type==="in"?"":"-")+(e.amount/100).toFixed(2).replace(".",",")]));
+    const blob = new Blob(["\ufeff"+rows.map(r=>r.map(q).join(";")).join("\n")], {type:"text/csv;charset=utf-8"});
+    const name = `${bizName().replace(/[^\wäöüÄÖÜß-]+/g,"-")}-${Y}.csv`;
+    try { const f = new File([blob], name, {type:"text/csv"}); if(navigator.canShare && navigator.canShare({files:[f]})){ navigator.share({files:[f], title:name}).catch(()=>{}); return; } } catch(_){}
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500); };
 }
 
 // Tagesgeld-Geld nachträglich Zips zuordnen (Tagesgeld-Stand bleibt gleich)
@@ -3204,6 +3261,9 @@ function budgetSheet(){
         <button class="switch" id="tHap" role="switch" aria-checked="${HAPTIC.on()}" aria-label="Haptisches Feedback"><i></i></button></div>
       <div class="optrow"><div><b>Zips</b><p class="hint">Bargeld-Umschläge. Aus blendet sie nur aus.</p></div>
         <button class="switch" id="tZips" role="switch" aria-checked="${zipsOn()}" aria-label="Zips verwenden"><i></i></button></div>
+      <div class="optrow"><div><b>Selbstständigkeit</b><p class="hint">Eigener Bereich unten für Geschäftsausgaben, auch wenn du sie privat bezahlst. Zählt nicht bei deinen privaten Ausgaben.</p></div>
+        <button class="switch" id="tBiz" role="switch" aria-checked="${bizOn()}" aria-label="Selbstständigkeit"><i></i></button></div>
+      ${bizOn()?`<label class="srow"><span>Name</span><input class="input" id="bizNameIn" value="${esc(bizName())}" maxlength="30" style="width:11em;text-align:right" autocomplete="off" aria-label="Name der Selbstständigkeit"></label>`:""}
       ${zipsOn()?`<div class="optrow"><div><b>Zips mit Tagesgeld</b><p class="hint">Ein Teil der Zips darf auf Tagesgeld liegen.</p></div>
         <button class="switch" id="tZipTg" role="switch" aria-checked="${zipTgOn()}" aria-label="Zips mit Tagesgeld"><i></i></button></div>`:""}
       <div class="optrow"><div><b>Monat beginnt am Gehaltstag</b><p class="hint">Von Gehalt zu Gehalt statt vom 1. bis 31.</p></div>
@@ -3259,6 +3319,8 @@ function budgetSheet(){
   if($("#payDay")) $("#payDay").onchange = async e => { await save("settings","main",{...settingsData(), payday:+e.target.value}); if(!state.navMoved) state.month = curPeriod(); render(); toast("Gehaltstag: "+e.target.value+"."); };
   $("#tHap").onclick = e => { const on = !HAPTIC.on(); try { localStorage.setItem("hhb.haptic", on ? "1" : "0"); } catch(_){} e.currentTarget.setAttribute("aria-checked", String(on)); if(on) HAPTIC.fire("success"); };
   $("#tCent").onclick = async e => { const on = !centMode(); e.currentTarget.setAttribute("aria-checked", String(on)); try { await save("settings","main",{...settingsData(), centInput:on}); toast(on ? "1800 ergibt jetzt 18,00 €" : "1800 ergibt jetzt 1.800 €"); } catch(_){} };
+  $("#tBiz").onclick = async e => { const on = !bizOn(); try { await save("settings","main",{...settingsData(), biz:{...((state.settings||{}).biz||{}), on, name: bizName()==="Selbstständig" && !(state.settings.biz||{}).name ? "Selbstständig" : bizName()}}); } catch(_){} budgetSheet(); toast(on ? "Bereich eingeschaltet, unten neuer Reiter" : "Bereich ausgeblendet"); };
+  if($("#bizNameIn")) $("#bizNameIn").onchange = async e => { const name = e.target.value.trim().slice(0,30) || "Selbstständig"; try { await save("settings","main",{...settingsData(), biz:{...((state.settings||{}).biz||{}), on:true, name}}); } catch(_){} };
   $("#tZips").onclick = async e => { const on = !zipsOn(); e.currentTarget.setAttribute("aria-checked", String(on)); try { await save("settings","main",{...settingsData(), zips:on}); toast(on ? "Zips eingeschaltet" : "Zips ausgeblendet"); } catch(_){} };
   $("#imp").onclick = pickBackup;
   $("#snaps").onclick = snapSheet;
@@ -3271,7 +3333,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.55 (26.11.2026)";
+const APP_VERSION = "2.56 (26.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -3793,7 +3855,7 @@ $("#next").onclick = () => { if(state.month<shiftMonth(curPeriod(),12)){ state.a
 $("#settings").onclick = budgetSheet;
 $("#eye").onclick = () => { setHide(!HIDE); toast(HIDE ? "Beträge verborgen" : "Beträge sichtbar"); };
 drawEye();
-$("#fab").onclick = () => entrySheet(null);
+$("#fab").onclick = () => entrySheet(null, state.tab==="biz" && bizOn() ? {biz:true} : undefined);
 $("#scrim").onclick = closeSheet;
 // Nach unten wischen schließt das Fenster
 (() => { const s = $("#sheet"); let y0 = null, dy = 0, t0 = 0, head = false;
