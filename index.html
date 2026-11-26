@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-EdI7/J9mU6AzeBFMgw1PhgEjn9myCro73nVoMIpq09w='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-0dlk+S/kQWKD864JGbD5NUdN4+2bQZit5Kb1Xj+F7Uw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -348,13 +348,12 @@ section > h2 .num{font-family:var(--f-body);font-size:.85rem;color:var(--muted);
 .zcard.addz{align-items:center;justify-content:center;border:2px dashed var(--line);box-shadow:none;background:none;color:var(--muted);font-weight:600;min-height:150px}
 .zcard.addz::before{display:none}
 .zgrid .zcard[data-zid]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
-.zedit .zcard[data-zid]{animation:zwig .32s ease-in-out infinite alternate;touch-action:none}
-.zedit .zcard[data-zid]:nth-child(2n){animation-delay:-.16s;animation-duration:.29s}
+.zgrid .zcard[data-zid]{transition:scale .25s ease,box-shadow .25s ease,outline-color .25s ease;outline:1px solid transparent;outline-offset:-1px}
+.zedit .zcard[data-zid]{touch-action:none;scale:.97;outline-color:color-mix(in srgb,var(--accent) 35%,transparent)}
 .zedit .zcard .open{cursor:grab}
-.zcard.zlift{animation:none!important;z-index:5;box-shadow:0 22px 44px -14px rgba(0,0,0,.55);scale:1.06;transition:scale .15s,box-shadow .15s;cursor:grabbing}
+.zcard.zlift{z-index:5;scale:1.04;box-shadow:0 24px 48px -18px rgba(0,0,0,.6);outline-color:color-mix(in srgb,var(--accent) 60%,transparent);cursor:grabbing}
 .zedit .zcard.addz{opacity:.35;pointer-events:none}
-@keyframes zwig{from{rotate:-1.1deg}to{rotate:1.1deg}}
-@media (prefers-reduced-motion: reduce){.zedit .zcard[data-zid]{animation:none;outline:1.5px dashed var(--line);outline-offset:-1.5px}}
+.zhint{margin:-4px 0 12px;font-size:.82rem;color:var(--muted)}
 .zhead{display:flex;align-items:center;gap:12px}
 .zhead .ic{width:48px;height:48px;border-radius:15px;display:grid;place-items:center;font-size:1.5rem;background:var(--chip);background:color-mix(in srgb,var(--zc) 18%,var(--surface))}
 .zhead .zb{font-family:var(--f-display);font-weight:700;font-size:1.8rem}
@@ -2497,6 +2496,7 @@ function renderSips(){
   </div>`;
   if(free<0 && us.length) html += `<div class="fixcard"><div><b>Bargeld ohne Zip: ${money(free)}</b><p>Meist wurden Zips aus Bargeld befüllt, obwohl das Geld schon drin steckte.</p></div><button id="fixFills">Korrigieren</button></div>`;
   html += `<section><h2><span>Deine Zips</span>${state.zipEdit && us.length?`<button class="linkbtn" id="zipDone">Fertig</button>`:""}</h2>`;
+  if(state.zipEdit && us.length) html += `<p class="zhint">Halten und ziehen zum Verschieben</p>`;
   if(!us.length) html += `<div class="empty" style="padding:20px 16px"><strong>Noch keine Zips</strong>Für dein Bargeld im Budgetplaner. Leg los mit einem Tipp:</div>
     <div class="chips" style="justify-content:center">${["Urlaub","Auto","Rückzahlung","Geschenke","Lebensmittel","Notgroschen"].map(n=>`<button class="chip" data-newenv="${n}">+ ${n}</button>`).join("")}</div>
     <div class="addrow" style="margin-top:14px"><button class="addbtn" id="addEnv">+ Eigenen Zip anlegen</button></div>`;
@@ -2538,21 +2538,22 @@ function renderSips(){
 
 // Zips umsortieren wie Apps auf dem iPhone: lange drücken → wackeln, ziehen, loslassen. „Fertig“ beendet.
 (() => {
-  let hold = null, drag = null, sx = 0, sy = 0, eatClick = false, scrollRaf = 0;
+  let hold = null, drag = null, sx = 0, sy = 0, eatClick = false, scrollRaf = 0, lastSwap = 0;
   const cards = () => [...document.querySelectorAll("#zgrid .zcard[data-zid]")];
   const enter = () => { if(state.zipEdit) return; state.zipEdit = true; const g = $("#zgrid"); if(g) g.classList.add("zedit");
-    const h = g && g.closest("section").querySelector("h2"); if(h && !h.querySelector("#zipDone")) h.insertAdjacentHTML("beforeend", `<button class="linkbtn" id="zipDone">Fertig</button>`); HAPTIC.fire(); };
+    const h = g && g.closest("section").querySelector("h2"); if(h && !h.querySelector("#zipDone")) { h.insertAdjacentHTML("beforeend", `<button class="linkbtn" id="zipDone">Fertig</button>`); h.insertAdjacentHTML("afterend", `<p class="zhint">Halten und ziehen zum Verschieben</p>`); } HAPTIC.fire(); };
   const place = () => { if(!drag) return; const c = drag.el; c.style.transform = "";
     const r = c.getBoundingClientRect(); c.style.transform = `translate(${drag.x - drag.ox - r.left}px,${drag.y - drag.oy - r.top}px)`; };
   const start = (el, x, y) => { const r = el.getBoundingClientRect(); drag = {el, ox:x - r.left, oy:y - r.top, x, y}; el.classList.add("zlift"); place(); };
   const reorder = () => {
     const c = drag.el; c.style.visibility = "hidden"; const hit = document.elementFromPoint(drag.x, drag.y); c.style.visibility = "";
-    const t = hit && hit.closest("#zgrid .zcard[data-zid]"); if(!t || t===c) return;
+    const t = hit && hit.closest("#zgrid .zcard[data-zid]"); if(!t || t===c || Date.now() - lastSwap < 180) return;
+    const tr = t.getBoundingClientRect(); if(Math.abs(drag.x-(tr.left+tr.width/2)) > tr.width*.32 || Math.abs(drag.y-(tr.top+tr.height/2)) > tr.height*.32) return; lastSwap = Date.now();
     const all = cards(), from = all.indexOf(c), to = all.indexOf(t);
     const others = all.filter(x=>x!==c), before = new Map(others.map(x=>[x, x.getBoundingClientRect()]));
     t.parentNode.insertBefore(c, from < to ? t.nextSibling : t);
     if(!calm()) others.forEach(x => { const a = before.get(x), b = x.getBoundingClientRect(); const dx = a.left-b.left, dy = a.top-b.top;
-      if(dx||dy) x.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:"none"}], {duration:220, easing:"cubic-bezier(.2,.8,.2,1)"}); });
+      if(dx||dy) x.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:"none"}], {duration:280, easing:"cubic-bezier(.25,.8,.25,1)"}); });
     place(); HAPTIC.fire();
   };
   const edgeScroll = () => { scrollRaf = 0; if(!drag) return; const H = innerHeight, y = drag.y;
@@ -3432,7 +3433,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.58 (26.11.2026)";
+const APP_VERSION = "2.59 (26.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
