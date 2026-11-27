@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-ETIy+YRs9xGP05RUMc+AnSQOmnu/20+1xevH9fFjdh0='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-6T4SdRahlBy62vGJiOmRQI9FcI7VnuilTIqnfDcBiaY='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -959,6 +959,29 @@ section > h2{font-weight:600;font-size:1.22rem;letter-spacing:-.018em;margin:0 0
 /* Knöpfe und Reiter */
 .primary,.hero .acts button,.zcard .zact button,.mini button,.seg button,.aseg button,.chip{letter-spacing:-.01em}
 .tabbar button{font-size:.68rem;font-weight:500;letter-spacing:0}
+
+/* v2.63 Fremdwährung */
+.fxpay{display:flex;flex-direction:column;gap:8px;margin-top:-4px}
+.fxpay .seg{max-width:260px;width:100%;align-self:center}
+.fxpay .seg button{padding:7px 10px;font-size:.86rem}
+.fxinfo{margin:0;text-align:center;font-size:.84rem;color:var(--muted)}
+.fxinfo b{color:var(--ink);font-weight:600}
+.amount span.fxunit{font-size:1.45rem;font-weight:600;letter-spacing:.02em}
+.fxbox{display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:var(--r-card,20px);background:var(--chip);background:color-mix(in srgb,var(--accent) 6%,var(--surface));border:1px solid var(--line)}
+.fxbox #fxIn{display:flex;flex-direction:column;gap:10px}
+.fxbox #fxIn[hidden]{display:none}
+.fxrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.fxamt{position:relative;display:block}
+.fxamt input{padding-right:3.4em;text-align:right;font-weight:600}
+.fxamt span{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.85rem;font-weight:600;pointer-events:none}
+.fxrate{margin:0;font-size:.86rem;color:var(--muted);line-height:1.45}
+.fxrate b{color:var(--ink);font-weight:600}
+.fxhave{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;font-size:.86rem;color:var(--muted);margin-top:2px}
+.fxhave b{color:var(--ink);font-weight:600;font-size:.98rem}
+.fxhave .fxcode{font-size:.68rem;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:999px;background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--accent)}
+.zhead + .fxhave{justify-content:flex-start;margin-top:-4px}
+.zcard .zfx{color:var(--ink)}
+.entry .fxt{color:var(--muted);font-weight:500}
 </style>
 </head>
 <body>
@@ -1208,6 +1231,23 @@ function parkShare(zid, accId){
 const parkedOn = accId => umschlaege().reduce((s,z)=>s+parkShare(z.id, accId),0);
 const parkAccs = zid => konten().filter(a=>isParkAcc(a.id)).map(a=>({a, v:parkShare(zid, a.id)})).filter(x=>x.v);
 const zipTotal = a => balance(a) + tgShare(a.id) + parkShare(a.id);
+// ---- Fremdwährung (v2.63): Abheben mit fx:{cur, amt} (Umbuchung Konto → Bargeld/Zip), Barausgaben mit fx:{cur, amt}.
+// amount bleibt immer Euro. Kurs = alle Abhebungen in dieser Währung auf diesem Bargeld/Zip (Landeswährung pro Euro).
+const FX_LIST = [["MAD","Marokkanischer Dirham"],["USD","US-Dollar"],["GBP","Britisches Pfund"],["CHF","Schweizer Franken"],["TRY","Türkische Lira"],["EGP","Ägyptisches Pfund"],["TND","Tunesischer Dinar"],["AED","VAE-Dirham"],["THB","Thailändischer Baht"],["IDR","Indonesische Rupiah"],["VND","Vietnamesischer Dong"],["JPY","Japanischer Yen"],["CNY","Chinesischer Yuan"],["INR","Indische Rupie"],["CZK","Tschechische Krone"],["HUF","Ungarischer Forint"],["PLN","Polnischer Złoty"],["RON","Rumänischer Leu"],["DKK","Dänische Krone"],["SEK","Schwedische Krone"],["NOK","Norwegische Krone"],["ISK","Isländische Krone"],["CAD","Kanadischer Dollar"],["AUD","Australischer Dollar"],["MXN","Mexikanischer Peso"],["BRL","Brasilianischer Real"],["ZAR","Südafrikanischer Rand"]];
+const isCashAcc = id => { const a = accById(id); return !!(a && (a.kind==="bar" || a.kind==="umschlag")); };
+const fxNum = (v, dig) => new Intl.NumberFormat("de-DE",{minimumFractionDigits:dig, maximumFractionDigits:dig}).format(v);
+const fxFmt = (minor, cur) => HIDE ? "•••• "+cur : fxNum((minor||0)/100, (minor||0)%100 ? 2 : 0)+" "+cur;
+const fxRateTxt = (r, cur) => "1 € = "+fxNum(r, r>=100 ? 0 : 2)+" "+cur;
+function fxPool(accId, cur, skipId){
+  let inE = 0, inF = 0, outF = 0;
+  for(const e of state.entries){ if(!e.fx || e.fx.cur!==cur || e.id===skipId) continue;
+    if(e.type==="transfer" && e.to===accId){ inE += e.amount; inF += e.fx.amt; }
+    else if(e.type==="out" && accOf(e)===accId) outF += e.fx.amt; }
+  return {have: inF - outF, rate: inE ? inF/inE : 0};
+}
+const fxCurs = accId => [...new Set(state.entries.filter(e=>e.fx && e.type==="transfer" && e.to===accId).map(e=>e.fx.cur))];
+const fxHeld = accId => fxCurs(accId).map(cur=>({cur, ...fxPool(accId, cur)})).filter(x=>x.have>0);
+const fxLineHtml = accId => fxHeld(accId).map(x=>`<div class="fxhave"><span class="fxcode">${esc(x.cur)}</span><b class="num">${esc(fxFmt(x.have, x.cur))}</b><span>bar · ${esc(fxRateTxt(x.rate, x.cur))}</span></div>`).join("");
 // Investiert: alles, was in einem Jahr auf Depot-Konten geflossen ist (Einzahlungen, Round-up, Saveback)
 function investedYear(year){
   const D = new Set(state.accounts.filter(a=>a.kind==="depot").map(a=>a.id));
@@ -2010,7 +2050,7 @@ function entryRow(e, ctx){
     const label = e.topup ? "Aufgeladen" : e.auto && !e.parkRel ? "Round-up" : e.park ? (fromKind==="umschlag" ? "Zip-Geld aufs Konto" : "Abgehoben für Zip") : toKind==="umschlag" ? "In Zip gesteckt" : fromKind==="umschlag" ? "Aus Zip genommen" : ({ziel:"Zurückgelegt", bar:"Abgehoben", depot:"Investiert"})[toKind] || "Umbuchung";
     return `<li><button class="entry" data-edit="${esc(e.id)}">
       <span class="badge" style="--bc:var(${label==="Investiert"||label==="Round-up"?"--c4":(accById(e.to)||{}).kind==="umschlag"||(accById(e.from)||{}).kind==="umschlag"?"--c5":"--c1"})" aria-hidden="true">${svgI(label==="Investiert"||label==="Round-up"?"invest":(accById(e.to)||{}).kind==="umschlag"||(accById(e.from)||{}).kind==="umschlag"?"zip":label==="Abgehoben"?"atm":label==="Zurückgelegt"?"ziel":"transfer")}</span>
-      <span class="mid"><div class="t">${esc(e.note || label)}</div><div class="s">${esc(ctx && e.from===ctx && (accById(e.to)||{}).kind==="depot" ? "Ins Depot" : ctx && e.to===ctx ? "Von "+accName(e.from) : ctx ? "Nach "+accName(e.to) : accName(e.from)+" → "+accName(e.to))}</div></span>
+      <span class="mid"><div class="t">${esc(e.note || label)}${e.fx ? ` <span class="fxt">${esc(fxFmt(e.fx.amt, e.fx.cur))}</span>` : ""}</div><div class="s">${esc(ctx && e.from===ctx && (accById(e.to)||{}).kind==="depot" ? "Ins Depot" : ctx && e.to===ctx ? "Von "+accName(e.from) : ctx ? "Nach "+accName(e.to) : accName(e.from)+" → "+accName(e.to))}</div></span>
       <span class="a num ${ctx && !e.park && e.to===ctx ? "pos" : ""}" ${ctx && !e.park?"":`style="color:var(--muted)"`}>${ctx && !e.park ? (e.to===ctx?"+":"−") : ""}${money(e.amount)}</span>
     </button></li>`;
   }
@@ -2027,7 +2067,7 @@ function entryRow(e, ctx){
     ${ctx && ru ? `<span class="mid"><div class="t">${esc(title)}</div><div class="s">${money(e.amount)} + ${money(ru.amount)} Round-up</div></span>
     <span class="a num">−${money(e.amount+ru.amount)}</span>
   </button></li>` : ""}${ctx && ru ? "" : `
-    <span class="mid"><div class="t">${esc(title)}</div>${(e.note||e.place||e.sub||multi||ru||sbk)?`<div class="s">${esc([(e.note||e.place)?cName:(e.sub?c.name:""), e.note&&e.place?e.place:"", multi && ctx!==accOf(e) && ctx!==e.via?(e.via&&accById(e.via)?accName(e.via)+" ("+accName(accOf(e))+")":accName(accOf(e))):"", e.zip&&accById(e.zip)?"aus "+accName(e.zip):"", ru?"Round-up "+money(ru.amount):"", sbk?"Saveback +"+money(sbk.amount):"", e.rec?"Dauerauftrag":""].filter(Boolean).join(" · "))}</div>`:""}${(()=>{ const tp = e.type==="out" && topOf(e.id); if(!tp) return ""; const own = e.amount - tp.amount;
+    <span class="mid"><div class="t">${esc(title)}</div>${(e.note||e.place||e.sub||multi||ru||sbk||e.fx)?`<div class="s">${esc([(e.note||e.place)?cName:(e.sub?c.name:""), e.note&&e.place?e.place:"", multi && ctx!==accOf(e) && ctx!==e.via?(e.via&&accById(e.via)?accName(e.via)+" ("+accName(accOf(e))+")":accName(accOf(e))):"", e.zip&&accById(e.zip)?"aus "+accName(e.zip):"", e.fx?fxFmt(e.fx.amt, e.fx.cur):"", ru?"Round-up "+money(ru.amount):"", sbk?"Saveback +"+money(sbk.amount):"", e.rec?"Dauerauftrag":""].filter(Boolean).join(" · "))}</div>`:""}${(()=>{ const tp = e.type==="out" && topOf(e.id); if(!tp) return ""; const own = e.amount - tp.amount;
       return `<div class="s">${own>0 ? `${money(own)} aus Guthaben · ${money(tp.amount)} von ${esc(accName(tp.from))}` : `komplett von ${esc(accName(tp.from))}`}</div>`; })()}</span>
     <span class="a num ${isIn?"pos":""}">${isIn?"+":"−"}${money(e.amount)}</span>
   </button></li>`}`;
@@ -2118,6 +2158,14 @@ function entrySheet(entry, preset){
   const d = entry ? {...entry, account: entry.type==="transfer" ? undefined : (entry.via && accById(entry.via) ? entry.via : accOf(entry)), ...(preset||{})} : {type:"out", amount:0, cat: state.cat || null, date:defDate, note:"", account:k0, ...(preset||{})};
   if(d.type==="transfer"){ d.from ||= k0; }
   d.parts = d.parts && d.parts.length ? d.parts.map(p=>({...p})) : (Array.isArray(d.parts) ? [] : null);
+  // Fremdwährung: bei Barausgaben wird in Landeswährung getippt (d.fxCur), beim Abheben zusätzlich der erhaltene Betrag
+  if(entry && entry.fx && !(preset && "fxCur" in preset)){
+    if(entry.type==="out"){ d.fxCur = entry.fx.cur; d.amount = entry.fx.amt; d.parts = d.parts ? d.parts.map(p=>({...p, amount: Math.round(p.amount*entry.fx.amt/entry.amount)})) : d.parts; }
+    else if(entry.type==="transfer"){ d.fxOn = true; d.fxTCur = entry.fx.cur; d.fxTAmt = entry.fx.amt; } }
+  const fxLast = () => ((state.settings||{}).fxLast) || "";
+  if(!entry && d.type==="transfer" && d.fxOn===undefined){ const lastFx = state.entries.filter(e=>e.fx && e.type==="transfer").map(e=>e.date).sort().pop();
+    d.fxOn = !!(isCashAcc(d.to) && (fxCurs(d.to).length || (lastFx && lastFx >= dayOffset(-30)))); d.fxTCur = fxCurs(d.to)[0] || fxLast(); }
+  if(d.fxUser===undefined) d.fxUser = !!entry;
   let cpPickOpen = false;
   const dateChips = [["Heute",dayOffset(0)],["Gestern",dayOffset(-1)]];
   openSheet(`
@@ -2126,6 +2174,14 @@ function entrySheet(entry, preset){
     <div class="seg" id="fBiz" hidden><button data-biz="0">Privat</button><button data-biz="1" id="fBizName"></button></div>
     <label class="amount"><input id="fAmount" inputmode="decimal" placeholder="0,00" value="${esc(toInput(d.amount))}" aria-label="Betrag in Euro" autocomplete="off"><span>€</span></label>
     <div class="ruchip" id="ruHint" hidden></div>
+    <div class="fxpay" id="fxPay" hidden><div class="seg" id="fxSeg" role="group" aria-label="Währung"></div><p class="fxinfo" id="fxInfo"></p></div>
+    <div class="fxbox" id="fxBox" hidden>
+      <div class="optrow"><div><b>In Landeswährung bekommen</b><p class="hint" id="fxBH">Oben steht, was dein Konto in Euro abgebucht hat.</p></div>
+        <button class="switch" id="fFx" role="switch" aria-checked="false" aria-label="In Landeswährung bekommen"><i></i></button></div>
+      <div id="fxIn" hidden>
+        <div class="fxrow"><select class="input" id="fxCur" aria-label="Währung"></select><label class="fxamt"><input class="input num" id="fxAmt" inputmode="decimal" placeholder="0,00" style="width:100%" aria-label="Bekommen in Landeswährung" autocomplete="off"><span id="fxCode"></span></label></div>
+        <input class="input" id="fxOther" maxlength="3" placeholder="Währungscode, z. B. MAD" autocomplete="off" autocapitalize="characters" hidden>
+        <p class="fxrate" id="fxRate"></p></div></div>
     <div id="placeBox"><div class="label" style="margin-bottom:6px">Wo?</div>
       <button class="input placebtn" id="fPlaceBtn" aria-label="Ort wählen" aria-expanded="false"><span id="fPlaceTxt"></span><span aria-hidden="true">⌄</span></button>
       <div class="ppanel" id="pp" hidden>
@@ -2236,11 +2292,20 @@ function entrySheet(entry, preset){
   const splits = () => splitOn() ? [...document.querySelectorAll("[data-split]")].map(i=>({to:i.dataset.split, amount:parseAmount(i.value)})).filter(x=>x.amount>0) : [];
   const splitSum = () => splits().reduce((s,x)=>s+x.amount,0);
   const cpRest = () => (parseAmount($("#fAmount").value)||0) - (d.parts||[]).reduce((s,p)=>s+(p.amount||0),0);
-  const valid = () => parseAmount($("#fAmount").value)>0 && splitSum() <= parseAmount($("#fAmount").value) && !(d.type==="out" && d.parts && d.parts.length && cpRest()<0) && d.date && (d.type==="transfer" ? (d.from && d.to && d.from!==d.to && accById(d.from) && accById(d.to)) : (d.cat && accById(d.account||"giro")));
+  // Fremdwährung: Kurs für Ausgaben (eigener Kurs beim Bearbeiten, sonst Durchschnitt der Abhebungen)
+  const fxPayOpts = () => d.type==="out" && isCashAcc(effAcc()) ? fxCurs(effAcc()).concat(d.fxCur && !fxCurs(effAcc()).includes(d.fxCur) && entry && entry.fx ? [d.fxCur] : []) : [];
+  const fxActive = () => !!(d.fxCur && fxPayOpts().includes(d.fxCur));
+  const fxRateOut = () => { if(!fxActive()) return 1; if(entry && entry.fx && entry.fx.cur===d.fxCur && entry.type==="out" && accOf(entry)===effAcc()) return entry.fx.rate || entry.fx.amt/entry.amount; return fxPool(effAcc(), d.fxCur).rate || 1; };
+  const toEur = v => fxActive() ? Math.round(v / fxRateOut()) : v;
+  const fxTrOn = () => d.type==="transfer" && isCashAcc(d.to) && !isCashAcc(d.from) && accById(d.from);
+  const fxTCode = () => d.fxTCur==="__other" ? ($("#fxOther").value||"").trim().toUpperCase() : d.fxTCur;
+  const fxTAmt = () => parseAmount($("#fxAmt").value);
+  const fxTValid = () => !(fxTrOn() && d.fxOn) || (/^[A-Z]{3}$/.test(fxTCode()||"") && fxTCode()!=="EUR" && fxTAmt()>0);
+  const valid = () => parseAmount($("#fAmount").value)>0 && toEur(parseAmount($("#fAmount").value))>0 && fxTValid() && splitSum() <= parseAmount($("#fAmount").value) && !(d.type==="out" && d.parts && d.parts.length && cpRest()<0) && d.date && (d.type==="transfer" ? (d.from && d.to && d.from!==d.to && accById(d.from) && accById(d.to)) : (d.cat && accById(d.account||"giro")));
   const sync = () => {
     if(!entry && d.type==="out" && !d.zipRedir){ const z = accById(d.account);
       if(z && z.kind==="umschlag"){ const pa = parkAccs(z.id).filter(x=>x.v>0).sort((x,y)=>y.v-x.v)[0];
-        if(pa){ d.zipRedir = true; d.payZip = z.id; d.account = pa.a.id; d.zip = z.id; d.zipTouched = true; } } }
+        if(pa){ d.zipRedir = true; d.payZip = z.id; if(!fxHeld(z.id).length) d.account = pa.a.id; d.zip = z.id; d.zipTouched = true; } } }
     drawAcc();
     document.querySelectorAll("#fType [data-type]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.type===d.type)));
     document.querySelectorAll("#fCat [data-cat]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.cat===d.cat)));
@@ -2259,6 +2324,7 @@ function entrySheet(entry, preset){
       $("#splitRest").innerHTML = rest < 0 ? `<span class="neg">Du hast <b class="neg">${money(-rest)}</b> mehr verteilt, als reinkommt.</span>`
         : !chosen.length ? `Wähl oben die Zips aus, auf die du verteilen willst.` : used ? `Noch frei: <b class="num">${money(rest)}</b>, bleibt auf ${esc(accName(d.account))}` : `Was du nicht verteilst, bleibt auf ${esc(accName(d.account))}.`;
     }
+    drawFx();
     let ra = d.type==="out" ? accById(effAcc()) : null, ruBase = parseAmount($("#fAmount").value);
     { const sa = accById(d.account), box = $("#svcHint"); box.hidden = true;
       if(d.type==="out" && sa && sa.payFrom && sa.useBal && accById(sa.payFrom)){ const amt = parseAmount($("#fAmount").value)||0, short = svcShort(sa, amt, entry && entry.id), have = Math.max(0, svcHave(sa, entry && entry.id));
@@ -2270,6 +2336,38 @@ function entrySheet(entry, preset){
     if(rv){ const a0 = ruBase, diff = ruDiff(a0);
       $("#ruHint").innerHTML = `<span class="ru-ic" aria-hidden="true">${svgI("invest")}</span><span class="ru-t"><b class="num">+${money(rv)}</b> Round-up <span class="ru-to">→ ${ra.roundupTo===ra.depot ? "Depot" : esc(accName(ra.roundupTo))}</span></span><span class="ru-calc num">${money(diff)} × ${ra.roundup}</span>`; }
   };
+  function drawFx(){
+    const opts = fxPayOpts(), pay = $("#fxPay"), box = $("#fxBox"), unit = $("#fAmount").nextElementSibling;
+    if(!d.fxUser && !entry && opts.length && d.fxCur===undefined){ const h = opts.find(c=>fxPool(effAcc(), c).have>0); d.fxCur = h || null; }
+    pay.hidden = !opts.length;
+    const on = fxActive(), raw = parseAmount($("#fAmount").value)||0;
+    unit.textContent = on ? d.fxCur : "€"; unit.classList.toggle("fxunit", on);
+    $("#fAmount").setAttribute("aria-label", on ? "Betrag in "+d.fxCur : "Betrag in Euro");
+    if(opts.length){
+      $("#fxSeg").style.gridTemplateColumns = `repeat(${opts.length+1},1fr)`;
+      $("#fxSeg").innerHTML = `<button data-fxc="" aria-pressed="${!on}">€ Euro</button>` + opts.map(c=>`<button data-fxc="${esc(c)}" aria-pressed="${d.fxCur===c}">${esc(c)}</button>`).join("");
+      const r = on ? fxRateOut() : 0, pool = on ? fxPool(effAcc(), d.fxCur, entry && entry.id) : null;
+      $("#fxInfo").innerHTML = on ? `${raw ? `<b class="num">= ${money(toEur(raw))}</b> · ` : ""}${esc(fxRateTxt(r, d.fxCur))}${pool ? ` · ${raw && pool.have-raw<0 ? `<span class="neg">nur ${esc(fxFmt(pool.have, d.fxCur))} da</span>` : `noch ${esc(fxFmt(pool.have - raw, d.fxCur))}`}` : ""}`
+        : `Bar in Landeswährung bezahlt? Tipp oben auf ${esc(opts[0])}.`;
+    }
+    const tr = fxTrOn(); box.hidden = !tr; if(!tr) return;
+    $("#fFx").setAttribute("aria-checked", String(!!d.fxOn)); $("#fxIn").hidden = !d.fxOn;
+    if(!$("#fxCur").options.length){ const known = [...new Set(state.entries.filter(e=>e.fx).map(e=>e.fx.cur).concat(fxLast() ? [fxLast()] : []))];
+      const list = FX_LIST.filter(([c])=>!known.includes(c));
+      $("#fxCur").innerHTML = `<option value="">Währung wählen …</option>` + known.map(c=>`<option value="${esc(c)}">${esc(c)} · ${esc((FX_LIST.find(x=>x[0]===c)||[c,"zuletzt"])[1])}</option>`).join("") + list.map(([c,n])=>`<option value="${c}">${c} · ${esc(n)}</option>`).join("") + `<option value="__other">Andere Währung …</option>`;
+      if(d.fxTCur && !FX_LIST.some(x=>x[0]===d.fxTCur) && !known.includes(d.fxTCur)) { $("#fxOther").value = d.fxTCur; d.fxTCur = "__other"; }
+      $("#fxCur").value = d.fxTCur || ""; if(d.fxTAmt && !$("#fxAmt").value){ $("#fxAmt").value = toInput(d.fxTAmt); prepAmountInputs($("#fxBox")); $("#fxAmt").value = fmtAmountStr(toInput(d.fxTAmt), centMode()); } }
+    $("#fxOther").hidden = d.fxTCur!=="__other";
+    const code = fxTCode(), eurV = parseAmount($("#fAmount").value), fa = fxTAmt();
+    $("#fxCode").textContent = /^[A-Z]{3}$/.test(code||"") ? code : "";
+    $("#fxBH").textContent = d.fxOn ? "Oben: was dein Konto in Euro abgebucht hat. Hier: was du in die Hand bekommen hast." : "Im Ausland abgehoben? Dann trag ein, wie viel du in Landeswährung bekommen hast.";
+    $("#fxRate").innerHTML = !d.fxOn ? "" : !code ? "Wähl die Währung des Landes." : code==="EUR" ? `<span class="neg">Euro ist schon die Hauptwährung.</span>` : !/^[A-Z]{3}$/.test(code) ? "Drei Buchstaben, z. B. MAD." : eurV && fa ? `Dein echter Kurs: <b class="num">${esc(fxRateTxt(fa/eurV, code))}</b><br><span>Ausgaben in ${esc(code)} rechnet Spent damit in Euro um.</span>` : `Tipp oben die Euro und hier die ${esc(code)} ein.`;
+  }
+  $("#fxSeg").onclick = e => { const b = e.target.closest("[data-fxc]"); if(!b) return; d.fxCur = b.dataset.fxc || null; d.fxUser = true; if(d.parts) d.parts.forEach(p=>p.amount=0), drawCp(); sync(); };
+  $("#fFx").onclick = () => { d.fxOn = !d.fxOn; sync(); if(d.fxOn) setTimeout(()=>{ ($("#fxCur").value ? $("#fxAmt") : $("#fxCur")).focus(); }, 40); };
+  $("#fxCur").onchange = e => { d.fxTCur = e.target.value; sync(); if(d.fxTCur==="__other") $("#fxOther").focus(); else if(d.fxTCur) $("#fxAmt").focus(); };
+  $("#fxOther").oninput = () => { $("#fxOther").value = $("#fxOther").value.toUpperCase().replace(/[^A-Z]/g,""); sync(); };
+  $("#fxAmt").oninput = sync;
   // Eigene Orts-Auswahl: Suche, Favoriten, zuletzt genutzt, eigene Orte, Standard-Orte
   let ppEdit = false;
   const ppLabel = () => { $("#fPlaceTxt").textContent = d.place || "– kein Ort –"; $("#fPlaceTxt").style.color = d.place ? "" : "var(--muted)"; };
@@ -2350,9 +2448,9 @@ function entrySheet(entry, preset){
   };
   drawCats(); sync();
   $("#fType").onclick = e => { const b=e.target.closest("[data-type]"); if(b){ d.type=b.dataset.type; if(d.type==="transfer"){ d.from ||= d.account||k0; $("#fBiz").hidden = true; } else { d.account ||= d.from||k0; drawCats(); } sync(); } };
-  $("#fAcc").onclick = e => { const b=e.target.closest("[data-acc]"); if(b){ d.account=b.dataset.acc; sync(); } };
+  $("#fAcc").onclick = e => { const b=e.target.closest("[data-acc]"); if(b){ d.account=b.dataset.acc; if(!d.fxUser) d.fxCur = undefined; sync(); } };
   $("#fBiz").onclick = e => { const b=e.target.closest("[data-biz]"); if(b){ d.biz = b.dataset.biz==="1"; d.sub = null; drawCats(); sync(); } };
-  $("#fZip").onclick = e => { const w=e.target.closest("[data-pw]"); if(w){ d.account = w.dataset.pw || d.payZip; sync(); return; } const b=e.target.closest("[data-zipsel]"); if(b){ d.zip = b.dataset.zipsel || null; d.zipTouched = true; sync(); } };
+  $("#fZip").onclick = e => { const w=e.target.closest("[data-pw]"); if(w){ d.account = w.dataset.pw || d.payZip; if(!d.fxUser) d.fxCur = undefined; sync(); return; } const b=e.target.closest("[data-zipsel]"); if(b){ d.zip = b.dataset.zipsel || null; d.zipTouched = true; sync(); } };
   $("#fPark").onclick = () => { d.park = !d.park; sync(); };
   const manage = e => {
     const nf = e.target.closest("[data-newfor]");
@@ -2434,7 +2532,8 @@ function entrySheet(entry, preset){
   $("#fAmount").oninput = sync;
   $("#cancel").onclick = closeSheet;
   const submit = async () => {
-    const amount = parseAmount($("#fAmount").value);
+    const raw = parseAmount($("#fAmount").value), fxr = fxRateOut(), fxOut = d.type==="out" && fxActive();
+    const amount = fxOut ? Math.max(1, Math.round(raw / fxr)) : raw;
     if(!valid()) return;
     const id = entry ? entry.id : newId();
     const base = {type:d.type, amount, date:d.date, note:$("#fNote").value.trim(), createdAt: entry ? (entry.createdAt||Date.now()) : Date.now()};
@@ -2445,12 +2544,17 @@ function entrySheet(entry, preset){
     if(d.type==="out" && d.zip && zipOpts().some(x=>x.z.id===d.zip)) data.zip = d.zip;
     if(d.type==="out" && d.place) data.place = d.place;
     if(d.type==="out" && d.sub) data.sub = d.sub;
-    if(d.type==="out" && d.parts){ const ps = d.parts.filter(p=>p.amount>0 && p.cat!==d.cat).map(p=>({cat:p.cat, amount:p.amount})); if(ps.length && ps.reduce((s,p)=>s+p.amount,0) <= amount) data.parts = ps; }
+    if(d.type==="out" && d.parts){ const ps = d.parts.filter(p=>p.amount>0 && p.cat!==d.cat).map(p=>({cat:p.cat, amount: fxOut ? Math.round(p.amount / fxr) : p.amount}));
+      if(fxOut && ps.length){ const over = ps.reduce((s,p)=>s+p.amount,0) - amount; if(over>0 && over<=ps.length) ps[ps.length-1].amount -= over; }
+      if(ps.length && ps.reduce((s,p)=>s+p.amount,0) <= amount) data.parts = ps.filter(p=>p.amount>0); }
+    if(fxOut) data.fx = {cur:d.fxCur, amt:raw, rate:Math.round(fxr*1e6)/1e6};
+    if(d.type==="transfer" && fxTrOn() && d.fxOn && fxTValid()) data.fx = {cur:fxTCode(), amt:fxTAmt()};
     const sp = splits();
     closeSheet();
+    if(data.fx && data.type==="transfer" && fxLast()!==data.fx.cur) try { await save("settings","main",{...settingsData(), fxLast:data.fx.cur}); } catch(_){}
     try { await save("entries", id, data); await syncRoundup(id, data);
       for(const x of sp) await save("entries", newId(), {type:"transfer", amount:x.amount, from:data.account, to:x.to, date:data.date, note:"", split:id, createdAt:Date.now()});
-      if(!entry){ toast(sp.length ? `Einnahme eingetragen, ${money(sp.reduce((s,x)=>s+x.amount,0))} auf ${sp.length} Zip${sp.length>1?"s":""} verteilt` : data.parts ? `Ausgabe eingetragen: ${money(amount)}, aufgeteilt` : ({in:"Einnahme",out:"Ausgabe",transfer:"Umbuchung"})[d.type]+" eingetragen: "+money(amount)); if(periodOf(d.date)!==state.month){ state.month=periodOf(d.date); render(); } } } catch(e){}
+      if(!entry){ toast(sp.length ? `Einnahme eingetragen, ${money(sp.reduce((s,x)=>s+x.amount,0))} auf ${sp.length} Zip${sp.length>1?"s":""} verteilt` : data.fx && d.type==="out" ? `Ausgabe eingetragen: ${fxFmt(raw, data.fx.cur)} = ${money(amount)}` : data.fx ? `Abgehoben: ${fxFmt(data.fx.amt, data.fx.cur)} für ${money(amount)}` : data.parts ? `Ausgabe eingetragen: ${money(amount)}, aufgeteilt` : ({in:"Einnahme",out:"Ausgabe",transfer:"Umbuchung"})[d.type]+" eingetragen: "+money(amount)); if(periodOf(d.date)!==state.month){ state.month=periodOf(d.date); render(); } } } catch(e){}
   };
   $("#ok").onclick = submit;
   $("#fNote").onkeydown = e => { if(e.key==="Enter"){ e.preventDefault(); submit(); } };
@@ -2628,7 +2732,7 @@ function renderSips(){
     return `<div class="zcard" data-zid="${esc(a.id)}" style="--zc:var(${zipColor(a)})">
       <button class="open" data-zip="${esc(a.id)}" aria-label="${esc(a.name)} öffnen">
         <span class="ztop"><span class="ic" aria-hidden="true">${zipSvg(a)}</span><span class="zn">${esc(a.name)}</span></span>
-        <span class="zb num ${b<0?"neg":""}">${money(b)}</span>${tg?`<span class="ztg"><i aria-hidden="true">${svgI("bank")}</i>${money(tg)} auf Tagesgeld</span>`:""}${parkAccs(a.id).filter(x=>x.v>0).map(x=>`<span class="ztg"><i aria-hidden="true">${svgI("bank")}</i>${money(x.v)} auf ${esc(x.a.name)}</span>`).join("")}
+        <span class="zb num ${b<0?"neg":""}">${money(b)}</span>${tg?`<span class="ztg"><i aria-hidden="true">${svgI("bank")}</i>${money(tg)} auf Tagesgeld</span>`:""}${parkAccs(a.id).filter(x=>x.v>0).map(x=>`<span class="ztg"><i aria-hidden="true">${svgI("bank")}</i>${money(x.v)} auf ${esc(x.a.name)}</span>`).join("")}${fxHeld(a.id).map(x=>`<span class="ztg zfx"><i aria-hidden="true">${svgI("atm")}</i>${esc(fxFmt(x.have, x.cur))} bar</span>`).join("")}
         ${t?`<span class="zbar" role="img" aria-label="${Math.round(pct*100)} Prozent von ${money(t)}"><i style="width:${(pct*100).toFixed(1)}%"></i></span><span class="zt">${b>=t?"Ziel erreicht":`${Math.round(pct*100)} % von ${money(t)}`}</span>`:""}
         <span class="zm">${x.out ? `${MON[Number(m.slice(5))-1]} ausgegeben ${money(x.out)}` : x.inn ? `${MON[Number(m.slice(5))-1]} befüllt ${money(x.inn)}` : ""}</span>
       </button>
@@ -2829,6 +2933,7 @@ function zipSheet(a){
   openSheet(`
     <div class="sheet-head"><button class="xbtn" id="zEdit" aria-label="Zip bearbeiten">${svgI("edit")}</button><h3 id="sheetTitle">Zip</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="zhead" style="--zc:var(${zipColor(a)})"><span class="ic" aria-hidden="true">${zipSvg(a)}</span><div style="min-width:0"><div style="font-weight:600">${esc(a.name)}</div><div class="zb num ${b<0?"neg":""}">${money(b)}</div></div></div>
+    ${fxLineHtml(a.id)}
     ${t?`<div><div class="bar" role="img" aria-label="${Math.round(pct*100)} Prozent"><i style="width:${(pct*100).toFixed(1)}%"></i></div><p class="hint" style="margin-top:6px">${b>=t?"Ziel erreicht 🎉":`Noch ${money(t-b)} bis ${money(t)}`}</p></div>`:""}
     ${zipTgOn() && tgs.length ? `<div class="zsplit"><div><span>${svgI("zip")}Bar im Zip</span><b class="num ${cash<0?"neg":""}">${money(cash)}</b></div><div><span>${svgI("bank")}Auf Tagesgeld</span><b class="num">${money(tg)}</b></div>
       <div class="zsplit-acts"><button data-zact="tgin">Aufs Tagesgeld</button><button data-zact="tgout" ${tg>0?"":"disabled"}>Zurückholen</button></div></div>` : tg ? `<p class="hint">Davon ${money(tg)} auf Tagesgeld.</p>` : ""}
@@ -2987,6 +3092,7 @@ function accHistHtml(acc){
     depTxt = [mn?money(mn)+" eingezahlt":"", r?money(r)+" Round-up":"", dp.start?money(dp.start)+" Startwert":""].filter(Boolean).join(" + "); }
   const b = balance(acc), [w,c] = money(Math.abs(b)).replace(/\s?€/,"").split(",");
   let html = `<div class="ahero"><div class="label">${svc?"Guthaben":"Kontostand"}</div><div class="big num ${b<0?"neg":""}">${b<0?"−":""}${esc(w)}<span class="cents">,${esc(c)} €</span></div>
+    ${fxLineHtml(acc.id)}
     ${(()=>{ const o = ccOpen(acc.id), sm = o.reduce((s,x)=>s+x.open,0); return sm ? `<div class="asub">Nach Kreditkarten-Abbuchung am <b>${esc(fmtShort(o[0].d))}</b>: <b class="num">${money(b - sm)}</b><br><small>${o.map(x=>`${esc(x.a.name)} offen ${money(x.open)}`).join(" · ")}</small></div>` : ""; })()}
     ${acc.cc && acc.cc.from ? `<div class="asub">${b<0?`Offen <b class="num">${money(-b)}</b> · wird am <b>${esc(fmtShort(ccNext(acc)))}</b> von ${esc(accName(acc.cc.from))} abgebucht`:`Nichts offen · nächste Abrechnung am ${esc(fmtShort(ccNext(acc)))}`}</div>` : ""}
     ${svc?`<div class="asub">Was fehlt, kommt von <b>${esc(accName(acc.payFrom))}</b></div>`:""}
@@ -3559,7 +3665,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.62 (27.11.2026)";
+const APP_VERSION = "2.63 (27.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
