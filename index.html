@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-x3v0R3UrCsJ6UxVIsm00KsAG4E9xMsnmc5bohCVG7/A='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-W8rFYwcaE4V62jYRgJBH9xQZln017hZOEzdZMgKxh7I='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -167,6 +167,24 @@ section > h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;colo
 .splitrow input{text-align:right;padding:10px 12px}
 .splitrest{font-size:.88rem;margin:8px 0 0;color:var(--muted)}
 .splitrest b{color:var(--ink)}
+.cpopen{display:flex;align-items:center;gap:8px;width:100%;margin-top:14px;border:1.5px dashed var(--line);background:none;border-radius:14px;padding:11px 14px;color:var(--muted);font-weight:500;font-size:.9rem;text-align:left}
+.cpopen svg{width:18px;height:18px;color:var(--accent)}
+.cprows{display:flex;flex-direction:column;border:var(--card-border);border-radius:16px;background:var(--surface);overflow:hidden}
+.cprow{display:grid;grid-template-columns:auto 1fr 7em 30px;gap:10px;align-items:center;padding:9px 8px 9px 12px;border:0;border-top:1px solid var(--line);background:none;width:100%;text-align:left;font:inherit;color:var(--ink);min-height:54px}
+.cprow:first-child{border-top:0}
+.cprow .badge{width:34px;height:34px;border-radius:11px}
+.cprow .badge svg{width:17px;height:17px}
+.cprow .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.95rem}
+.cprow .nm small{display:block;font-size:.75rem;color:var(--muted);margin-top:1px}
+.cprow input{text-align:right;padding:9px 10px;min-width:0}
+.cpmain .cprestv{grid-column:3/5;text-align:right;padding-right:12px;font-weight:600;font-family:var(--f-body)}
+.cprm{border:0;background:none;color:var(--muted);width:30px;height:30px;display:grid;place-items:center;border-radius:50%}
+.cprm svg{width:15px;height:15px}
+.cpadd{grid-template-columns:auto 1fr;color:var(--accent);font-weight:500}
+.cpplus{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-size:1.25rem;font-weight:400;border:1.5px dashed color-mix(in srgb,var(--accent) 55%,var(--line))}
+.cppick{margin-top:10px}
+#cpPick{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-18px;padding:2px 18px;gap:6px}
+#cpPick::-webkit-scrollbar{display:none}
 .chip.ghost{border-style:dashed;color:var(--muted)}
 .chip .x{margin-left:2px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:var(--surface);display:inline-grid;place-items:center;font-size:.75rem;font-weight:700;line-height:1}
 .newacc{border:1.5px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
@@ -985,6 +1003,10 @@ function recentPlaces(){
 }
 const KORR = {id:"korrektur", i:"±", name:"Korrektur", c:"--muted"};
 const isKorr = e => e.cat==="korrektur";
+// Aufgeteilte Ausgabe: e.cat bekommt den Rest, e.parts = [{cat, amount}] die weiteren Kategorien
+const partsSum = e => (e.parts||[]).reduce((s,p)=>s+(p.amount||0),0);
+const splitE = e => e.type==="out" && e.parts && e.parts.length ? [{...e, amount:e.amount-partsSum(e)}, ...e.parts.map(p=>({...e, cat:p.cat, sub:p.sub||undefined, amount:p.amount, part:true}))].filter(x=>x.amount>0) : [e];
+const catParts = list => list.flatMap(splitE);
 const tint = v => `background:var(--chip);background:color-mix(in srgb, var(${v}) 17%, var(--surface))`;
 const CAT_BASE = OUT_CATS.map(c=>({...c}));
 const CAT_COLS = ["--c1","--c2","--c3","--c4","--c5","--c6","--c7","--c8","--c9","--c10"];
@@ -1360,7 +1382,7 @@ function wrStats(Y){
   const months = Array(12).fill(0); outs.forEach(e=>{ months[Number(e.date.slice(5,7))-1] += e.amount; });
   const active = months.map((v,i)=>({v,i})).filter(x=>x.v>0);
   const maxM = active.slice().sort((a,b)=>b.v-a.v)[0], minM = active.slice().sort((a,b)=>a.v-b.v)[0];
-  const cats = OUT_CATS.map(c=>({c, v: sum(outs.filter(e=>e.cat===c.id))})).filter(x=>x.v).sort((a,b)=>b.v-a.v);
+  const cats = OUT_CATS.map(c=>({c, v: sum(catParts(outs).filter(e=>e.cat===c.id))})).filter(x=>x.v).sort((a,b)=>b.v-a.v);
   const pl = {}; outs.forEach(e=>{ if(!e.place) return; (pl[e.place] ||= {n:0,v:0}); pl[e.place].n++; pl[e.place].v += e.amount; });
   const places = Object.entries(pl).map(([name,x])=>({name,...x})).sort((a,b)=>b.n-a.n || b.v-a.v);
   const big = (outs.filter(e=>!e.rec && e.cat!=="wohnen").length ? outs.filter(e=>!e.rec && e.cat!=="wohnen") : outs).slice().sort((a,b)=>b.amount-a.amount)[0];
@@ -1487,6 +1509,7 @@ const ICO = {
   zip:'<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/>',
   atm:'<rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.4"/><path d="M6 9.5v5M18 9.5v5"/>',
   ziel:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6"/>',
+  split:'<path d="M12 20v-6.5L6 7.5M12 13.5l6-6M6 11.5v-4h4M18 11.5v-4h-4"/>',
   transfer:'<path d="M4 8h14.5M15 4.5 18.5 8 15 11.5M20 16H5.5M9 12.5 5.5 16 9 19.5"/>',
   korrektur:'<path d="M12 5v8M8 9h8M8 18.5h8"/>',
   plane:'<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
@@ -1854,7 +1877,8 @@ function render(){
 
   if(m===curPeriod()) html += wrappedBanner();
   // categories + Kuchendiagramm
-  const byCat = OUT_CATS.map(c => ({...c, sum: outs.filter(e=>e.cat===c.id).reduce((s,e)=>s+e.amount,0), n: outs.filter(e=>e.cat===c.id).length}))
+  const couts = catParts(outs);
+  const byCat = OUT_CATS.map(c => ({...c, sum: couts.filter(e=>e.cat===c.id).reduce((s,e)=>s+e.amount,0), n: couts.filter(e=>e.cat===c.id).length}))
     .filter(c=>c.sum>0).sort((a,b)=>b.sum-a.sum);
   if(byCat.length){
     const hasZips = umschlaege().length>0;
@@ -1886,7 +1910,7 @@ function render(){
         <span class="name"><span class="dot" style="background:var(${x.col})"></span>${esc(x.name)}</span>
         <span class="amt num">${money(x.sum)}<small>${Math.round(x.sum/spent*100)} %</small></span>
         <span class="track"><i style="width:${(x.sum/max*100).toFixed(1)}%;background:var(${x.col})"></i></span>
-      </button>${state.cat===x.k ? subBreak(outs.filter(e=>e.cat===x.k)) : ""}</li>` : `
+      </button>${state.cat===x.k ? subBreak(couts.filter(e=>e.cat===x.k)) : ""}</li>` : `
       <li${ix>=3 && !state.pieAll ?' hidden':''}><div class="cat"><span class="name"><span class="dot" style="background:var(${x.col})"></span>${esc(x.name)}${x.n>1?` <small style="color:var(--muted)">${x.n}×</small>`:""}</span>
         <span class="amt num">${money(x.sum)}<small>${Math.round(x.sum/spent*100)} %</small></span>
         <span class="track"><i style="width:${(x.sum/max*100).toFixed(1)}%;background:var(${x.col})"></i></span></div></li>`).join("")}</ul>${segs.length>3?`<button class="morebtn" data-pieall>${state.pieAll?"Weniger anzeigen":`Alle ${segs.length} anzeigen`}</button>`:""}</div>`}</section>`;
@@ -1895,7 +1919,7 @@ function render(){
 
   // entries
   let list = inMonth.filter(e => !e.auto);
-  if(state.cat) list = list.filter(e=>e.cat===state.cat);
+  if(state.cat) list = list.filter(e=>splitE(e).some(p=>p.cat===state.cat));
   if(state.accF) list = list.filter(e => accMatch(e, state.accF));
   list.sort((a,b)=> a.date===b.date ? (b.createdAt||0)-(a.createdAt||0) : (a.date<b.date?1:-1));
   html += `<section><h2><span>Einträge</span><span class="num">${list.length}</span></h2>`;
@@ -1937,8 +1961,9 @@ function entryRow(e, ctx){
   const c = catById(e.cat);
   const multi = state.accounts.length > 1;
   const isIn = e.type==="in";
-  const title = e.note || e.place || e.sub || c.name;
-  const cName = c.name + (e.sub && (e.note||e.place) ? " · "+e.sub : "");
+  const pn = e.type==="out" && e.parts && e.parts.length ? splitE(e).map(x=>catById(x.cat).name).join(" + ") : "";
+  const title = e.note || e.place || (pn ? pn : e.sub || c.name);
+  const cName = pn || (c.name + (e.sub && (e.note||e.place) ? " · "+e.sub : ""));
   const ru = e.type==="out" ? childOf(e.id) : null;
   const sbk = null;
   return `<li><button class="entry" data-edit="${esc(e.id)}">
@@ -2036,6 +2061,8 @@ function entrySheet(entry, preset){
   const k0 = (konten()[0]||{}).id || "giro";
   const d = entry ? {...entry, account: entry.type==="transfer" ? undefined : (entry.via && accById(entry.via) ? entry.via : accOf(entry)), ...(preset||{})} : {type:"out", amount:0, cat: state.cat || null, date:defDate, note:"", account:k0, ...(preset||{})};
   if(d.type==="transfer"){ d.from ||= k0; }
+  d.parts = d.parts && d.parts.length ? d.parts.map(p=>({...p})) : (Array.isArray(d.parts) ? [] : null);
+  let cpPickOpen = false;
   const dateChips = [["Heute",dayOffset(0)],["Gestern",dayOffset(-1)]];
   openSheet(`
     <div class="sheet-head"><span style="width:36px;flex:none"></span><h3 id="sheetTitle">${entry?"Eintrag":"Neuer Eintrag"}</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
@@ -2051,6 +2078,11 @@ function entrySheet(entry, preset){
         <div class="ppfoot"><button class="linkbtn" id="ppNone">Kein Ort</button><button class="linkbtn" id="ppEdit">Orte bearbeiten</button></div>
       </div></div>
     <div id="catBox"><div class="lrow"><div class="label" id="catLabel">Kategorie</div><button class="linkbtn" id="catEdit">Bearbeiten</button></div><div class="chips" id="fCat"></div><div id="fSubBox"><div class="label" style="margin:12px 0 6px">Genauer (optional)</div><div class="chips" id="fSub"></div></div>
+      <div id="cpBox" hidden><button class="cpopen" id="cpOpen"><span aria-hidden="true">${svgI("split")}</span>Auf mehrere Kategorien aufteilen</button>
+        <div id="cpPanel" hidden><div class="lrow" style="margin-top:14px"><div class="label">Aufgeteilt</div><button class="linkbtn" id="cpOff">Nicht aufteilen</button></div>
+          <div class="cprows" id="cpRows"></div>
+          <div class="chips cppick" id="cpPick" hidden></div>
+          <p class="splitrest" id="cpRest" hidden></p></div></div>
       <select class="input" id="fCatSel" aria-label="Art der Einnahme" hidden></select></div>
     <div id="destBox" hidden><div class="label" style="margin-bottom:6px">Wohin?</div>
       <div class="seg" id="fDest"><button data-dest="konto">Auf ein Konto</button><button data-dest="zips">Auf Zips verteilen</button></div></div>
@@ -2147,7 +2179,8 @@ function entrySheet(entry, preset){
   };
   const splits = () => splitOn() ? [...document.querySelectorAll("[data-split]")].map(i=>({to:i.dataset.split, amount:parseAmount(i.value)})).filter(x=>x.amount>0) : [];
   const splitSum = () => splits().reduce((s,x)=>s+x.amount,0);
-  const valid = () => parseAmount($("#fAmount").value)>0 && splitSum() <= parseAmount($("#fAmount").value) && d.date && (d.type==="transfer" ? (d.from && d.to && d.from!==d.to && accById(d.from) && accById(d.to)) : (d.cat && accById(d.account||"giro")));
+  const cpRest = () => (parseAmount($("#fAmount").value)||0) - (d.parts||[]).reduce((s,p)=>s+(p.amount||0),0);
+  const valid = () => parseAmount($("#fAmount").value)>0 && splitSum() <= parseAmount($("#fAmount").value) && !(d.type==="out" && d.parts && d.parts.length && cpRest()<0) && d.date && (d.type==="transfer" ? (d.from && d.to && d.from!==d.to && accById(d.from) && accById(d.to)) : (d.cat && accById(d.account||"giro")));
   const sync = () => {
     if(!entry && d.type==="out" && !d.zipRedir){ const z = accById(d.account);
       if(z && z.kind==="umschlag"){ const pa = parkAccs(z.id).filter(x=>x.v>0).sort((x,y)=>y.v-x.v)[0];
@@ -2159,6 +2192,7 @@ function entrySheet(entry, preset){
     $("#dateCustom").setAttribute("aria-pressed", String(!dateChips.some(([,v])=>v===d.date)));
     $("#fDateIn").value = d.date;
     { const own = !dateChips.some(([,v])=>v===d.date); $("#fDateTxt").textContent = own && d.date ? new Date(d.date+"T12:00").toLocaleDateString("de-DE",{weekday:"short", day:"numeric", month:"short"}) : "Anderes Datum"; }
+    cpUpd();
     $("#ok").disabled = !valid();
     $("#destBox").hidden = !canSplit();
     document.querySelectorAll("#fDest [data-dest]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.dest===dest)));
@@ -2300,7 +2334,39 @@ function entrySheet(entry, preset){
   $("#splitAdd").onchange = e => { const v = e.target.value; if(v==="__all") umschlaege().forEach(z=>{ if(!chosen.includes(z.id)) chosen.push(z.id); }); else if(v) chosen.push(v); drawSplit(); sync(); const ins = document.querySelectorAll("[data-split]"); if(ins.length && v && v!=="__all") ins[ins.length-1].focus(); };
   $("#splitRows").onclick = e => { const b = e.target.closest("[data-unsplit]"); if(b){ chosen.splice(chosen.indexOf(b.dataset.unsplit),1); drawSplit(); sync(); } };
   drawSplit();
-  function drawSub(){ const box = $("#fSubBox"); if(!box) return; const show = d.type==="out" && !!d.cat; box.hidden = !show; if(show) $("#fSub").innerHTML = subChips(d.cat, d.sub); }
+  function drawSub(){ const box = $("#fSubBox"); if(!box) return; const show = d.type==="out" && !!d.cat; box.hidden = !show; if(show) $("#fSub").innerHTML = subChips(d.cat, d.sub); drawCp(); }
+  // Eine Zahlung, mehrere Kategorien: die oben gewählte Kategorie bekommt den Rest
+  function drawCp(){ const box = $("#cpBox"); if(!box) return;
+    const show = d.type==="out" && !!d.cat; box.hidden = !show;
+    if(d.parts) d.parts = d.parts.filter(p => p.cat!==d.cat && cats().some(c=>c.id===p.cat));
+    const on = show && !!d.parts; $("#cpOpen").hidden = on; $("#cpPanel").hidden = !on;
+    if(!on) return;
+    const main = catById(d.cat);
+    const free = cats().filter(c => !catHidden(c.id) && c.id!==d.cat && !d.parts.some(p=>p.cat===c.id));
+    $("#cpRows").innerHTML = `<div class="cprow cpmain">${catBadge(main)}<span class="nm">${esc(main.name)}<small>bekommt den Rest</small></span><b class="num cprestv" id="cpMainV"></b></div>`
+      + d.parts.map((p,i) => { const c = catById(p.cat); return `<div class="cprow">${catBadge(c)}<span class="nm">${esc(c.name)}</span><input class="input num" inputmode="decimal" placeholder="0,00" data-cp="${i}" value="${esc(p.amount?toInput(p.amount):"")}" autocomplete="off" aria-label="Betrag für ${esc(c.name)}"><button class="cprm" data-cprm="${i}" aria-label="${esc(c.name)} entfernen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></button></div>`; }).join("")
+      + (free.length ? `<button class="cprow cpadd" id="cpAdd" aria-expanded="${cpPickOpen}"><span class="cpplus" aria-hidden="true">+</span><span class="nm">${d.parts.length ? "Weitere Kategorie" : "Kategorie hinzufügen"}</span></button>` : "");
+    $("#cpPick").hidden = !cpPickOpen || !free.length;
+    if(cpPickOpen) $("#cpPick").innerHTML = free.map(c=>catTile(c, "cpc", null)).join("");
+    prepAmountInputs($("#cpRows"));
+    $("#cpRows").querySelectorAll("[data-cp]").forEach(inp => inp.oninput = () => { const p = d.parts[Number(inp.dataset.cp)]; if(p) p.amount = parseAmount(inp.value)||0; sync(); });
+    cpUpd();
+  }
+  function cpUpd(){ const v = $("#cpMainV"), r = $("#cpRest"); if(!v || !r) return;
+    if(!(d.type==="out" && d.parts)){ r.hidden = true; return; }
+    const total = parseAmount($("#fAmount").value)||0, rest = cpRest();
+    v.textContent = total ? money(Math.max(0,rest)) : "–"; v.classList.toggle("neg", total>0 && rest<0);
+    r.hidden = false;
+    r.innerHTML = !total ? "Tipp oben zuerst den ganzen Betrag ein." : rest<0 ? `<span class="neg">Das sind <b class="neg">${money(-rest)}</b> mehr, als du bezahlt hast.</span>`
+      : !d.parts.length ? "Wähl die zweite Kategorie und tipp ihren Betrag ein." : `Eine Zahlung über <b class="num">${money(total)}</b>${$("#ruHint").hidden ? "" : ", Round-up auf den ganzen Betrag"}.`; }
+  $("#cpOpen").onclick = () => { d.parts = []; cpPickOpen = true; drawCp(); sync(); };
+  $("#cpOff").onclick = () => { d.parts = null; cpPickOpen = false; drawCp(); sync(); };
+  $("#cpRows").onclick = e => {
+    const rm = e.target.closest("[data-cprm]"); if(rm){ d.parts.splice(Number(rm.dataset.cprm),1); drawCp(); sync(); return; }
+    if(e.target.closest("#cpAdd")){ cpPickOpen = !cpPickOpen; drawCp(); return; } };
+  $("#cpPick").onclick = e => { const b = e.target.closest("[data-cpc]"); if(!b) return;
+    d.parts.push({cat:b.dataset.cpc, amount:0}); cpPickOpen = false; drawCp(); sync();
+    const ins = document.querySelectorAll("#cpRows [data-cp]"); if(ins.length) ins[ins.length-1].focus(); };
   $("#fSub").onclick = e => { subClick(e, $("#fSub"), d, drawSub); };
   $("#catEdit").onclick = () => { const back = {...d, amount: parseAmount($("#fAmount").value)||d.amount, note: $("#fNote").value}; catSheet(() => entrySheet(entry, back)); };
   $("#fCat").onclick = e => { const b=e.target.closest("[data-cat]"); if(b){ if(d.cat!==b.dataset.cat) d.sub = null; d.cat=b.dataset.cat; drawSub();
@@ -2323,11 +2389,12 @@ function entrySheet(entry, preset){
     if(d.type==="out" && d.zip && zipOpts().some(x=>x.z.id===d.zip)) data.zip = d.zip;
     if(d.type==="out" && d.place) data.place = d.place;
     if(d.type==="out" && d.sub) data.sub = d.sub;
+    if(d.type==="out" && d.parts){ const ps = d.parts.filter(p=>p.amount>0 && p.cat!==d.cat).map(p=>({cat:p.cat, amount:p.amount})); if(ps.length && ps.reduce((s,p)=>s+p.amount,0) <= amount) data.parts = ps; }
     const sp = splits();
     closeSheet();
     try { await save("entries", id, data); await syncRoundup(id, data);
       for(const x of sp) await save("entries", newId(), {type:"transfer", amount:x.amount, from:data.account, to:x.to, date:data.date, note:"", split:id, createdAt:Date.now()});
-      if(!entry){ toast(sp.length ? `Einnahme eingetragen, ${money(sp.reduce((s,x)=>s+x.amount,0))} auf ${sp.length} Zip${sp.length>1?"s":""} verteilt` : ({in:"Einnahme",out:"Ausgabe",transfer:"Umbuchung"})[d.type]+" eingetragen: "+money(amount)); if(periodOf(d.date)!==state.month){ state.month=periodOf(d.date); render(); } } } catch(e){}
+      if(!entry){ toast(sp.length ? `Einnahme eingetragen, ${money(sp.reduce((s,x)=>s+x.amount,0))} auf ${sp.length} Zip${sp.length>1?"s":""} verteilt` : data.parts ? `Ausgabe eingetragen: ${money(amount)}, aufgeteilt` : ({in:"Einnahme",out:"Ausgabe",transfer:"Umbuchung"})[d.type]+" eingetragen: "+money(amount)); if(periodOf(d.date)!==state.month){ state.month=periodOf(d.date); render(); } } } catch(e){}
   };
   $("#ok").onclick = submit;
   $("#fNote").onkeydown = e => { if(e.key==="Enter"){ e.preventDefault(); submit(); } };
@@ -2599,7 +2666,7 @@ function renderBiz(){
     ${inn ? `<div class="asub">Einnahmen <b class="num">${money(inn)}</b> · Ergebnis <b class="num ${inn-out<0?"neg":"pos"}">${inn-out<0?"−":"+"}${money(Math.abs(inn-out))}</b></div>` : `<div class="asub">Privat bezahlt, zählt nicht bei deinen privaten Ausgaben.</div>`}
   </div></div>`;
   if(!ents.length){ html += `<div class="empty" style="padding:28px 16px"><strong>Noch nichts für ${esc(bizName())} ${Y}</strong>Tippe auf +, dann landet die Ausgabe hier und nicht bei deinen privaten.</div>`; $("#main").innerHTML = html; bizWire(Y, years); return; }
-  const byCat = BIZ_OUT.map(c=>({c, v: outs.filter(e=>e.cat===c.id).reduce((s,e)=>s+e.amount,0)})).filter(x=>x.v).sort((a,b)=>b.v-a.v);
+  const byCat = BIZ_OUT.map(c=>({c, v: catParts(outs).filter(e=>e.cat===c.id).reduce((s,e)=>s+e.amount,0)})).filter(x=>x.v).sort((a,b)=>b.v-a.v);
   if(byCat.length) html += `<section><h2><span>Wofür</span></h2><div class="sgroup">${byCat.map(x=>`<div class="srow bizrow">${catBadge(x.c)}<span>${esc(x.c.name)}</span><b class="num">${money(x.v)}</b></div>`).join("")}</div></section>`;
   html += `<section><h2><span>Buchungen</span><button class="linkbtn" id="bizCsv">Als Liste exportieren</button></h2><ul class="entries">${ents.slice(0,100).map(e=>entryRow(e)).join("")}</ul></section>`;
   $("#main").innerHTML = html; bizWire(Y, years, ents);
@@ -2610,7 +2677,7 @@ function bizWire(Y, years, ents){
   if($("#bizNext")) $("#bizNext").onclick = () => go(Y+1);
   if($("#bizCsv")) $("#bizCsv").onclick = () => {
     const q = v => `"${String(v==null?"":v).replace(/"/g,'""')}"`;
-    const rows = [["Datum","Art","Kategorie","Notiz","Ort","Bezahlt von","Betrag"]].concat(ents.slice().reverse().map(e=>[e.date, e.type==="in"?"Einnahme":"Ausgabe", catById(e.cat).name, e.note||"", e.place||"", accName(e.via||accOf(e)), (e.type==="in"?"":"-")+(e.amount/100).toFixed(2).replace(".",",")]));
+    const rows = [["Datum","Art","Kategorie","Notiz","Ort","Bezahlt von","Betrag"]].concat(catParts(ents.slice().reverse()).map(e=>[e.date, e.type==="in"?"Einnahme":"Ausgabe", catById(e.cat).name, e.note||"", e.place||"", accName(e.via||accOf(e)), (e.type==="in"?"":"-")+(e.amount/100).toFixed(2).replace(".",",")]));
     const blob = new Blob(["\ufeff"+rows.map(r=>r.map(q).join(";")).join("\n")], {type:"text/csv;charset=utf-8"});
     const name = `${bizName().replace(/[^\wäöüÄÖÜß-]+/g,"-")}-${Y}.csv`;
     try { const f = new File([blob], name, {type:"text/csv"}); if(navigator.canShare && navigator.canShare({files:[f]})){ navigator.share({files:[f], title:name}).catch(()=>{}); return; } } catch(_){}
@@ -2702,7 +2769,7 @@ function zipSheet(a){
     .sort((x,y)=> x.date===y.date ? (y.createdAt||0)-(x.createdAt||0) : (x.date<y.date?1:-1)).slice(0,12);
   const spent = state.entries.filter(e=>e.type==="out" && (accOf(e)===a.id || e.zip===a.id) && !isKorr(e));
   const pks = parkAccs(a.id), pkTo = konten().filter(a=>isParkAcc(a.id)).sort((x,y)=>(!!y.roundup - !!x.roundup))[0];
-  const byCat = OUT_CATS.map(c=>({c, sum: spent.filter(e=>e.cat===c.id).reduce((s,e)=>s+e.amount,0)})).filter(x=>x.sum).sort((x,y)=>y.sum-x.sum).slice(0,3);
+  const byCat = OUT_CATS.map(c=>({c, sum: catParts(spent).filter(e=>e.cat===c.id).reduce((s,e)=>s+e.amount,0)})).filter(x=>x.sum).sort((x,y)=>y.sum-x.sum).slice(0,3);
   openSheet(`
     <div class="sheet-head"><button class="xbtn" id="zEdit" aria-label="Zip bearbeiten">${svgI("edit")}</button><h3 id="sheetTitle">Zip</h3><button class="xbtn" id="cancel" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="zhead" style="--zc:var(${zipColor(a)})"><span class="ic" aria-hidden="true">${zipSvg(a)}</span><div style="min-width:0"><div style="font-weight:600">${esc(a.name)}</div><div class="zb num ${b<0?"neg":""}">${money(b)}</div></div></div>
@@ -3436,7 +3503,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.60 (26.11.2026)";
+const APP_VERSION = "2.61 (27.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
@@ -3563,7 +3630,7 @@ async function doExport(encText){
 async function exportCsv(){
   const eurStr = c => (c/100).toFixed(2).replace(".",",");
   const rows = [["Datum","Art","Kategorie","Ort","Konto","Nach Konto","Betrag","Notiz"]].concat(
-    state.entries.slice().sort((a,b)=>a.date<b.date?-1:1).map(e => e.type==="transfer"
+    catParts(state.entries.slice().sort((a,b)=>a.date<b.date?-1:1)).map(e => e.type==="transfer"
       ? [e.date, "Umbuchung", "", "", accName(e.from), accName(e.to), eurStr(e.amount), e.note||""]
       : [e.date, e.type==="in"?"Einnahme":"Ausgabe", catById(e.cat).name+(e.sub?" / "+e.sub:""), e.place||"", accName(accOf(e)), "", eurStr((e.type==="in"?1:-1)*e.amount), e.note||""]));
   const csv = "\ufeff"+rows.map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(";")).join("\r\n");
@@ -3594,7 +3661,7 @@ function catSheet(back){
   const work = OUT_CATS.map(c => ({id:c.id, base:(CAT_BASE.find(b=>b.id===c.id)||{}).name, name:c.name, c:c.c, custom:!!c.custom, hide:catHidden(c.id), subs:subsOf(c.id).map(n=>({o:n, n}))}));
   let open = null;
   const close = () => { closeSheet(); if(back) back(); };
-  const used = id => state.entries.some(e=>e.cat===id) || state.recurring.some(r=>r.cat===id);
+  const used = id => state.entries.some(e=>e.cat===id || (e.parts||[]).some(p=>p.cat===id)) || state.recurring.some(r=>r.cat===id);
   const draw = () => {
     $("#csList").innerHTML = work.map((w,k) => `<div class="cscard ${w.hide?"off":""}">
       <div class="cshead">${catBadge({id:w.id, c:w.c})}<input class="input csname" data-csn="${k}" value="${esc(w.name)}" placeholder="Name" aria-label="Name der Kategorie" autocomplete="off">
