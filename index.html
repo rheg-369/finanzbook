@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-W8rFYwcaE4V62jYRgJBH9xQZln017hZOEzdZMgKxh7I='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-ETIy+YRs9xGP05RUMc+AnSQOmnu/20+1xevH9fFjdh0='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -903,6 +903,62 @@ button{touch-action:manipulation}
 main section{margin-top:34px}
 .scrim{animation:obIn .25s ease}
 @media (prefers-reduced-motion:reduce){.sheet,.scrim{animation:none}.qacts button,.entry,.acc,.aov,.zcard,.srow{transition:none}}
+/* v2.62 Schlank: eine Schrift (iPhone-Systemschrift SF Pro), einheitliche Karten, ruhigere Beschriftungen */
+:root{
+  --f-sys:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",system-ui,sans-serif;
+  --f-body:var(--f-sys); --f-display:var(--f-sys); --f-serif:var(--f-sys);
+  --r-card:20px; --r-small:14px;
+  --card-shadow:0 1px 2px rgba(30,30,20,.04);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--card-shadow:none}}
+:root[data-theme="dark"],:root[data-theme="pink"]{--card-shadow:none}
+body{font-family:var(--f-sys);letter-spacing:-.011em;font-feature-settings:"kern"}
+.num,.entry .a,.cat .amt,.acc .a,.zcard .zb,.zhead .zb,.big,.abig,.amount input{font-variant-numeric:tabular-nums}
+/* Titel: wie iOS-Großtitel */
+.ptitle,.month h1{font-weight:700;font-size:1.85rem;letter-spacing:-.025em}
+.month h1{font-size:1.5rem;letter-spacing:-.02em;min-width:8.5ch}
+section{margin-top:28px}
+section > h2{font-weight:600;font-size:1.22rem;letter-spacing:-.018em;margin:0 0 10px 4px}
+.sheet-head h3{font-weight:600;font-size:1.06rem;letter-spacing:-.01em}
+.empty strong{font-weight:600}
+/* Beschriftungen: klein, leise, ohne weite Sperrung */
+.label,.day h3,.ob-k{letter-spacing:.04em;font-size:.72rem;font-weight:600}
+.day h3{margin:0 0 6px 6px}
+.hero .label{color:rgba(255,255,255,.7);text-transform:none;letter-spacing:0;font-size:.86rem;font-weight:500}
+/* Große Zahlen: kräftig statt dünn, eng gesetzt */
+.hero .big,.avail .abig,.hero.fc .abig{font-weight:700;letter-spacing:-.04em}
+.hero .big .cents,.avail .abig .cents,.hero.fc .abig .cents{font-weight:600;letter-spacing:-.01em;color:rgba(255,255,255,.55)}
+.amount input,.amount span{font-weight:650;letter-spacing:-.035em}
+.amount span{font-weight:500}
+.zcard .zb{font-weight:600;font-size:1.3rem;letter-spacing:-.025em}
+.zhead .zb{font-weight:700;letter-spacing:-.035em}
+.inv .tot .v,.ahero .big{font-weight:700;letter-spacing:-.035em}
+.pie .ctr{font-weight:650;letter-spacing:-.02em}
+.recsum .rr b,.zsplit b,.tgtop b,.aov-a,.fm-top b{font-weight:600;letter-spacing:-.02em}
+.ob-h,.lock-t{font-weight:700;letter-spacing:-.025em}
+.lk{font-weight:400}
+.wr-year,.wr-h,.wr-num,.wr-ty{font-weight:700;letter-spacing:-.045em}
+.wr-facts b,.wr-rank{font-weight:600;letter-spacing:-.02em}
+/* Listen: ruhige Zeilen */
+.entry{padding:12px 16px}
+.entry .t{font-weight:500;font-size:.96rem;letter-spacing:-.012em}
+.entry .s{font-size:.8rem}
+.entry .a,.cat .amt{font-weight:500}
+.badge{width:36px;height:36px;border-radius:11px}
+.badge svg{width:18px;height:18px}
+/* Karten: ein Radius, feine Linie, kaum Schatten */
+.cats,.entries,.accs,.goal,.inv,.pie,.zcard,.recsum,.sgroup{border-radius:var(--r-card);box-shadow:var(--card-shadow)}
+.addbtn,.qacts button,details.more,.zacts button,.input,.theme button{border-radius:var(--r-small);box-shadow:none}
+.qacts button{box-shadow:var(--card-shadow)}
+.zgrid{gap:10px}
+.zcard{padding:15px}
+.hero{border-radius:24px;box-shadow:0 18px 36px -24px color-mix(in srgb,var(--hero2) 80%,transparent),inset 0 1px 0 rgba(255,255,255,.07)}
+:root[data-theme="pink"] .hero{box-shadow:0 18px 36px -24px rgba(126,43,83,.6),inset 0 1px 0 rgba(255,255,255,.07)}
+.icon{box-shadow:none}
+.fab{box-shadow:0 10px 24px -10px color-mix(in srgb,var(--hero2) 75%,transparent),inset 0 1px 0 rgba(255,255,255,.12)}
+/* Knöpfe und Reiter */
+.primary,.hero .acts button,.zcard .zact button,.mini button,.seg button,.aseg button,.chip{letter-spacing:-.01em}
+.tabbar button{font-size:.68rem;font-weight:500;letter-spacing:0}
 </style>
 </head>
 <body>
@@ -3503,7 +3559,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.61 (27.11.2026)";
+const APP_VERSION = "2.62 (27.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
