@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-6ngW+mXKW8BFdECzKrQo/MwvzwovJ+4q5VlLKn88eSM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-i6o5WnX3I+V961lHPV2fSF52Mbz5ceBKXhp24lZWfYE='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -1276,6 +1276,8 @@ function roundupFor(amount, acc){
   if(!acc || !acc.roundup || !acc.roundupTo || !accById(acc.roundupTo)) return 0;
   return ruDiff(amount) * acc.roundup;
 }
+// Abheben am Automaten mit der Karte (Konto → Bargeld/Zip): TR rundet auch das auf (186,93 € → 0,07 € × 10 = 0,70 €)
+const isWd = e => !!(e && e.type==="transfer" && !e.auto && !e.parkRel && isCashAcc(e.to) && (accById(e.from)||{}).kind==="konto");
 const ruPending = () => state.entries.filter(e => e.pending && e.type==="transfer");
 const ruOpen = (fromId, toId) => ruPending().filter(e => (!fromId || e.from===fromId) && (!toId || e.to===toId)).reduce((s,e)=>s+e.amount,0);
 const childOf = id => state.entries.find(e => e.auto && !e.topup && e.parent===id && e.type==="transfer");
@@ -1303,8 +1305,8 @@ function savebackFor(amount, acc, date, parentId){
 }
 async function syncRoundup(parentId, data){
   const child = childOf(parentId), top = topOf(parentId);
-  let acc = data && data.type==="out" ? accById(data.account) : null, base = data ? data.amount : 0;
-  const pf = acc && acc.payFrom && acc.useBal && accById(acc.payFrom);
+  let acc = data && data.type==="out" ? accById(data.account) : isWd(data) ? accById(data.from) : null, base = data ? data.amount : 0;
+  const pf = acc && data.type==="out" && acc.payFrom && acc.useBal && accById(acc.payFrom);
   if(pf){ const short = svcShort(acc, data.amount, parentId);
     if(short>0) await save("entries", top ? top.id : parentId+"-pp", {type:"transfer", auto:true, topup:true, parent:parentId, from:pf.id, to:acc.id, amount:short, date:data.date, note:"", createdAt:data.createdAt});
     else if(top) await store.del("entries", top.id);
@@ -1441,6 +1443,15 @@ function boot(){
     for(const e of Object.values(ents)){ if(!(e.auto && !e.topup && e.type==="transfer" && e.parent) || e.pending) continue; const dp = accs[e.to]; if(!dp || dp.kind!=="depot") continue;
       const last = (dp.vals||[]).map(x=>x.d).sort().pop() || ""; if((e.date||"") > last){ e.pending = true; ch = true; } }
     if(ch) local.write("entries", ents); localStorage.setItem("hhb.mig.ru255","1"); } } catch(e){}
+  // v2.65: Round-up auch beim Abheben (TR rundet Automaten-Abhebungen auf). Nur für Abhebungen ab 25.11.2026 nachbuchen.
+  try { if(!localStorage.getItem("hhb.mig.wd265")){ const accs = local.read("accounts"), ents = local.read("entries"); let ch = false;
+    const cash = id => accs[id] && (accs[id].kind==="bar" || accs[id].kind==="umschlag");
+    for(const [id, e] of Object.entries(ents)){ const a = accs[e.from];
+      if(!(e.type==="transfer" && !e.auto && !e.parkRel && cash(e.to) && a && a.kind==="konto" && a.roundup && a.roundupTo && accs[a.roundupTo] && (e.date||"")>="2026-11-25")) continue;
+      if(Object.values(ents).some(x=>x.auto && x.type==="transfer" && x.parent===id)) continue;
+      const diff = e.amount>0 ? (e.amount%100===0 ? 100 : 100 - e.amount%100) : 0;
+      ents[id+"-ru"] = {type:"transfer", auto:true, parent:id, from:e.from, to:a.roundupTo, amount:diff*a.roundup, date:e.date, pending:true, note:"", createdAt:e.createdAt||Date.now()}; ch = true; }
+    if(ch) local.write("entries", ents); localStorage.setItem("hhb.mig.wd265","1"); } } catch(e){}
   try { if(!localStorage.getItem("hhb.mig.gift255")){ const ents = local.read("entries"), recs = local.read("recurring"); let ch = false;
     const isGift = e => e.type==="out" && ((e.cat==="shopping" && /^geschenk/i.test(e.sub||"")) || /^geschenk/i.test(e.place||"") || (["shopping","freizeit","sonstiges"].includes(e.cat) && /geschenk/i.test(e.note||"")));
     for(const e of Object.values(ents)) if(isGift(e)){ e.cat = "geschenke"; if(/^geschenk/i.test(e.sub||"")) delete e.sub; ch = true; }
@@ -2047,11 +2058,12 @@ function entryRow(e, ctx){
   if(e.type==="transfer"){
     const toKind = (accById(e.to)||{}).kind;
     const fromKind = (accById(e.from)||{}).kind;
+    const wru = !e.auto && e.type==="transfer" ? childOf(e.id) : null, wruOn = wru && ctx===e.from;
     const label = e.topup ? "Aufgeladen" : e.auto && !e.parkRel ? "Round-up" : e.park ? (fromKind==="umschlag" ? "Zip-Geld aufs Konto" : "Abgehoben für Zip") : toKind==="umschlag" ? "In Zip gesteckt" : fromKind==="umschlag" ? "Aus Zip genommen" : ({ziel:"Zurückgelegt", bar:"Abgehoben", depot:"Investiert"})[toKind] || "Umbuchung";
     return `<li><button class="entry" data-edit="${esc(e.id)}">
       <span class="badge" style="--bc:var(${label==="Investiert"||label==="Round-up"?"--c4":(accById(e.to)||{}).kind==="umschlag"||(accById(e.from)||{}).kind==="umschlag"?"--c5":"--c1"})" aria-hidden="true">${svgI(label==="Investiert"||label==="Round-up"?"invest":(accById(e.to)||{}).kind==="umschlag"||(accById(e.from)||{}).kind==="umschlag"?"zip":label==="Abgehoben"?"atm":label==="Zurückgelegt"?"ziel":"transfer")}</span>
-      <span class="mid"><div class="t">${esc(e.note || label)}${e.fx ? ` <span class="fxt">${esc(fxFmt(e.fx.amt, e.fx.cur))}</span>` : ""}</div><div class="s">${esc(ctx && e.from===ctx && (accById(e.to)||{}).kind==="depot" ? "Ins Depot" : ctx && e.to===ctx ? "Von "+accName(e.from) : ctx ? "Nach "+accName(e.to) : accName(e.from)+" → "+accName(e.to))}</div></span>
-      <span class="a num ${ctx && !e.park && e.to===ctx ? "pos" : ""}" ${ctx && !e.park?"":`style="color:var(--muted)"`}>${ctx && !e.park ? (e.to===ctx?"+":"−") : ""}${money(e.amount)}</span>
+      <span class="mid"><div class="t">${esc(e.note || label)}${e.fx ? ` <span class="fxt">${esc(fxFmt(e.fx.amt, e.fx.cur))}</span>` : ""}</div><div class="s">${esc(ctx && e.from===ctx && (accById(e.to)||{}).kind==="depot" ? "Ins Depot" : ctx && e.to===ctx ? "Von "+accName(e.from) : ctx ? "Nach "+accName(e.to) : accName(e.from)+" → "+accName(e.to))}${wru ? (wruOn ? ` · ${money(e.amount)} + ${money(wru.amount)} Round-up` : ` · Round-up ${money(wru.amount)}`) : ""}</div></span>
+      <span class="a num ${ctx && !e.park && e.to===ctx ? "pos" : ""}" ${ctx && !e.park?"":`style="color:var(--muted)"`}>${ctx && !e.park ? (e.to===ctx?"+":"−") : ""}${money(e.amount + (wruOn && !e.park ? wru.amount : 0))}</span>
     </button></li>`;
   }
   const c = catById(e.cat);
@@ -2328,7 +2340,7 @@ function entrySheet(entry, preset){
         : !chosen.length ? `Wähl oben die Zips aus, auf die du verteilen willst.` : used ? `Noch frei: <b class="num">${money(rest)}</b>, bleibt auf ${esc(accName(d.account))}` : `Was du nicht verteilst, bleibt auf ${esc(accName(d.account))}.`;
     }
     drawFx();
-    let ra = d.type==="out" ? accById(effAcc()) : null, ruBase = parseAmount($("#fAmount").value);
+    let ra = d.type==="out" ? accById(effAcc()) : isWd({type:d.type, from:d.from, to:d.to}) ? accById(d.from) : null, ruBase = parseAmount($("#fAmount").value);
     { const sa = accById(d.account), box = $("#svcHint"); box.hidden = true;
       if(d.type==="out" && sa && sa.payFrom && sa.useBal && accById(sa.payFrom)){ const amt = parseAmount($("#fAmount").value)||0, short = svcShort(sa, amt, entry && entry.id), have = Math.max(0, svcHave(sa, entry && entry.id));
         ra = short>0 ? accById(sa.payFrom) : null; ruBase = short;
@@ -3668,7 +3680,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.64 (27.11.2026)";
+const APP_VERSION = "2.65 (27.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
