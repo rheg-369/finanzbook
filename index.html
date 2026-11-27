@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-6T4SdRahlBy62vGJiOmRQI9FcI7VnuilTIqnfDcBiaY='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'sha256-6ngW+mXKW8BFdECzKrQo/MwvzwovJ+4q5VlLKn88eSM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spent – Ausgaben im Überblick</title>
@@ -2227,7 +2227,7 @@ function entrySheet(entry, preset){
   const cats = () => d.biz ? (d.type==="in" ? BIZ_IN : BIZ_OUT) : d.type==="in" ? IN_CATS : OUT_CATS;
   const drawCats = () => {
     if(!cats().some(c=>c.id===d.cat)) d.cat = d.type==="in" ? (d.biz ? "b-umsatz" : "gehalt") : null;
-    if($("#fBiz")){ $("#fBiz").hidden = !(bizOn() || d.biz) || d.type==="transfer"; $("#fBizName").textContent = bizName(); document.querySelectorAll("#fBiz [data-biz]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.biz==="1" ? !!d.biz : !d.biz))); }
+    if($("#fBiz")){ $("#fBiz").hidden = !((bizOn() && state.tab==="biz") || d.biz) || d.type==="transfer"; $("#fBizName").textContent = bizName(); document.querySelectorAll("#fBiz [data-biz]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.biz==="1" ? !!d.biz : !d.biz))); }
     const isIn = d.type==="in";
     $("#fCat").hidden = isIn; $("#fCatSel").hidden = !isIn; $("#catLabel").textContent = isIn ? "Was kommt rein?" : "Kategorie";
     if(isIn){ $("#fCatSel").innerHTML = cats().filter(c=>c.id!=="saveback" || d.cat==="saveback").map(c=>`<option value="${c.id}">${c.i} ${esc(c.name)}</option>`).join(""); $("#fCatSel").value = d.cat; }
@@ -2244,6 +2244,7 @@ function entrySheet(entry, preset){
   const drawAcc = () => {
     $("#fAcc").innerHTML = accChips(d.account, "acc");
     if(d.type==="out") document.querySelectorAll("#fAcc [data-acc]").forEach(b => { const k = (accById(b.dataset.acc)||{}).kind; if((k==="depot"||k==="ziel") && b.dataset.acc!==d.account) b.hidden = true; });
+    if(d.biz) document.querySelectorAll("#fAcc [data-acc]").forEach(b => { if((accById(b.dataset.acc)||{}).kind==="umschlag" && b.dataset.acc!==d.account) b.hidden = true; });
     if(typeof splitOn==="function" && splitOn()) document.querySelectorAll("#fAcc [data-acc]").forEach(b => { const k = (accById(b.dataset.acc)||{}).kind; if(k==="depot"||k==="umschlag"||k==="ziel") b.hidden = true; });
     $("#fFrom").innerHTML = accChips(d.from, "from");
     $("#fTo").innerHTML = accChips(d.to, "to");
@@ -2264,6 +2265,8 @@ function entrySheet(entry, preset){
       const accs = parkAccs(pz.id).filter(x=>x.v>0 || x.a.id===d.account);
       $("#fZip").innerHTML = `<button class="chip" data-pw="" aria-pressed="${d.account===pz.id}">${svgI("zip")}Bar <small class="num" style="opacity:.7">${money(balance(pz))}</small></button>` + accs.map(x=>`<button class="chip" data-pw="${esc(x.a.id)}" aria-pressed="${x.a.id===d.account}">${svgI("bank")}${esc(x.a.name)} <small class="num" style="opacity:.7">${money(x.v)}</small></button>`).join("");
       return; }
+    if(d.biz && !d.zip){ box.hidden = true; return; }
+    if(d.biz && !entry){ d.zip = null; box.hidden = true; return; }
     const opts = zipOpts();
     if(!entry && !d.zipTouched) d.zip = opts.length ? opts[0].z.id : null;
     if(d.zip && !opts.some(x=>x.z.id===d.zip)) d.zip = null;
@@ -3665,7 +3668,7 @@ function budgetSheet(){
 }
 
 // ---- backup reminder (every 14 days) ----
-const APP_VERSION = "2.63 (27.11.2026)";
+const APP_VERSION = "2.64 (27.11.2026)";
 const REMIND_DAYS = 14, DAY = 864e5;
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function checkHtml(){
